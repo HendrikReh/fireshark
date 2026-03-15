@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "crates/fireshark-core",
+    "crates/fireshark-dissectors",
+    "crates/fireshark-file",
+    "crates/fireshark-cli",
+]
+resolver = "2"
+
