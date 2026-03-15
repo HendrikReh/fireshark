@@ -21,8 +21,10 @@ pub fn parse(bytes: &[u8]) -> Result<(Layer, u8, &[u8]), DecodeError> {
     }
 
     let next_header = bytes[6];
-    let source = Ipv6Addr::from(<[u8; 16]>::try_from(&bytes[8..24]).expect("valid IPv6 source slice"));
-    let destination = Ipv6Addr::from(<[u8; 16]>::try_from(&bytes[24..40]).expect("valid IPv6 destination slice"));
+    let source =
+        Ipv6Addr::from(<[u8; 16]>::try_from(&bytes[8..24]).expect("valid IPv6 source slice"));
+    let destination =
+        Ipv6Addr::from(<[u8; 16]>::try_from(&bytes[24..40]).expect("valid IPv6 destination slice"));
 
     Ok((
         Layer::Ipv6(Ipv6Layer {

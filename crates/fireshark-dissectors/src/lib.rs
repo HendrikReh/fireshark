@@ -1,9 +1,9 @@
 mod arp;
 mod error;
 mod ethernet;
+mod icmp;
 mod ipv4;
 mod ipv6;
-mod icmp;
 mod tcp;
 mod udp;
 
@@ -50,7 +50,9 @@ fn append_network_layer(
             match protocol {
                 tcp::IP_PROTOCOL => append_layer(tcp::parse(payload), layers, issues),
                 udp::IP_PROTOCOL => append_layer(udp::parse(payload), layers, issues),
-                icmp::IPV4_PROTOCOL | icmp::IPV6_PROTOCOL => append_layer(icmp::parse(payload), layers, issues),
+                icmp::IPV4_PROTOCOL | icmp::IPV6_PROTOCOL => {
+                    append_layer(icmp::parse(payload), layers, issues)
+                }
                 _ => {}
             }
         }

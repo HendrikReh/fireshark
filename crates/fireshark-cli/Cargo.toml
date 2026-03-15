@@ -8,4 +8,11 @@ name = "fireshark"
 path = "src/main.rs"
 
 [dependencies]
+clap = { version = "4.6.0", features = ["derive"] }
+fireshark-core = { path = "../fireshark-core" }
+fireshark-dissectors = { path = "../fireshark-dissectors" }
+fireshark-file = { path = "../fireshark-file" }
 
+[dev-dependencies]
+assert_cmd = "2.1.1"
+predicates = "3.1.3"
