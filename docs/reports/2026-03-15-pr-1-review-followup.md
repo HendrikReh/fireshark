@@ -29,6 +29,12 @@
    - UDP truncation offsets after IPv4 headers
    - ICMP truncation offsets after IPv6 headers
 
+7. `crates/fireshark-file/src/reader.rs`, `src/error.rs`
+   Reject unsupported link-layer types up front so `CaptureReader` no longer accepts non-Ethernet `pcap` or `pcapng` files that the decode pipeline would misinterpret as Ethernet traffic.
+
+8. `crates/fireshark-file/tests/reject_unsupported_linktypes.rs`
+   Added regression tests proving `CaptureReader::open` rejects `DataLink::RAW` captures for both `pcap` and `pcapng`.
+
 ## Ignored
 
 None.

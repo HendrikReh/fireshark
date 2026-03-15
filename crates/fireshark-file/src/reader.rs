@@ -6,6 +6,7 @@ use fireshark_core::Frame;
 use pcap_file::pcap::PcapReader;
 use pcap_file::pcapng::PcapNgReader;
 use pcap_file::pcapng::blocks::Block;
+use pcap_file::{DataLink, PcapError};
 
 use crate::CaptureError;
 
@@ -28,9 +29,17 @@ impl CaptureReader {
         file.seek(SeekFrom::Start(0))?;
 
         let inner = if magic == PCAPNG_MAGIC {
+            let mut reader = PcapNgReader::new(file)?;
+            validate_pcapng_linktypes(&mut reader)?;
+
+            let mut file = reader.into_inner();
+            file.seek(SeekFrom::Start(0))?;
+
             ReaderKind::PcapNg(PcapNgReader::new(file)?)
         } else if is_pcap_magic(magic) {
-            ReaderKind::Pcap(PcapReader::new(file)?)
+            let reader = PcapReader::new(file)?;
+            validate_linktype(reader.header().datalink)?;
+            ReaderKind::Pcap(reader)
         } else {
             return Err(CaptureError::UnsupportedFormat);
         };
@@ -88,4 +97,42 @@ fn is_pcap_magic(magic: [u8; 4]) -> bool {
             | [0x4d, 0x3c, 0xb2, 0xa1]
             | [0xa1, 0xb2, 0x3c, 0x4d]
     )
+}
+
+fn validate_linktype(datalink: DataLink) -> Result<(), CaptureError> {
+    if datalink == DataLink::ETHERNET {
+        Ok(())
+    } else {
+        Err(CaptureError::UnsupportedLinkType { datalink })
+    }
+}
+
+fn validate_pcapng_linktypes(reader: &mut PcapNgReader<File>) -> Result<(), CaptureError> {
+    let mut interfaces = Vec::new();
+
+    while let Some(block) = reader.next_block() {
+        match block? {
+            Block::SectionHeader(_) => interfaces.clear(),
+            Block::InterfaceDescription(interface) => {
+                validate_linktype(interface.linktype)?;
+                interfaces.push(interface.linktype);
+            }
+            Block::EnhancedPacket(packet) => {
+                let datalink = interfaces
+                    .get(packet.interface_id as usize)
+                    .copied()
+                    .ok_or(PcapError::InvalidInterfaceId(packet.interface_id))?;
+                validate_linktype(datalink)?;
+            }
+            Block::SimplePacket(_) => {
+                let datalink = interfaces.first().copied().ok_or(PcapError::InvalidField(
+                    "SimplePacketBlock: missing interface description",
+                ))?;
+                validate_linktype(datalink)?;
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
 }

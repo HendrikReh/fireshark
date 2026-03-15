@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use pcap_file::DataLink;
+
 #[derive(Debug, Error)]
 pub enum CaptureError {
     #[error("failed to read capture file")]
@@ -10,4 +12,7 @@ pub enum CaptureError {
 
     #[error("unsupported capture file format")]
     UnsupportedFormat,
+
+    #[error("unsupported capture link type: {datalink:?}")]
+    UnsupportedLinkType { datalink: DataLink },
 }
