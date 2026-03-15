@@ -18,4 +18,8 @@ impl Packet {
     pub fn issues(&self) -> &[DecodeIssue] {
         &self.issues
     }
+
+    pub fn layer_names(&self) -> Vec<&'static str> {
+        self.layers.iter().map(Layer::name).collect()
+    }
 }
