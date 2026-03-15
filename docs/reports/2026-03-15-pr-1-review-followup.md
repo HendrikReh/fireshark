@@ -35,6 +35,15 @@
 8. `crates/fireshark-file/tests/reject_unsupported_linktypes.rs`
    Added regression tests proving `CaptureReader::open` rejects `DataLink::RAW` captures for both `pcap` and `pcapng`.
 
+9. `crates/fireshark-core/src/issues.rs`, `crates/fireshark-dissectors/src/lib.rs`
+   Added a malformed decode-issue kind and now surface malformed layer parses as packet issues instead of silently dropping them from the decode result.
+
+10. `crates/fireshark-core/src/layer.rs`, `crates/fireshark-dissectors/src/ipv4.rs`, `src/lib.rs`
+    Exposed IPv4 fragment metadata on the decoded layer and skip transport parsing for non-initial IPv4 fragments so later fragments do not fabricate TCP/UDP/ICMP headers from fragment payload bytes.
+
+11. `crates/fireshark-dissectors/tests/transport.rs`
+    Added regression tests proving malformed IPv4 headers create decode issues and non-initial IPv4 fragments do not produce transport layers.
+
 ## Ignored
 
 None.

@@ -1,6 +1,7 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DecodeIssueKind {
     Truncated,
+    Malformed,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -13,6 +14,13 @@ impl DecodeIssue {
     pub fn truncated(offset: usize) -> Self {
         Self {
             kind: DecodeIssueKind::Truncated,
+            offset,
+        }
+    }
+
+    pub fn malformed(offset: usize) -> Self {
+        Self {
+            kind: DecodeIssueKind::Malformed,
             offset,
         }
     }

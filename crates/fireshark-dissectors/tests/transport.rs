@@ -1,3 +1,4 @@
+use fireshark_core::{DecodeIssueKind, Layer};
 use fireshark_dissectors::decode_packet;
 
 #[test]
@@ -108,4 +109,40 @@ fn icmp_truncation_offset_accounts_for_ipv6_header() {
 
     assert_eq!(packet.issues().len(), 1);
     assert_eq!(packet.issues()[0].offset(), 56);
+}
+
+#[test]
+fn malformed_ipv4_headers_surface_decode_issues() {
+    let mut bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv4_tcp.bin").to_vec();
+    bytes[14] = 0x65;
+
+    let packet = decode_packet(&bytes).unwrap();
+
+    assert_eq!(packet.issues().len(), 1);
+    assert_eq!(packet.issues()[0].kind(), &DecodeIssueKind::Malformed);
+    assert!(!packet.layer_names().contains(&"IPv4"));
+    assert_eq!(packet.transport_ports(), None);
+}
+
+#[test]
+fn non_initial_ipv4_fragments_skip_transport_decode() {
+    let mut bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv4_tcp.bin").to_vec();
+    bytes[20] = 0x20;
+    bytes[21] = 0x01;
+
+    let packet = decode_packet(&bytes).unwrap();
+
+    let ipv4 = packet
+        .layers()
+        .iter()
+        .find_map(|layer| match layer {
+            Layer::Ipv4(layer) => Some(layer),
+            _ => None,
+        })
+        .expect("IPv4 layer");
+
+    assert_eq!(ipv4.fragment_offset, 1);
+    assert!(ipv4.more_fragments);
+    assert_eq!(packet.transport_ports(), None);
+    assert!(!packet.layer_names().contains(&"TCP"));
 }

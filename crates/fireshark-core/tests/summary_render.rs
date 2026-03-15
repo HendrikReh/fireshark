@@ -10,6 +10,8 @@ fn summary_renders_endpoints_for_tcp_packets() {
                 source: Ipv4Addr::new(192, 0, 2, 10),
                 destination: Ipv4Addr::new(198, 51, 100, 20),
                 protocol: 6,
+                fragment_offset: 0,
+                more_fragments: false,
             }),
             Layer::Tcp(TcpLayer {
                 source_port: 51514,

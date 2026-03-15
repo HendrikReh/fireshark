@@ -19,6 +19,8 @@ pub struct Ipv4Layer {
     pub source: Ipv4Addr,
     pub destination: Ipv4Addr,
     pub protocol: u8,
+    pub fragment_offset: u16,
+    pub more_fragments: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

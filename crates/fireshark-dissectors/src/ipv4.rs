@@ -35,6 +35,9 @@ pub fn parse(bytes: &[u8]) -> Result<NetworkPayload<'_>, DecodeError> {
     let source = Ipv4Addr::new(bytes[12], bytes[13], bytes[14], bytes[15]);
     let destination = Ipv4Addr::new(bytes[16], bytes[17], bytes[18], bytes[19]);
     let protocol = bytes[9];
+    let fragment_bits = u16::from_be_bytes([bytes[6], bytes[7]]);
+    let fragment_offset = fragment_bits & 0x1fff;
+    let more_fragments = (fragment_bits & 0x2000) != 0;
     let payload_end = total_len.min(bytes.len());
     let mut issues = Vec::new();
     if bytes.len() < total_len {
@@ -46,6 +49,8 @@ pub fn parse(bytes: &[u8]) -> Result<NetworkPayload<'_>, DecodeError> {
             source,
             destination,
             protocol,
+            fragment_offset,
+            more_fragments,
         }),
         protocol,
         payload: &bytes[header_len..payload_end],
