@@ -58,11 +58,12 @@ Requirements:
 
 - Rust toolchain installed
 - `cargo` available on your path
+- `just` available on your path
 
 Run the summary command against the smoke fixture:
 
 ```bash
-cargo run -p fireshark-cli -- summary fixtures/smoke/minimal.pcap
+just summary
 ```
 
 Example output:
@@ -71,24 +72,44 @@ Example output:
    1  TCP    192.0.2.10:51514       -> 198.51.100.20:443        54
 ```
 
-## Development
-
-Run the full test suite:
+Cargo equivalent:
 
 ```bash
-cargo test --workspace
+cargo run -p fireshark-cli -- summary fixtures/smoke/minimal.pcap
+```
+
+## Development
+
+Run the full local verification pass:
+
+```bash
+just check
 ```
 
 Run formatting:
 
 ```bash
-cargo fmt --all
+just fmt
 ```
 
 Run linting:
 
 ```bash
+just clippy
+```
+
+Run the full test suite:
+
+```bash
+just test
+```
+
+Cargo equivalents:
+
+```bash
+cargo fmt --all
 cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
 ```
 
 ## Design Direction
