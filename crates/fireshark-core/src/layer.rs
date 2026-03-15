@@ -29,12 +29,33 @@ pub struct Ipv6Layer {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TcpLayer {
+    pub source_port: u16,
+    pub destination_port: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UdpLayer {
+    pub source_port: u16,
+    pub destination_port: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IcmpLayer {
+    pub type_: u8,
+    pub code: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Layer {
     Unknown,
     Ethernet(EthernetLayer),
     Arp(ArpLayer),
     Ipv4(Ipv4Layer),
     Ipv6(Ipv6Layer),
+    Tcp(TcpLayer),
+    Udp(UdpLayer),
+    Icmp(IcmpLayer),
 }
 
 impl Layer {
@@ -45,6 +66,9 @@ impl Layer {
             Self::Arp(_) => "ARP",
             Self::Ipv4(_) => "IPv4",
             Self::Ipv6(_) => "IPv6",
+            Self::Tcp(_) => "TCP",
+            Self::Udp(_) => "UDP",
+            Self::Icmp(_) => "ICMP",
         }
     }
 }

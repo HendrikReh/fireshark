@@ -7,7 +7,7 @@ use crate::DecodeError;
 pub const ETHER_TYPE: u16 = 0x0800;
 const MIN_HEADER_LEN: usize = 20;
 
-pub fn parse(bytes: &[u8]) -> Result<Layer, DecodeError> {
+pub fn parse(bytes: &[u8]) -> Result<(Layer, u8, &[u8]), DecodeError> {
     if bytes.len() < MIN_HEADER_LEN {
         return Err(DecodeError::Truncated {
             layer: "IPv4",
@@ -31,9 +31,13 @@ pub fn parse(bytes: &[u8]) -> Result<Layer, DecodeError> {
     let destination = Ipv4Addr::new(bytes[16], bytes[17], bytes[18], bytes[19]);
     let protocol = bytes[9];
 
-    Ok(Layer::Ipv4(Ipv4Layer {
-        source,
-        destination,
+    Ok((
+        Layer::Ipv4(Ipv4Layer {
+            source,
+            destination,
+            protocol,
+        }),
         protocol,
-    }))
+        &bytes[header_len..],
+    ))
 }

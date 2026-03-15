@@ -22,4 +22,12 @@ impl Packet {
     pub fn layer_names(&self) -> Vec<&'static str> {
         self.layers.iter().map(Layer::name).collect()
     }
+
+    pub fn transport_ports(&self) -> Option<(u16, u16)> {
+        self.layers.iter().find_map(|layer| match layer {
+            Layer::Tcp(layer) => Some((layer.source_port, layer.destination_port)),
+            Layer::Udp(layer) => Some((layer.source_port, layer.destination_port)),
+            _ => None,
+        })
+    }
 }

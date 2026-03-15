@@ -6,6 +6,6 @@ mod summary;
 
 pub use frame::{Frame, FrameBuilder};
 pub use issues::{DecodeIssue, DecodeIssueKind};
-pub use layer::{ArpLayer, EthernetLayer, Ipv4Layer, Ipv6Layer, Layer};
+pub use layer::{ArpLayer, EthernetLayer, IcmpLayer, Ipv4Layer, Ipv6Layer, Layer, TcpLayer, UdpLayer};
 pub use packet::Packet;
 pub use summary::PacketSummary;

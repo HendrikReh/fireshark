@@ -7,7 +7,7 @@ use crate::DecodeError;
 pub const ETHER_TYPE: u16 = 0x86dd;
 const HEADER_LEN: usize = 40;
 
-pub fn parse(bytes: &[u8]) -> Result<Layer, DecodeError> {
+pub fn parse(bytes: &[u8]) -> Result<(Layer, u8, &[u8]), DecodeError> {
     if bytes.len() < HEADER_LEN {
         return Err(DecodeError::Truncated {
             layer: "IPv6",
@@ -24,9 +24,13 @@ pub fn parse(bytes: &[u8]) -> Result<Layer, DecodeError> {
     let source = Ipv6Addr::from(<[u8; 16]>::try_from(&bytes[8..24]).expect("valid IPv6 source slice"));
     let destination = Ipv6Addr::from(<[u8; 16]>::try_from(&bytes[24..40]).expect("valid IPv6 destination slice"));
 
-    Ok(Layer::Ipv6(Ipv6Layer {
-        source,
-        destination,
+    Ok((
+        Layer::Ipv6(Ipv6Layer {
+            source,
+            destination,
+            next_header,
+        }),
         next_header,
-    }))
+        &bytes[HEADER_LEN..],
+    ))
 }
