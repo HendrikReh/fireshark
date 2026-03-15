@@ -49,6 +49,7 @@ pub fn parse(bytes: &[u8]) -> Result<NetworkPayload<'_>, DecodeError> {
         }),
         protocol,
         payload: &bytes[header_len..payload_end],
+        payload_offset: 14 + header_len,
         issues,
     })
 }

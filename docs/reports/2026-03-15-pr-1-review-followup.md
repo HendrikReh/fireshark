@@ -20,6 +20,15 @@
    - IPv6 padding being ignored
    - IPv6 declared-length truncation being reported
 
+5. `crates/fireshark-dissectors/src/lib.rs`, `src/tcp.rs`, `src/udp.rs`, `src/icmp.rs`
+   Threaded the real transport payload start offset through the IPv4/IPv6 decode path so TCP, UDP, and ICMP truncation issues report offsets relative to the actual transport header start instead of using a hardcoded Ethernet-only base.
+
+6. `crates/fireshark-dissectors/tests/transport.rs`
+   Added regression tests for:
+   - TCP truncation offsets after IPv4 headers
+   - UDP truncation offsets after IPv4 headers
+   - ICMP truncation offsets after IPv6 headers
+
 ## Ignored
 
 None.

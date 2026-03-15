@@ -15,6 +15,7 @@ pub(crate) struct NetworkPayload<'a> {
     pub(crate) layer: Layer,
     pub(crate) protocol: u8,
     pub(crate) payload: &'a [u8],
+    pub(crate) payload_offset: usize,
     pub(crate) issues: Vec<DecodeIssue>,
 }
 
@@ -56,6 +57,7 @@ fn append_network_layer(
             layer,
             protocol,
             payload,
+            payload_offset,
             issues: network_issues,
         }) => {
             layers.push(layer);
@@ -64,10 +66,14 @@ fn append_network_layer(
                 return;
             }
             match protocol {
-                tcp::IP_PROTOCOL => append_layer(tcp::parse(payload), layers, issues),
-                udp::IP_PROTOCOL => append_layer(udp::parse(payload), layers, issues),
+                tcp::IP_PROTOCOL => {
+                    append_layer(tcp::parse(payload, payload_offset), layers, issues)
+                }
+                udp::IP_PROTOCOL => {
+                    append_layer(udp::parse(payload, payload_offset), layers, issues)
+                }
                 icmp::IPV4_PROTOCOL | icmp::IPV6_PROTOCOL => {
-                    append_layer(icmp::parse(payload), layers, issues)
+                    append_layer(icmp::parse(payload, payload_offset), layers, issues)
                 }
                 _ => {}
             }

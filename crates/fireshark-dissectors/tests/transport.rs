@@ -73,3 +73,39 @@ fn ipv6_payload_length_reports_truncation() {
     assert!(packet.layer_names().contains(&"ICMP"));
     assert_eq!(packet.issues().len(), 1);
 }
+
+#[test]
+fn tcp_truncation_offset_accounts_for_ipv4_header() {
+    let mut bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv4_tcp.bin").to_vec();
+    bytes[16] = 0;
+    bytes[17] = 25;
+
+    let packet = decode_packet(&bytes).unwrap();
+
+    assert_eq!(packet.issues().len(), 1);
+    assert_eq!(packet.issues()[0].offset(), 39);
+}
+
+#[test]
+fn udp_truncation_offset_accounts_for_ipv4_header() {
+    let mut bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv4_udp.bin").to_vec();
+    bytes[16] = 0;
+    bytes[17] = 22;
+
+    let packet = decode_packet(&bytes).unwrap();
+
+    assert_eq!(packet.issues().len(), 1);
+    assert_eq!(packet.issues()[0].offset(), 36);
+}
+
+#[test]
+fn icmp_truncation_offset_accounts_for_ipv6_header() {
+    let mut bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv6_icmp.bin").to_vec();
+    bytes[18] = 0;
+    bytes[19] = 2;
+
+    let packet = decode_packet(&bytes).unwrap();
+
+    assert_eq!(packet.issues().len(), 1);
+    assert_eq!(packet.issues()[0].offset(), 56);
+}

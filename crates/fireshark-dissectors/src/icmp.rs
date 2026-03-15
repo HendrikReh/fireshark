@@ -6,11 +6,11 @@ pub const IPV4_PROTOCOL: u8 = 1;
 pub const IPV6_PROTOCOL: u8 = 58;
 const HEADER_LEN: usize = 4;
 
-pub fn parse(bytes: &[u8]) -> Result<Layer, DecodeError> {
+pub fn parse(bytes: &[u8], offset: usize) -> Result<Layer, DecodeError> {
     if bytes.len() < HEADER_LEN {
         return Err(DecodeError::Truncated {
             layer: "ICMP",
-            offset: 14 + bytes.len(),
+            offset: offset + bytes.len(),
         });
     }
 

@@ -5,11 +5,11 @@ use crate::DecodeError;
 pub const IP_PROTOCOL: u8 = 17;
 const HEADER_LEN: usize = 8;
 
-pub fn parse(bytes: &[u8]) -> Result<Layer, DecodeError> {
+pub fn parse(bytes: &[u8], offset: usize) -> Result<Layer, DecodeError> {
     if bytes.len() < HEADER_LEN {
         return Err(DecodeError::Truncated {
             layer: "UDP",
-            offset: 14 + bytes.len(),
+            offset: offset + bytes.len(),
         });
     }
 
