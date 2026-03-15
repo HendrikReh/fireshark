@@ -5,3 +5,6 @@ edition = "2024"
 
 [dependencies]
 
+[dev-dependencies]
+fireshark-dissectors = { path = "../fireshark-dissectors" }
+fireshark-file = { path = "../fireshark-file" }

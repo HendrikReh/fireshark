@@ -49,6 +49,7 @@ impl Iterator for CaptureReader {
                     .map(|packet| {
                         Frame::builder()
                             .captured_len(packet.data.len())
+                            .data(packet.data.into_owned())
                             .protocol("UNKNOWN")
                             .build()
                     })
@@ -60,12 +61,14 @@ impl Iterator for CaptureReader {
                     Ok(Block::EnhancedPacket(packet)) => {
                         return Some(Ok(Frame::builder()
                             .captured_len(packet.data.len())
+                            .data(packet.data.into_owned())
                             .protocol("UNKNOWN")
                             .build()));
                     }
                     Ok(Block::SimplePacket(packet)) => {
                         return Some(Ok(Frame::builder()
                             .captured_len(packet.data.len())
+                            .data(packet.data.into_owned())
                             .protocol("UNKNOWN")
                             .build()));
                     }

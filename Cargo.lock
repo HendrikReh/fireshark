@@ -35,6 +35,10 @@ version = "0.1.0"
 [[package]]
 name = "fireshark-core"
 version = "0.1.0"
+dependencies = [
+ "fireshark-dissectors",
+ "fireshark-file",
+]
 
 [[package]]
 name = "fireshark-dissectors"

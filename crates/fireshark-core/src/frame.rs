@@ -2,6 +2,7 @@
 pub struct Frame {
     captured_len: usize,
     protocol: String,
+    data: Vec<u8>,
 }
 
 impl Frame {
@@ -9,6 +10,7 @@ impl Frame {
         FrameBuilder {
             captured_len: 0,
             protocol: String::from("UNKNOWN"),
+            data: Vec::new(),
         }
     }
 
@@ -19,12 +21,17 @@ impl Frame {
     pub fn protocol(&self) -> &str {
         &self.protocol
     }
+
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FrameBuilder {
     captured_len: usize,
     protocol: String,
+    data: Vec<u8>,
 }
 
 impl FrameBuilder {
@@ -38,10 +45,19 @@ impl FrameBuilder {
         self
     }
 
+    pub fn data(mut self, data: impl Into<Vec<u8>>) -> Self {
+        self.data = data.into();
+        if self.captured_len == 0 {
+            self.captured_len = self.data.len();
+        }
+        self
+    }
+
     pub fn build(self) -> Frame {
         Frame {
             captured_len: self.captured_len,
             protocol: self.protocol,
+            data: self.data,
         }
     }
 }
