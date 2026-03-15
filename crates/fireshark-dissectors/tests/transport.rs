@@ -125,6 +125,19 @@ fn malformed_ipv4_headers_surface_decode_issues() {
 }
 
 #[test]
+fn invalid_ipv4_ihl_is_reported_as_malformed() {
+    let mut bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv4_tcp.bin").to_vec();
+    bytes[14] = 0x44;
+
+    let packet = decode_packet(&bytes).unwrap();
+
+    assert_eq!(packet.issues().len(), 1);
+    assert_eq!(packet.issues()[0].kind(), &DecodeIssueKind::Malformed);
+    assert!(!packet.layer_names().contains(&"IPv4"));
+    assert_eq!(packet.transport_ports(), None);
+}
+
+#[test]
 fn non_initial_ipv4_fragments_skip_transport_decode() {
     let mut bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv4_tcp.bin").to_vec();
     bytes[20] = 0x20;

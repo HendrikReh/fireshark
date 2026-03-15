@@ -20,7 +20,10 @@ pub fn parse(bytes: &[u8]) -> Result<NetworkPayload<'_>, DecodeError> {
     if version != 4 {
         return Err(DecodeError::Malformed("invalid IPv4 version"));
     }
-    if header_len < MIN_HEADER_LEN || bytes.len() < header_len {
+    if header_len < MIN_HEADER_LEN {
+        return Err(DecodeError::Malformed("invalid IPv4 header length"));
+    }
+    if bytes.len() < header_len {
         return Err(DecodeError::Truncated {
             layer: "IPv4",
             offset: 14 + bytes.len(),

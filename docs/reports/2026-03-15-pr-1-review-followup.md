@@ -44,6 +44,9 @@
 11. `crates/fireshark-dissectors/tests/transport.rs`
     Added regression tests proving malformed IPv4 headers create decode issues and non-initial IPv4 fragments do not produce transport layers.
 
+12. `crates/fireshark-dissectors/src/ipv4.rs`, `tests/transport.rs`
+    Split invalid IPv4 IHL handling from capture truncation so impossible header lengths are reported as malformed decode issues, with regression coverage for `IHL < 5`.
+
 ## Ignored
 
 None.
