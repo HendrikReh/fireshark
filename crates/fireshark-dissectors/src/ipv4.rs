@@ -1,13 +1,13 @@
 use std::net::Ipv4Addr;
 
-use fireshark_core::{Ipv4Layer, Layer};
+use fireshark_core::{DecodeIssue, Ipv4Layer, Layer};
 
-use crate::DecodeError;
+use crate::{DecodeError, NetworkPayload};
 
 pub const ETHER_TYPE: u16 = 0x0800;
 const MIN_HEADER_LEN: usize = 20;
 
-pub fn parse(bytes: &[u8]) -> Result<(Layer, u8, &[u8]), DecodeError> {
+pub fn parse(bytes: &[u8]) -> Result<NetworkPayload<'_>, DecodeError> {
     if bytes.len() < MIN_HEADER_LEN {
         return Err(DecodeError::Truncated {
             layer: "IPv4",
@@ -27,17 +27,28 @@ pub fn parse(bytes: &[u8]) -> Result<(Layer, u8, &[u8]), DecodeError> {
         });
     }
 
+    let total_len = usize::from(u16::from_be_bytes([bytes[2], bytes[3]]));
+    if total_len < header_len {
+        return Err(DecodeError::Malformed("invalid IPv4 total length"));
+    }
+
     let source = Ipv4Addr::new(bytes[12], bytes[13], bytes[14], bytes[15]);
     let destination = Ipv4Addr::new(bytes[16], bytes[17], bytes[18], bytes[19]);
     let protocol = bytes[9];
+    let payload_end = total_len.min(bytes.len());
+    let mut issues = Vec::new();
+    if bytes.len() < total_len {
+        issues.push(DecodeIssue::truncated(14 + bytes.len()));
+    }
 
-    Ok((
-        Layer::Ipv4(Ipv4Layer {
+    Ok(NetworkPayload {
+        layer: Layer::Ipv4(Ipv4Layer {
             source,
             destination,
             protocol,
         }),
         protocol,
-        &bytes[header_len..],
-    ))
+        payload: &bytes[header_len..payload_end],
+        issues,
+    })
 }

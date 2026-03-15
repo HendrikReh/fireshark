@@ -11,6 +11,13 @@ pub use error::DecodeError;
 
 use fireshark_core::{DecodeIssue, Layer, Packet};
 
+pub(crate) struct NetworkPayload<'a> {
+    pub(crate) layer: Layer,
+    pub(crate) protocol: u8,
+    pub(crate) payload: &'a [u8],
+    pub(crate) issues: Vec<DecodeIssue>,
+}
+
 pub fn decode_packet(bytes: &[u8]) -> Result<Packet, DecodeError> {
     let (ethernet, payload) = ethernet::parse(bytes)?;
     let ether_type = ethernet.ether_type;
@@ -40,13 +47,22 @@ fn append_layer(
 }
 
 fn append_network_layer(
-    layer: Result<(Layer, u8, &[u8]), DecodeError>,
+    layer: Result<NetworkPayload<'_>, DecodeError>,
     layers: &mut Vec<Layer>,
     issues: &mut Vec<DecodeIssue>,
 ) {
     match layer {
-        Ok((layer, protocol, payload)) => {
+        Ok(NetworkPayload {
+            layer,
+            protocol,
+            payload,
+            issues: network_issues,
+        }) => {
             layers.push(layer);
+            issues.extend(network_issues);
+            if payload.is_empty() {
+                return;
+            }
             match protocol {
                 tcp::IP_PROTOCOL => append_layer(tcp::parse(payload), layers, issues),
                 udp::IP_PROTOCOL => append_layer(udp::parse(payload), layers, issues),
