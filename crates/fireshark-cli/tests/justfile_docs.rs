@@ -44,3 +44,19 @@ fn readme_documents_cli_and_development_workflow() {
         "README should mention formatting"
     );
 }
+
+#[test]
+fn crate_readme_contains_version_and_maintainer() {
+    // Anchored from CARGO_MANIFEST_DIR so this works regardless of cwd
+    let crate_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let readme = fs::read_to_string(crate_dir.join("README.md")).unwrap();
+
+    assert!(
+        readme.contains("0.2.2"),
+        "crate README should contain the current version"
+    );
+    assert!(
+        readme.contains("blacksmith-consulting"),
+        "crate README should contain the maintainer"
+    );
+}

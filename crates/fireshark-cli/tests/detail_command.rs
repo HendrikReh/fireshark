@@ -77,48 +77,51 @@ fn detail_command_renders_arp_layer() {
 }
 
 #[test]
-fn detail_command_renders_decode_issues() {
-    // Create a fixture inline: valid Ethernet + IPv4 header claiming total_len=100
-    // but only 20 bytes of IPv4 present — triggers a truncation decode issue
-    // Then write to a temp pcap and run detail on it
-    // Build a minimal pcap with a truncated IPv4 packet
+fn detail_command_renders_malformed_decode_issue() {
+    let fixture = support::repo_root().join("fixtures/smoke/fuzz-2006-06-26-2594.pcap");
+
+    // Packet 45 has a malformed IPv4 header (version != 4) — triggers ⚠ Malformed
+    let mut cmd = Command::cargo_bin("fireshark").unwrap();
+    cmd.arg("detail").arg(&fixture).arg("45");
+    cmd.assert()
+        .success()
+        .stdout(contains("Ethernet"))
+        .stdout(contains("Malformed"));
+}
+
+#[test]
+fn detail_command_renders_truncated_decode_issue() {
+    // Inline pcap: valid Ethernet + IPv4 claiming total_len=100 but only 20 bytes
+    // present — triggers ⚠ Truncated for the missing TCP payload
     let mut pcap = Vec::new();
-    // pcap global header: magic, version 2.4, thiszone=0, sigfigs=0, snaplen=65535, network=1 (ethernet)
     pcap.extend_from_slice(&[
-        0xd4, 0xc3, 0xb2, 0xa1, // magic (little endian)
-        0x02, 0x00, 0x04, 0x00, // version 2.4
-        0x00, 0x00, 0x00, 0x00, // thiszone
-        0x00, 0x00, 0x00, 0x00, // sigfigs
-        0xff, 0xff, 0x00, 0x00, // snaplen
-        0x01, 0x00, 0x00, 0x00, // network (ethernet)
+        0xd4, 0xc3, 0xb2, 0xa1, 0x02, 0x00, 0x04, 0x00, // magic, version
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // thiszone, sigfigs
+        0xff, 0xff, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, // snaplen, ethernet
     ]);
-    // Packet: Ethernet (14) + IPv4 header (20) claiming total_len=100 but only 20 bytes
-    let mut pkt = Vec::new();
-    // Ethernet header
-    pkt.extend_from_slice(&[0x00, 0x11, 0x22, 0x33, 0x44, 0x55]); // dst
-    pkt.extend_from_slice(&[0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb]); // src
-    pkt.extend_from_slice(&[0x08, 0x00]); // IPv4
-    // IPv4 header: version=4, IHL=5, TOS=0, total_len=100 (truncated!)
-    pkt.extend_from_slice(&[0x45, 0x00, 0x00, 0x64]); // ver+ihl, tos, total_len=100
-    pkt.extend_from_slice(&[0x00, 0x01, 0x40, 0x00]); // id, flags+offset (DF)
-    pkt.extend_from_slice(&[0x40, 0x06, 0x00, 0x00]); // ttl=64, proto=TCP, checksum
-    pkt.extend_from_slice(&[0xc0, 0x00, 0x02, 0x0a]); // src 192.0.2.10
-    pkt.extend_from_slice(&[0xc6, 0x33, 0x64, 0x14]); // dst 198.51.100.20
-    // No TCP payload — IPv4 claims 100 bytes but only 20 are here
+    let pkt: Vec<u8> = [
+        0x00, 0x11, 0x22, 0x33, 0x44, 0x55, // eth dst
+        0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, // eth src
+        0x08, 0x00, // IPv4
+        0x45, 0x00, 0x00, 0x64, // ver+ihl, tos, total_len=100 (truncated!)
+        0x00, 0x01, 0x40, 0x00, // id, flags+offset
+        0x40, 0x06, 0x00, 0x00, // ttl, proto=TCP, checksum
+        0xc0, 0x00, 0x02, 0x0a, // src
+        0xc6, 0x33, 0x64, 0x14, // dst
+    ]
+    .to_vec();
     let pkt_len = pkt.len() as u32;
-    // pcap packet header: ts_sec=1, ts_usec=0, incl_len, orig_len
-    pcap.extend_from_slice(&1u32.to_le_bytes());
-    pcap.extend_from_slice(&0u32.to_le_bytes());
+    pcap.extend_from_slice(&1u32.to_le_bytes()); // ts_sec
+    pcap.extend_from_slice(&0u32.to_le_bytes()); // ts_usec
     pcap.extend_from_slice(&pkt_len.to_le_bytes());
     pcap.extend_from_slice(&pkt_len.to_le_bytes());
     pcap.extend_from_slice(&pkt);
 
     let tmp = tempfile::NamedTempFile::new().unwrap();
-    let path = tmp.path().to_path_buf();
-    std::fs::write(&path, &pcap).unwrap();
+    std::fs::write(tmp.path(), &pcap).unwrap();
 
     let mut cmd = Command::cargo_bin("fireshark").unwrap();
-    cmd.arg("detail").arg(&path).arg("1");
+    cmd.arg("detail").arg(tmp.path()).arg("1");
     cmd.assert()
         .success()
         .stdout(contains("Ethernet"))
