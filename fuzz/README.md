@@ -59,3 +59,7 @@ After reproducing a crash:
 - This package is `publish = false`.
 - The harness depends on `libfuzzer-sys`, `tempfile`, `fireshark-dissectors`, and `fireshark-file`.
 - The main workspace root intentionally does not include `fuzz/` as a member.
+
+---
+
+**Version:** 0.2.2 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
