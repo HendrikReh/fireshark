@@ -1,4 +1,4 @@
-use fireshark_core::{DecodeIssueKind, IcmpDetail, Layer};
+use fireshark_core::{DecodeIssueKind, IcmpDetail, Layer, LayerSpan};
 use fireshark_dissectors::decode_packet;
 
 #[test]
@@ -236,4 +236,27 @@ fn decodes_ipv6_fields() {
     assert_eq!(ipv6.traffic_class, 0);
     assert_eq!(ipv6.flow_label, 0);
     assert_eq!(ipv6.hop_limit, 64);
+}
+
+#[test]
+fn decode_packet_produces_layer_spans() {
+    let bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv4_tcp.bin");
+    let packet = decode_packet(bytes).unwrap();
+    let spans = packet.spans();
+    assert_eq!(spans.len(), 3, "Ethernet + IPv4 + TCP");
+    assert_eq!(spans[0], LayerSpan { offset: 0, len: 14 });
+    assert_eq!(
+        spans[1],
+        LayerSpan {
+            offset: 14,
+            len: 20
+        }
+    );
+    assert_eq!(
+        spans[2],
+        LayerSpan {
+            offset: 34,
+            len: 20
+        }
+    );
 }
