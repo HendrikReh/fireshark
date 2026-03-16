@@ -25,7 +25,10 @@ impl CaptureReader {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, CaptureError> {
         let mut file = File::open(path)?;
         let mut magic = [0_u8; 4];
-        file.read_exact(&mut magic)?;
+        let bytes_read = file.read(&mut magic)?;
+        if bytes_read < magic.len() {
+            return Err(CaptureError::UnsupportedFormat);
+        }
         file.seek(SeekFrom::Start(0))?;
 
         let inner = if magic == PCAPNG_MAGIC {
