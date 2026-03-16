@@ -29,7 +29,7 @@ impl Packet {
     /// the byte range of `layers[i]` within the raw frame data. Pass an empty
     /// `Vec` if spans are not available.
     pub fn with_spans(layers: Vec<Layer>, issues: Vec<DecodeIssue>, spans: Vec<LayerSpan>) -> Self {
-        debug_assert!(
+        assert!(
             spans.is_empty() || spans.len() == layers.len(),
             "spans must be empty or match layers length"
         );

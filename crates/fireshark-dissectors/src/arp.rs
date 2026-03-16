@@ -5,13 +5,13 @@ use fireshark_core::{ArpLayer, Layer};
 use crate::DecodeError;
 
 pub const ETHER_TYPE: u16 = 0x0806;
-const HEADER_LEN: usize = 28;
+pub const HEADER_LEN: usize = 28;
 
-pub fn parse(bytes: &[u8]) -> Result<Layer, DecodeError> {
+pub fn parse(bytes: &[u8], layer_offset: usize) -> Result<Layer, DecodeError> {
     if bytes.len() < HEADER_LEN {
         return Err(DecodeError::Truncated {
             layer: "ARP",
-            offset: 14 + bytes.len(),
+            offset: layer_offset + bytes.len(),
         });
     }
 

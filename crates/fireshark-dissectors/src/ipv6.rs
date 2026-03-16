@@ -7,11 +7,11 @@ use crate::{DecodeError, NetworkPayload};
 pub const ETHER_TYPE: u16 = 0x86dd;
 const HEADER_LEN: usize = 40;
 
-pub fn parse(bytes: &[u8]) -> Result<NetworkPayload<'_>, DecodeError> {
+pub fn parse(bytes: &[u8], layer_offset: usize) -> Result<NetworkPayload<'_>, DecodeError> {
     if bytes.len() < HEADER_LEN {
         return Err(DecodeError::Truncated {
             layer: "IPv6",
-            offset: 14 + bytes.len(),
+            offset: layer_offset + bytes.len(),
         });
     }
 
@@ -33,7 +33,7 @@ pub fn parse(bytes: &[u8]) -> Result<NetworkPayload<'_>, DecodeError> {
     let payload_end = packet_len.min(bytes.len());
     let mut issues = Vec::new();
     if bytes.len() < packet_len {
-        issues.push(DecodeIssue::truncated(14 + bytes.len()));
+        issues.push(DecodeIssue::truncated(layer_offset + bytes.len()));
     }
 
     Ok(NetworkPayload {
@@ -47,7 +47,7 @@ pub fn parse(bytes: &[u8]) -> Result<NetworkPayload<'_>, DecodeError> {
         }),
         protocol: next_header,
         payload: &bytes[HEADER_LEN..payload_end],
-        payload_offset: 14 + HEADER_LEN,
+        payload_offset: layer_offset + HEADER_LEN,
         issues,
     })
 }

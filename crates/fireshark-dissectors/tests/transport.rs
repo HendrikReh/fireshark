@@ -2,6 +2,33 @@ use fireshark_core::{DecodeIssueKind, IcmpDetail, Layer, LayerSpan};
 use fireshark_dissectors::decode_packet;
 
 #[test]
+fn decode_packet_produces_udp_spans() {
+    let bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv4_udp.bin");
+    let packet = decode_packet(bytes).unwrap();
+    let spans = packet.spans();
+    assert_eq!(spans.len(), 3, "Ethernet + IPv4 + UDP");
+    assert_eq!(spans[0], LayerSpan { offset: 0, len: 14 });
+    assert_eq!(spans[2], LayerSpan { offset: 34, len: 8 }); // UDP is 8 bytes
+}
+
+#[test]
+fn decode_packet_produces_icmpv6_spans() {
+    let bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv6_icmp.bin");
+    let packet = decode_packet(bytes).unwrap();
+    let spans = packet.spans();
+    assert_eq!(spans.len(), 3, "Ethernet + IPv6 + ICMP");
+    assert_eq!(spans[0], LayerSpan { offset: 0, len: 14 });
+    assert_eq!(
+        spans[1],
+        LayerSpan {
+            offset: 14,
+            len: 40
+        }
+    ); // IPv6 is 40 bytes
+    assert_eq!(spans[2], LayerSpan { offset: 54, len: 8 }); // ICMPv6 echo has 8 bytes
+}
+
+#[test]
 fn decodes_tcp_ports() {
     let bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv4_tcp.bin");
     let packet = decode_packet(bytes).unwrap();

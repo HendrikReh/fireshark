@@ -1,3 +1,10 @@
+//! Protocol dissectors for Ethernet-framed packet decoding.
+//!
+//! The main entry point is [`decode_packet`], which chains dissectors from
+//! Ethernet through network (IPv4/IPv6/ARP) to transport (TCP/UDP/ICMP) layers.
+//! Each dissector validates its header, extracts typed fields, and reports
+//! decode issues (truncation, malformation) rather than panicking.
+
 mod arp;
 mod error;
 mod ethernet;
@@ -11,11 +18,23 @@ pub use error::DecodeError;
 
 use fireshark_core::{DecodeIssue, Layer, LayerSpan, Packet};
 
+/// Internal result from network-layer dissectors (IPv4, IPv6).
+///
+/// Carries the decoded layer, the transport protocol number, a payload
+/// slice for the next dissector, and the absolute byte offset from
+/// frame start where the payload begins. The `issues` vec collects
+/// soft warnings (e.g., truncation detected from declared vs actual length).
 pub(crate) struct NetworkPayload<'a> {
+    /// The decoded network layer (e.g., `Layer::Ipv4`, `Layer::Ipv6`).
     pub(crate) layer: Layer,
+    /// Transport protocol number: IPv4 `Protocol` field or IPv6 `Next Header`.
     pub(crate) protocol: u8,
+    /// Payload bytes after the network header, up to the declared packet length.
     pub(crate) payload: &'a [u8],
+    /// Absolute byte offset from frame start where `payload` begins.
+    /// Used for transport-layer truncation error offsets and `LayerSpan` computation.
     pub(crate) payload_offset: usize,
+    /// Soft decode issues (e.g., declared length exceeds captured bytes).
     pub(crate) issues: Vec<DecodeIssue>,
 }
 
@@ -23,17 +42,20 @@ pub fn decode_packet(bytes: &[u8]) -> Result<Packet, DecodeError> {
     let (ethernet, payload) = ethernet::parse(bytes)?;
     let ether_type = ethernet.ether_type;
     let mut layers = vec![Layer::Ethernet(ethernet)];
-    let mut spans = vec![LayerSpan { offset: 0, len: 14 }];
+    let mut spans = vec![LayerSpan {
+        offset: 0,
+        len: ethernet::HEADER_LEN,
+    }];
     let mut issues = Vec::new();
 
     match ether_type {
         arp::ETHER_TYPE => {
             append_layer_with_span(
-                arp::parse(payload),
-                14,
+                arp::parse(payload, ethernet::HEADER_LEN),
+                ethernet::HEADER_LEN,
                 LayerSpan {
-                    offset: 14,
-                    len: 28,
+                    offset: ethernet::HEADER_LEN,
+                    len: arp::HEADER_LEN,
                 },
                 &mut layers,
                 &mut spans,
@@ -42,8 +64,8 @@ pub fn decode_packet(bytes: &[u8]) -> Result<Packet, DecodeError> {
         }
         ipv4::ETHER_TYPE => {
             append_network_layer(
-                ipv4::parse(payload),
-                14,
+                ipv4::parse(payload, ethernet::HEADER_LEN),
+                ethernet::HEADER_LEN,
                 &mut layers,
                 &mut spans,
                 &mut issues,
@@ -51,8 +73,8 @@ pub fn decode_packet(bytes: &[u8]) -> Result<Packet, DecodeError> {
         }
         ipv6::ETHER_TYPE => {
             append_network_layer(
-                ipv6::parse(payload),
-                14,
+                ipv6::parse(payload, ethernet::HEADER_LEN),
+                ethernet::HEADER_LEN,
                 &mut layers,
                 &mut spans,
                 &mut issues,
@@ -86,6 +108,10 @@ fn transport_span(layer: &Layer, payload_offset: usize) -> LayerSpan {
     let len = match layer {
         Layer::Tcp(tcp) => usize::from(tcp.data_offset) * 4,
         Layer::Udp(_) => 8,
+        // `detail.is_some()` means 8 bytes were available and consumed (type + code +
+        // checksum + rest-of-header). `None` means only the 4-byte minimum (type + code +
+        // checksum) was present. This correctly represents consumed bytes even for
+        // unrecognized ICMP types, because `IcmpDetail::Other` is still `Some`.
         Layer::Icmp(icmp) => {
             if icmp.detail.is_some() {
                 8
@@ -93,7 +119,7 @@ fn transport_span(layer: &Layer, payload_offset: usize) -> LayerSpan {
                 4
             }
         }
-        _ => 0,
+        _ => unreachable!("transport_span called with non-transport layer"),
     };
     LayerSpan {
         offset: payload_offset,

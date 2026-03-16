@@ -2,8 +2,10 @@ use fireshark_core::EthernetLayer;
 
 use crate::DecodeError;
 
+pub const HEADER_LEN: usize = 14;
+
 pub fn parse(bytes: &[u8]) -> Result<(EthernetLayer, &[u8]), DecodeError> {
-    if bytes.len() < 14 {
+    if bytes.len() < HEADER_LEN {
         return Err(DecodeError::Truncated {
             layer: "Ethernet",
             offset: bytes.len(),
@@ -23,5 +25,5 @@ pub fn parse(bytes: &[u8]) -> Result<(EthernetLayer, &[u8]), DecodeError> {
         ether_type,
     };
 
-    Ok((layer, &bytes[14..]))
+    Ok((layer, &bytes[HEADER_LEN..]))
 }
