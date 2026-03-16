@@ -43,3 +43,12 @@ fn summary_filter_port_works() {
     cmd.arg("summary").arg(&fixture).arg("-f").arg("port 443");
     cmd.assert().success().stdout(contains("TCP"));
 }
+
+#[test]
+fn summary_filter_dns_shows_only_dns() {
+    let fixture = support::repo_root().join("fixtures/smoke/fuzz-2006-06-26-2594.pcap");
+
+    let mut cmd = Command::cargo_bin("fireshark").unwrap();
+    cmd.arg("summary").arg(&fixture).arg("-f").arg("dns");
+    cmd.assert().success().stdout(contains("DNS"));
+}
