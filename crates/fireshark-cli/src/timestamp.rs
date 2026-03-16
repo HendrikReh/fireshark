@@ -54,4 +54,9 @@ mod tests {
         let ts = Duration::from_secs(1_709_164_800);
         assert_eq!(format_utc(ts), "2024-02-29T00:00:00.000Z");
     }
+
+    #[test]
+    fn formats_unix_epoch_zero() {
+        assert_eq!(format_utc(Duration::ZERO), "1970-01-01T00:00:00.000Z");
+    }
 }

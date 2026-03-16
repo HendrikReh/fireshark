@@ -15,3 +15,12 @@ fn summary_command_prints_one_packet_row() {
         .stdout(contains("T00:")) // ISO 8601 time separator
         .stdout(contains("Z")); // UTC suffix
 }
+
+#[test]
+fn summary_command_works_with_pcapng() {
+    let fixture = support::repo_root().join("fixtures/smoke/minimal.pcapng");
+
+    let mut cmd = Command::cargo_bin("fireshark").unwrap();
+    cmd.arg("summary").arg(&fixture);
+    cmd.assert().success().stdout(contains("TCP"));
+}

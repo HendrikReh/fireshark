@@ -43,7 +43,7 @@ pub fn render<W: Write>(
         let missing = 16 - line_bytes.len();
         for i in 0..missing {
             hex_part.push_str("   ");
-            if line_bytes.len() + i == 7 {
+            if line_bytes.len() + i == 8 {
                 hex_part.push(' ');
             }
         }
@@ -68,7 +68,7 @@ pub fn render<W: Write>(
 }
 
 fn find_span<'a>(offset: usize, spans: &[(LayerSpan, &'a str)]) -> Option<&'a str> {
-    spans.iter().find_map(|(span, protocol)| {
+    spans.iter().rev().find_map(|(span, protocol)| {
         if offset >= span.offset && offset < span.offset + span.len {
             Some(*protocol)
         } else {
@@ -137,5 +137,79 @@ mod tests {
 
         assert!(text.contains("Hex Dump"));
         assert!(!text.contains("0000"));
+    }
+
+    #[test]
+    fn renders_exactly_eight_bytes_mid_row_boundary() {
+        colored::control::set_override(false);
+        let data: [u8; 8] = [0x41; 8];
+        let spans = [(LayerSpan { offset: 0, len: 8 }, "TCP")];
+        let mut output = Vec::new();
+        render(&mut output, &data, &spans).unwrap();
+        let text = String::from_utf8(output).unwrap();
+
+        assert!(text.contains("0000"));
+        assert!(text.contains("AAAAAAAA"));
+    }
+
+    #[test]
+    fn renders_exactly_sixteen_bytes_full_row() {
+        colored::control::set_override(false);
+        let data: [u8; 16] = [0x42; 16];
+        let spans = [(LayerSpan { offset: 0, len: 16 }, "UDP")];
+        let mut output = Vec::new();
+        render(&mut output, &data, &spans).unwrap();
+        let text = String::from_utf8(output).unwrap();
+
+        assert!(text.contains("0000"));
+        assert!(text.contains("BBBBBBBBBBBBBBBB"));
+        // Should be exactly one data line (no 0010 offset)
+        assert!(!text.contains("0010"));
+    }
+
+    #[test]
+    fn renders_multi_row_with_twenty_bytes() {
+        colored::control::set_override(false);
+        let data: [u8; 20] = [0x43; 20];
+        let spans = [(LayerSpan { offset: 0, len: 20 }, "TCP")];
+        let mut output = Vec::new();
+        render(&mut output, &data, &spans).unwrap();
+        let text = String::from_utf8(output).unwrap();
+
+        // First row
+        assert!(text.contains("0000"));
+        // Second row
+        assert!(text.contains("0010"));
+    }
+
+    #[test]
+    fn find_span_returns_innermost_layer() {
+        // Ethernet covers 0..14, IPv4 covers 14..34, TCP covers 34..54
+        // Byte at offset 0 is only in Ethernet
+        // Byte at offset 14 is in both Ethernet (if it were 0..34) and IPv4
+        let spans = [
+            (LayerSpan { offset: 0, len: 54 }, "Ethernet"),
+            (
+                LayerSpan {
+                    offset: 14,
+                    len: 40,
+                },
+                "IPv4",
+            ),
+            (
+                LayerSpan {
+                    offset: 34,
+                    len: 20,
+                },
+                "TCP",
+            ),
+        ];
+
+        // Byte 0 is in Ethernet only
+        assert_eq!(find_span(0, &spans), Some("Ethernet"));
+        // Byte 14 is in both Ethernet and IPv4; innermost (IPv4) should win
+        assert_eq!(find_span(14, &spans), Some("IPv4"));
+        // Byte 34 is in Ethernet, IPv4, and TCP; innermost (TCP) should win
+        assert_eq!(find_span(34, &spans), Some("TCP"));
     }
 }

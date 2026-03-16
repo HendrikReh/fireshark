@@ -38,3 +38,12 @@ fn detail_command_fails_for_zero_packet_number() {
     cmd.arg("detail").arg(&fixture).arg("0");
     cmd.assert().failure();
 }
+
+#[test]
+fn detail_command_works_with_pcapng() {
+    let fixture = support::repo_root().join("fixtures/smoke/minimal.pcapng");
+
+    let mut cmd = Command::cargo_bin("fireshark").unwrap();
+    cmd.arg("detail").arg(&fixture).arg("1");
+    cmd.assert().success().stdout(contains("Ethernet"));
+}

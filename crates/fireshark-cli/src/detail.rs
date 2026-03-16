@@ -87,6 +87,14 @@ fn render_layer<W: Write>(w: &mut W, layer: &Layer) -> io::Result<()> {
     }
 }
 
+fn format_flags(flags: &[&str]) -> String {
+    if flags.is_empty() {
+        String::new()
+    } else {
+        format!("  [{}]", flags.join("] ["))
+    }
+}
+
 fn render_ethernet<W: Write>(w: &mut W, l: &EthernetLayer) -> io::Result<()> {
     writeln!(
         w,
@@ -126,11 +134,6 @@ fn render_ipv4<W: Write>(w: &mut W, l: &Ipv4Layer) -> io::Result<()> {
     if l.more_fragments {
         flags.push("MF");
     }
-    let flag_str = if flags.is_empty() {
-        String::new()
-    } else {
-        format!("  [{}]", flags.join("] ["))
-    };
     writeln!(
         w,
         "    TTL: {}  Protocol: {} ({})  ID: 0x{:04x}{}",
@@ -138,7 +141,7 @@ fn render_ipv4<W: Write>(w: &mut W, l: &Ipv4Layer) -> io::Result<()> {
         l.protocol,
         ip_protocol_name(l.protocol),
         l.identification,
-        flag_str
+        format_flags(&flags)
     )?;
     writeln!(
         w,
@@ -192,15 +195,15 @@ fn render_tcp<W: Write>(w: &mut W, l: &TcpLayer) -> io::Result<()> {
     if l.flags.cwr {
         flags.push("CWR");
     }
-    let flag_str = if flags.is_empty() {
-        String::new()
-    } else {
-        format!("  [{}]", flags.join("] ["))
-    };
     writeln!(
         w,
         "    {} → {}  Seq: {}  Ack: {}{}  Win: {}",
-        l.source_port, l.destination_port, l.seq, l.ack, flag_str, l.window
+        l.source_port,
+        l.destination_port,
+        l.seq,
+        l.ack,
+        format_flags(&flags),
+        l.window
     )?;
     writeln!(
         w,

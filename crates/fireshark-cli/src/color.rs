@@ -2,13 +2,21 @@ use colored::{Color, ColoredString, Colorize};
 
 /// Return the ANSI color for a protocol name.
 pub fn protocol_color(protocol: &str) -> Color {
-    match protocol.to_ascii_uppercase().as_str() {
-        "TCP" => Color::Green,
-        "UDP" => Color::Blue,
-        "ARP" => Color::Yellow,
-        "ICMP" => Color::Cyan,
-        "ETHERNET" | "IPV4" | "IPV6" => Color::White,
-        _ => Color::Red,
+    if protocol.eq_ignore_ascii_case("tcp") {
+        Color::Green
+    } else if protocol.eq_ignore_ascii_case("udp") {
+        Color::Blue
+    } else if protocol.eq_ignore_ascii_case("arp") {
+        Color::Yellow
+    } else if protocol.eq_ignore_ascii_case("icmp") {
+        Color::Cyan
+    } else if protocol.eq_ignore_ascii_case("ipv4")
+        || protocol.eq_ignore_ascii_case("ipv6")
+        || protocol.eq_ignore_ascii_case("ethernet")
+    {
+        Color::White
+    } else {
+        Color::Red
     }
 }
 

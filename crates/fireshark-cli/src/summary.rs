@@ -12,7 +12,13 @@ pub fn run(path: &Path, filter: Option<&str>) -> Result<(), Box<dyn std::error::
 
     let reader = CaptureReader::open(path)?;
     for (index, decoded) in Pipeline::new(reader, decode_packet).enumerate() {
-        let decoded = decoded?;
+        let decoded = match decoded {
+            Ok(d) => d,
+            Err(e) => {
+                eprintln!("warning: packet {}: {e}", index + 1);
+                continue;
+            }
+        };
 
         if let Some(ref expr) = filter_expr
             && !fireshark_filter::evaluate(expr, &decoded)
