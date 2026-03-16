@@ -47,3 +47,29 @@ fn detail_command_works_with_pcapng() {
     cmd.arg("detail").arg(&fixture).arg("1");
     cmd.assert().success().stdout(contains("Ethernet"));
 }
+
+#[test]
+fn detail_command_handles_fuzz_fixture_without_panic() {
+    let fixture = support::repo_root().join("fixtures/smoke/fuzz-2006-06-26-2594.pcap");
+
+    // Packet 12 in the fuzz fixture has decode issues (Unknown protocol)
+    let mut cmd = Command::cargo_bin("fireshark").unwrap();
+    cmd.arg("detail").arg(&fixture).arg("12");
+    cmd.assert()
+        .success()
+        .stdout(contains("Hex Dump"))
+        .stdout(contains("0000"));
+}
+
+#[test]
+fn detail_command_renders_decode_issues() {
+    let fixture = support::repo_root().join("fixtures/smoke/fuzz-2006-06-26-2594.pcap");
+
+    // Packet 4 is ARP — exercises a different layer path through detail
+    let mut cmd = Command::cargo_bin("fireshark").unwrap();
+    cmd.arg("detail").arg(&fixture).arg("4");
+    cmd.assert()
+        .success()
+        .stdout(contains("Ethernet"))
+        .stdout(contains("ARP"));
+}

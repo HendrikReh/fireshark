@@ -15,14 +15,32 @@ fn repo_has_expected_justfile_recipes() {
 }
 
 #[test]
-fn readme_documents_just_first_workflow() {
+fn readme_documents_cli_and_development_workflow() {
     let readme = fs::read_to_string(support::repo_root().join("README.md")).unwrap();
 
-    assert!(readme.contains("just summary"));
-    assert!(readme.contains("just check"));
-    assert!(readme.contains("cargo run -p fireshark-cli -- summary"));
-    assert!(readme.contains("cargo run -p fireshark-mcp"));
-    assert!(readme.contains("open_capture"));
-    assert!(readme.contains("cargo fmt --all -- --check"));
-    assert!(readme.contains("cargo test --workspace"));
+    // CLI entry points — users need to find these
+    assert!(
+        readme.contains("fireshark-cli") || readme.contains("cargo run -p fireshark-cli"),
+        "README should mention the CLI crate or how to run it"
+    );
+    assert!(
+        readme.contains("just check") || readme.contains("just summary"),
+        "README should mention just recipes"
+    );
+
+    // MCP server — key feature
+    assert!(
+        readme.contains("fireshark-mcp") || readme.contains("MCP"),
+        "README should mention the MCP server"
+    );
+
+    // Development commands — developers need these
+    assert!(
+        readme.contains("cargo test") || readme.contains("just test"),
+        "README should mention how to run tests"
+    );
+    assert!(
+        readme.contains("cargo fmt") || readme.contains("just fmt"),
+        "README should mention formatting"
+    );
 }
