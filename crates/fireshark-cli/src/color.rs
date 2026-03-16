@@ -10,6 +10,8 @@ pub fn protocol_color(protocol: &str) -> Color {
         Color::Yellow
     } else if protocol.eq_ignore_ascii_case("icmp") {
         Color::Cyan
+    } else if protocol.eq_ignore_ascii_case("dns") {
+        Color::Magenta
     } else if protocol.eq_ignore_ascii_case("ipv4")
         || protocol.eq_ignore_ascii_case("ipv6")
         || protocol.eq_ignore_ascii_case("ethernet")
@@ -89,9 +91,16 @@ mod tests {
     }
 
     #[test]
+    fn dns_is_magenta() {
+        let cs = colorize("DNS", "test line");
+        assert_eq!(cs.fgcolor, Some(Color::Magenta));
+    }
+
+    #[test]
     fn protocol_color_returns_correct_colors() {
         assert_eq!(protocol_color("TCP"), Color::Green);
         assert_eq!(protocol_color("UDP"), Color::Blue);
+        assert_eq!(protocol_color("DNS"), Color::Magenta);
         assert_eq!(protocol_color("Ethernet"), Color::White);
         assert_eq!(protocol_color("Unknown"), Color::Red);
     }
