@@ -91,12 +91,12 @@ cargo run -p fireshark-cli -- summary fixtures/smoke/fuzz-2006-06-26-2594.pcap -
 
 ```
 fireshark/
-  Cargo.toml              # Workspace root (version 0.2.2, edition 2024)
+  Cargo.toml              # Workspace root (version 0.3.0, edition 2024)
   Justfile                # Task runner recipes
   CLAUDE.md               # AI agent conventions
   crates/
     fireshark-core/       # Domain types: Layer, Packet, Frame, Pipeline, PacketSummary
-    fireshark-dissectors/  # Protocol decoders: Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP
+    fireshark-dissectors/  # Protocol decoders: Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS
     fireshark-file/       # pcap and pcapng file ingestion (CaptureReader)
     fireshark-filter/     # Display filter parser and evaluator
     fireshark-cli/        # CLI binary ("fireshark") with summary/detail commands
@@ -229,10 +229,10 @@ Edit `crates/fireshark-dissectors/src/lib.rs`:
 mod dns;  // Add module declaration
 
 // In decode_packet(), after transport-layer dispatch, add application-layer dispatch.
-// DNS runs on top of UDP, so check port 53 after the UDP layer is decoded:
+// DNS runs on top of UDP, so check port 53 after the UDP layer is decoded.
 ```
 
-For application-layer protocols like DNS, you would dispatch based on the transport port within the existing UDP handling path. The specific integration point depends on the protocol's position in the stack.
+For application-layer protocols like DNS, dispatch is by port number after the transport layer. Inside the UDP handling path in `decode_packet()`, after the UDP layer has been decoded and added to the packet, check if either source or destination port matches the application-layer protocol's well-known port (e.g., `dns::UDP_PORT == 53`). If so, call the application-layer dissector on the UDP payload bytes. This port-based dispatch pattern is the standard way to add application-layer protocols in fireshark.
 
 ### Step 4: Create test fixtures
 
@@ -682,6 +682,7 @@ The `color` module in `fireshark-cli` maps protocol names to ANSI colors (Wiresh
 | UDP | Blue |
 | ARP | Yellow |
 | ICMP | Cyan |
+| DNS | Magenta |
 | Ethernet, IPv4, IPv6 | White |
 | Unknown / other | Red |
 
@@ -730,4 +731,4 @@ Spans are searched in reverse order so the innermost (most specific) layer wins 
 
 ---
 
-**Version:** 0.2.2 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.3.0 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

@@ -98,6 +98,7 @@ Match packets containing a specific protocol:
 | `udp` | Any packet with a UDP layer |
 | `arp` | Any packet with an ARP layer |
 | `icmp` | Any packet with an ICMP layer |
+| `dns` | Any packet with a DNS layer |
 | `ipv4` | Any packet with an IPv4 layer |
 | `ipv6` | Any packet with an IPv6 layer |
 | `ethernet` | Any packet with an Ethernet layer |
@@ -223,6 +224,17 @@ Compare specific protocol fields against values:
 | `icmp.type` | integer | ICMP message type |
 | `icmp.code` | integer | ICMP message code |
 
+**DNS fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `dns.id` | integer | Transaction ID |
+| `dns.qr` | boolean | Query/response flag (true=response) |
+| `dns.opcode` | integer | Operation code |
+| `dns.qcount` | integer | Question count |
+| `dns.acount` | integer | Answer count |
+| `dns.qtype` | integer | Query type (1=A, 28=AAAA, etc.) |
+
 **ARP fields:**
 
 | Field | Type | Description |
@@ -263,6 +275,7 @@ Summary output is color-coded by the highest-layer protocol:
 | UDP | Blue |
 | ARP | Yellow |
 | ICMP | Cyan |
+| DNS | Magenta |
 | Ethernet, IPv4, IPv6 | White |
 | Unknown / other | Red |
 
@@ -291,6 +304,7 @@ Each decoded protocol layer is shown with all extracted fields:
 - **TCP** -- ports, sequence, acknowledgment, flags (SYN/ACK/FIN/RST/PSH/URG/ECE/CWR), window, data offset
 - **UDP** -- ports, length
 - **ICMP** -- type (with name), code, and type-specific detail (echo ID/seq, next hop MTU)
+- **DNS** -- transaction ID, query/response, opcode, question count, answer count, query name, query type
 
 ### Decode Issue Indicators
 
@@ -395,10 +409,28 @@ Server: { status: "closed" }
 fireshark summary capture.pcap -f "tcp.flags.syn == true and tcp.flags.ack == false"
 ```
 
-### Show Only DNS Traffic (Port 53)
+### Show Only DNS Traffic
 
 ```bash
-fireshark summary capture.pcap -f "port 53"
+fireshark summary capture.pcap -f "dns"
+```
+
+### DNS Queries Only (Not Responses)
+
+```bash
+fireshark summary capture.pcap -f "dns and not dns.qr"
+```
+
+### DNS by Transaction ID
+
+```bash
+fireshark summary capture.pcap -f "dns.id == 0x1234"
+```
+
+### DNS A Record Queries
+
+```bash
+fireshark summary capture.pcap -f "dns.qtype == 1"
 ```
 
 ### Filter by Subnet
@@ -464,4 +496,4 @@ fireshark summary capture.pcap -f "udp and not port 53"
 
 ---
 
-**Version:** 0.2.2 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.3.0 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

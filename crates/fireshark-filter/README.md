@@ -23,6 +23,7 @@ let matches = evaluate(&expr, &decoded_frame);
 tcp
 udp
 arp
+dns
 not icmp
 ```
 
@@ -33,6 +34,8 @@ ip.ttl > 64
 tcp.port == 443
 ip.dst == 10.0.0.0/8
 tcp.flags.syn == true
+dns.id == 0x1234
+dns.qcount > 0
 ```
 
 ### Shorthands
@@ -64,6 +67,7 @@ not arp
 | UDP | `udp.srcport`, `udp.dstport`, `udp.port`, `udp.length` |
 | ICMP | `icmp.type`, `icmp.code` |
 | ARP | `arp.opcode`, `arp.spa`, `arp.tpa` |
+| DNS | `dns.id`, `dns.qr`, `dns.opcode`, `dns.qcount`, `dns.acount`, `dns.qtype` |
 | Ethernet | `eth.type` |
 
 ## Architecture

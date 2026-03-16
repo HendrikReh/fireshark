@@ -127,7 +127,7 @@ MCP client
 |------|---------|
 | `Frame`, `FrameBuilder` | Raw captured frame with timestamp, captured/original length, raw bytes |
 | `Packet` | Decoded protocol layers + decode issues + byte spans |
-| `Layer` | Enum wrapping typed layer structs (`Ethernet`, `Arp`, `Ipv4`, `Ipv6`, `Tcp`, `Udp`, `Icmp`) |
+| `Layer` | Enum wrapping typed layer structs (`Ethernet`, `Arp`, `Ipv4`, `Ipv6`, `Tcp`, `Udp`, `Icmp`, `Dns`) |
 | `LayerSpan` | Byte offset + length for hex dump coloring |
 | `Pipeline<I, D>`, `DecodedFrame` | Generic iterator pairing frame source with decoder function |
 | `PipelineError<F, D>` | Enum distinguishing frame-source errors from decode errors |
@@ -163,7 +163,7 @@ MCP client
 | `decode_packet(bytes: &[u8]) -> Result<Packet, DecodeError>` | Entry point for full-stack dissection |
 | `DecodeError` | Truncated (with layer name + offset) or Malformed |
 
-**Internal structure:** One module per protocol (`ethernet`, `arp`, `ipv4`, `ipv6`, `tcp`, `udp`, `icmp`), each with a `parse()` function. Network-layer dissectors return the crate-internal `NetworkPayload` struct carrying the parsed layer, the IP protocol number, and a payload slice for transport-layer dispatch.
+**Internal structure:** One module per protocol (`ethernet`, `arp`, `ipv4`, `ipv6`, `tcp`, `udp`, `icmp`, `dns`), each with a `parse()` function. Network-layer dissectors return the crate-internal `NetworkPayload` struct carrying the parsed layer, the IP protocol number, and a payload slice for transport-layer dispatch. Application-layer dissectors (DNS) are dispatched by port number after transport-layer decoding (UDP port 53 for DNS).
 
 **Depends on:** `fireshark-core`, `thiserror`
 
@@ -418,19 +418,20 @@ All ANSI color output, protocol-to-color mapping, hex dump formatting, and times
 | **No string/regex filters** | Filter language supports protocol presence, field comparisons, and address/port shorthands. No `contains`, `matches`, or regular expression operators. |
 | **No IPv6 CIDR filtering** | IPv4 CIDR (`ip.dst == 10.0.0.0/8`, `src 10.0.0.0/8`) is supported. IPv6 CIDR is not implemented -- only exact IPv6 address matching works. |
 | **No MAC address filtering** | `eth.type` is filterable as an integer, but there is no `eth.src` or `eth.dst` field for MAC address comparison. |
-| **No application-layer dissectors** | Only link (Ethernet), network (ARP, IPv4, IPv6), and transport (TCP, UDP, ICMP) layers are decoded. No DNS, HTTP, TLS, etc. |
+| **Limited application-layer dissectors** | DNS over UDP port 53 is supported. No HTTP, TLS, or TCP-based DNS. |
 | **MCP: offline only** | The MCP server loads entire captures into memory (up to 100,000 packets). No streaming, no live capture integration. |
 | **MCP: 8 sessions, 15-min timeout** | Concurrency is capped at 8 sessions. Sessions expire after 15 minutes of inactivity. |
 | **MCP: stdio transport only** | No HTTP, WebSocket, or SSE transport. |
 
 ## 9. Phase Roadmap
 
-### Crawl (Current -- v0.2.x)
+### Crawl (Current -- v0.3.x)
 
 Delivers the foundational offline analysis stack:
 
 - **Complete:** pcap/pcapng reading with timestamp and original wire length extraction
-- **Complete:** Protocol dissection for Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP with full RFC field extraction
+- **Complete:** Protocol dissection for Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS with full RFC field extraction
+- **Complete:** Application-layer dispatch by port number (DNS over UDP port 53)
 - **Complete:** Color-coded CLI with `summary` and `detail` commands
 - **Complete:** Display filter language with lexer, parser, evaluator
 - **Complete:** MCP server with 12 tools across session management, packet queries, and security audit
@@ -453,9 +454,9 @@ Enables analyst workflows:
 - Follow-stream command (reconstruct TCP conversation content)
 - Advanced statistics (IO graphs, flow analysis, RTT estimation)
 - Extended filter language (string contains, regex matching, MAC address fields, IPv6 CIDR)
-- Application-layer dissectors (DNS, HTTP, TLS)
+- Application-layer dissectors (HTTP, TLS, TCP-based DNS)
 - Export capabilities (filtered capture writing, CSV/JSON export)
 
 ---
 
-**Version:** 0.2.2 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.3.0 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

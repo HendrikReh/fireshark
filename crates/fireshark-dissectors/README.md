@@ -17,6 +17,7 @@ Decodes raw Ethernet frames into structured, typed protocol layers. Each dissect
 | TCP | ports, seq, ack, flags (SYN/ACK/FIN/RST/PSH/URG/ECE/CWR), window, data offset |
 | UDP | ports, length |
 | ICMP | type, code, typed detail (echo request/reply, destination unreachable) |
+| DNS | transaction ID, query/response, opcode, question count, answer count, query name, query type |
 
 ## Usage
 
@@ -33,7 +34,7 @@ for layer in packet.layers() {
 
 ## Decode Pipeline
 
-`decode_packet` chains dissectors: Ethernet -> (ARP | IPv4 | IPv6) -> (TCP | UDP | ICMP). Each step:
+`decode_packet` chains dissectors: Ethernet -> (ARP | IPv4 | IPv6) -> (TCP | UDP | ICMP) -> (DNS). Application-layer protocols like DNS are dispatched by port number after transport-layer decoding (UDP port 53 for DNS). Each step:
 
 1. Validates minimum header length
 2. Extracts typed fields from network byte order

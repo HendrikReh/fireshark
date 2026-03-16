@@ -85,6 +85,7 @@ Handcrafted binary blobs used by dissector unit/integration tests. Each file con
 | `icmp_dest_unreachable.bin` | ICMP destination unreachable |
 | `udp_length_mismatch.bin` | UDP with length field mismatch |
 | `ethernet_truncated.bin` | Truncated Ethernet frame |
+| `ethernet_ipv4_udp_dns.bin` | Ethernet + IPv4 + UDP + DNS query |
 
 ### `fixtures/smoke/` -- Capture Files
 
@@ -226,10 +227,11 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 - Pipeline iteration over frame sources
 - Summary rendering
 
-### fireshark-dissectors (40 tests)
+### fireshark-dissectors (53 tests)
 
 - Full decode of Ethernet + ARP, IPv4, IPv6 packets
 - Transport protocol decoding: TCP (SYN, SYN-ACK, RST, options), UDP, ICMP (echo, dest unreachable)
+- Application-layer decoding: DNS (query, response, truncated, malformed)
 - Edge cases: truncated headers, malformed fields, zero-length payloads, TTL=0, fragments
 - IPv4 options handling, data offset validation
 
@@ -240,19 +242,20 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 - Rejection of unsupported link types (non-Ethernet)
 - Rejection of short/invalid capture files
 
-### fireshark-filter (76 tests)
+### fireshark-filter (85 tests)
 
 - Lexer tokenization for all token types
 - Parser: protocol presence, field comparisons, boolean operators, shorthands, CIDR, parentheses, precedence
 - Evaluator: field resolution against decoded packets, all comparison operators, boolean logic
+- DNS filter fields: dns.id, dns.qr, dns.opcode, dns.qcount, dns.acount, dns.qtype
 - Error cases: invalid syntax, unknown fields
 
-### fireshark-cli (41 tests)
+### fireshark-cli (43 tests)
 
 - Summary command output format and content
 - Detail command: layer tree rendering, hex dump, packet-not-found errors
 - Display filter integration: filter flag parsing and application
-- Color mapping: protocol-to-color assignments, case insensitivity
+- Color mapping: protocol-to-color assignments, case insensitivity, DNS=Magenta
 - Hex dump: row formatting, multi-row, legend, span coloring
 - Timestamp formatting: epoch, milliseconds, leap years
 - Fuzz regression tests
@@ -270,17 +273,17 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 192 |
-| Byte fixtures | 17 |
+| Total tests | 216 |
+| Byte fixtures | 18 |
 | Smoke captures | 3 |
-| Total fixtures | 20 |
+| Total fixtures | 21 |
 | Crates tested | 6 |
 | Fuzz targets | 2 |
 | Test failures | 0 |
 
 ### Known Gaps
 
-- No application-layer protocol tests (HTTP, DNS, TLS) -- these protocols are not yet implemented
+- No HTTP or TLS application-layer protocol tests -- these protocols are not yet implemented
 - No IP fragment reassembly tests -- reassembly is not yet implemented
 - No TCP stream reassembly tests -- reassembly is not yet implemented
 - No performance/benchmark tests
@@ -289,4 +292,4 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 ---
 
-**Version:** 0.2.2 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.3.0 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

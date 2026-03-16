@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-0.3.0-blue)]()
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange?logo=rust)](https://www.rust-lang.org/)
-[![Tests](https://img.shields.io/badge/tests-194%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-216%20passing-brightgreen)]()
 [![Status](https://img.shields.io/badge/phase-crawl-blue)]()
 
 Wireshark-inspired packet analyzer written in Rust. Library-first, built in deliberate phases instead of as a "boil the ocean" clone.
@@ -10,7 +10,7 @@ Wireshark-inspired packet analyzer written in Rust. Library-first, built in deli
 ## Features
 
 - **Capture file reading** — pcap and pcapng with timestamps and original wire length
-- **Protocol dissection** — Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP with full RFC field extraction
+- **Protocol dissection** — Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS with full RFC field extraction
 - **Color-coded CLI** — Wireshark-style protocol coloring in summary output
 - **Packet detail view** — decoded layer tree with color-coded hex dump (`fireshark detail`)
 - **Display filters** — Wireshark-style expression language (`-f "tcp and port 443"`)
@@ -48,6 +48,12 @@ cargo run -p fireshark-cli -- summary capture.pcap -f "src 10.0.0.0/8"
 
 # Boolean field checks
 cargo run -p fireshark-cli -- summary capture.pcap -f "tcp.flags.syn and not tcp.flags.ack"
+
+# DNS queries only
+cargo run -p fireshark-cli -- summary capture.pcap -f "dns and not dns.qr"
+
+# DNS by transaction ID
+cargo run -p fireshark-cli -- summary capture.pcap -f "dns.id == 0x1234"
 ```
 
 ### Packet Detail

@@ -9,7 +9,8 @@ Fireshark is a Wireshark-inspired packet analyzer written in Rust. It is library
 | Crate | Purpose |
 |---|---|
 | `fireshark-core` | Domain types (`Layer`, `Packet`, `Frame`, `Pipeline`), summaries, decode issues |
-| `fireshark-dissectors` | Protocol decoders: Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP |
+| `fireshark-dissectors` | Protocol decoders: Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS |
+| `fireshark-filter` | Display filter language: lexer, parser, evaluator |
 | `fireshark-file` | pcap and pcapng file ingestion |
 | `fireshark-cli` | Thin CLI binary (`fireshark`) exercising the library stack |
 | `fireshark-mcp` | Offline MCP server for LLM-driven capture analysis and security audits |
@@ -43,6 +44,7 @@ Always run `just check` before considering work complete.
 - Layer types are plain structs with public fields, defined in `fireshark-core::layer`
 - The `Layer` enum in core wraps each protocol's typed layer struct
 - The decode pipeline is generic over frame source and decoder function
+- Application-layer protocols (e.g., DNS) are dispatched by port number after transport-layer decoding (UDP port 53 for DNS)
 
 ## Dissector Pattern
 
@@ -54,6 +56,7 @@ Each protocol dissector in `fireshark-dissectors/src/` follows this structure:
 4. Returns `DecodeError::Truncated` for short buffers, `DecodeError::Malformed` for invalid fields
 5. Network-layer dissectors (IPv4, IPv6) return `NetworkPayload` with payload slice and offset
 6. Link/transport-layer dissectors return `Layer` directly
+7. Application-layer dissectors (DNS) are dispatched by port number after transport-layer decoding
 
 ## Testing
 
