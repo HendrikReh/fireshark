@@ -32,4 +32,4 @@ Each protocol has a plain struct with public fields:
 
 ---
 
-**Version:** 0.2.2 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.3.0 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

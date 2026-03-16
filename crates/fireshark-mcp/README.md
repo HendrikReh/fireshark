@@ -66,4 +66,4 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 
 ---
 
-**Version:** 0.2.2 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.3.0 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
