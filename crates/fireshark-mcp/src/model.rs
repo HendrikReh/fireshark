@@ -1,7 +1,8 @@
 use fireshark_core::{DecodeIssue, DecodeIssueKind, Layer};
-use serde::Serialize;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct PacketSummaryView {
     pub index: usize,
     pub protocol: String,
@@ -11,7 +12,7 @@ pub struct PacketSummaryView {
     pub has_issues: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct PacketDetailView {
     pub index: usize,
     pub protocol: String,
@@ -23,32 +24,32 @@ pub struct PacketDetailView {
     pub issues: Vec<DecodeIssueView>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct DecodeIssueView {
     pub kind: String,
     pub offset: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct DecodeIssueEntryView {
     pub packet_index: usize,
     pub kind: String,
     pub offset: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ProtocolCountView {
     pub protocol: String,
     pub packet_count: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct EndpointCountView {
     pub endpoint: String,
     pub packet_count: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct FindingView {
     pub id: String,
     pub severity: String,
@@ -58,13 +59,13 @@ pub struct FindingView {
     pub evidence: Vec<FindingEvidenceView>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct FindingEvidenceView {
     pub packet_indexes: Vec<usize>,
     pub description: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct OpenCaptureResponse {
     pub session_id: String,
     pub packet_count: usize,
@@ -72,7 +73,7 @@ pub struct OpenCaptureResponse {
     pub protocol_counts: Vec<ProtocolCountView>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CaptureDescriptionView {
     pub session_id: String,
     pub packet_count: usize,
@@ -81,13 +82,38 @@ pub struct CaptureDescriptionView {
     pub top_endpoints: Vec<EndpointCountView>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CloseCaptureResponse {
     pub session_id: String,
     pub closed: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct PacketListResponse {
+    pub packets: Vec<PacketSummaryView>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DecodeIssueListResponse {
+    pub issues: Vec<DecodeIssueEntryView>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ProtocolSummaryResponse {
+    pub protocols: Vec<ProtocolCountView>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct EndpointListResponse {
+    pub endpoints: Vec<EndpointCountView>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct FindingListResponse {
+    pub findings: Vec<FindingView>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type")]
 pub enum LayerView {
     Unknown,
