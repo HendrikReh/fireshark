@@ -16,9 +16,10 @@ fn repo_has_expected_justfile_recipes() {
 
     assert!(justfile.contains("summary file='fixtures/smoke/minimal.pcap':"));
     assert!(justfile.contains("fmt:"));
+    assert!(justfile.contains("fmt-check:"));
     assert!(justfile.contains("clippy:"));
     assert!(justfile.contains("test:"));
-    assert!(justfile.contains("check: fmt clippy test"));
+    assert!(justfile.contains("check: fmt-check clippy test"));
 }
 
 #[test]
@@ -28,5 +29,6 @@ fn readme_documents_just_first_workflow() {
     assert!(readme.contains("just summary"));
     assert!(readme.contains("just check"));
     assert!(readme.contains("cargo run -p fireshark-cli -- summary"));
+    assert!(readme.contains("cargo fmt --all -- --check"));
     assert!(readme.contains("cargo test --workspace"));
 }

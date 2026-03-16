@@ -9,10 +9,13 @@ summary file='fixtures/smoke/minimal.pcap':
 fmt:
     cargo fmt --all
 
+fmt-check:
+    cargo fmt --all -- --check
+
 clippy:
     cargo clippy --workspace --all-targets -- -D warnings
 
 test:
     cargo test --workspace
 
-check: fmt clippy test
+check: fmt-check clippy test
