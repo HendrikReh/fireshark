@@ -32,11 +32,66 @@ async fn stdio_server_handles_open_capture_tool() {
         .unwrap();
 
     let structured = result.structured_content.unwrap();
-
-    assert!(structured
+    let session_id = structured
         .get("session_id")
         .and_then(|value| value.as_str())
-        .is_some());
+        .unwrap();
+
+    let packets = client
+        .call_tool(CallToolRequestParams {
+            meta: None,
+            name: "list_packets".into(),
+            arguments: Some(
+                serde_json::json!({
+                    "session_id": session_id,
+                    "offset": 0,
+                    "limit": 10,
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ),
+            task: None,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(
+        packets
+            .structured_content
+            .unwrap()
+            .get("packets")
+            .and_then(|value| value.as_array())
+            .map(|value| value.len()),
+        Some(1)
+    );
+
+    let findings = client
+        .call_tool(CallToolRequestParams {
+            meta: None,
+            name: "audit_capture".into(),
+            arguments: Some(
+                serde_json::json!({
+                    "session_id": session_id,
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ),
+            task: None,
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(
+        findings
+            .structured_content
+            .unwrap()
+            .get("findings")
+            .and_then(|value| value.as_array())
+            .map(|value| value.len()),
+        Some(0)
+    );
 
     client.cancel().await.unwrap();
 }
