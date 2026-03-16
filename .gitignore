@@ -1,7 +1,14 @@
+# macOS
 .DS_Store
-.worktrees/
+
+# Rust
 /target/
 
-# Dolt database files (added by bd init)
+# Claude Code worktrees
+.worktrees/
+
+# Beads runtime (dolt database, server state)
 .dolt/
-*.db
+.beads/dolt-monitor.pid
+.beads/dolt-server.activity
+.beads/dolt-server.port
