@@ -1,14 +1,29 @@
 use crate::{DecodeIssue, Layer};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LayerSpan {
+    pub offset: usize,
+    pub len: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Packet {
     layers: Vec<Layer>,
     issues: Vec<DecodeIssue>,
+    spans: Vec<LayerSpan>,
 }
 
 impl Packet {
     pub fn new(layers: Vec<Layer>, issues: Vec<DecodeIssue>) -> Self {
-        Self { layers, issues }
+        Self::with_spans(layers, issues, Vec::new())
+    }
+
+    pub fn with_spans(layers: Vec<Layer>, issues: Vec<DecodeIssue>, spans: Vec<LayerSpan>) -> Self {
+        Self {
+            layers,
+            issues,
+            spans,
+        }
     }
 
     pub fn layers(&self) -> &[Layer] {
@@ -17,6 +32,10 @@ impl Packet {
 
     pub fn issues(&self) -> &[DecodeIssue] {
         &self.issues
+    }
+
+    pub fn spans(&self) -> &[LayerSpan] {
+        &self.spans
     }
 
     pub fn layer_names(&self) -> Vec<&'static str> {

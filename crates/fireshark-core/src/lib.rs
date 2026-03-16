@@ -11,6 +11,6 @@ pub use layer::{
     ArpLayer, EthernetLayer, IcmpDetail, IcmpLayer, Ipv4Layer, Ipv6Layer, Layer, TcpFlags,
     TcpLayer, UdpLayer,
 };
-pub use packet::Packet;
+pub use packet::{LayerSpan, Packet};
 pub use pipeline::{DecodedFrame, Pipeline, PipelineError};
 pub use summary::PacketSummary;
