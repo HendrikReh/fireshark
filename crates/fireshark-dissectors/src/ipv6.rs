@@ -20,7 +20,10 @@ pub fn parse(bytes: &[u8]) -> Result<NetworkPayload<'_>, DecodeError> {
         return Err(DecodeError::Malformed("invalid IPv6 version"));
     }
 
+    let traffic_class = ((bytes[0] & 0x0F) << 4) | (bytes[1] >> 4);
+    let flow_label = u32::from_be_bytes([0, bytes[1] & 0x0F, bytes[2], bytes[3]]);
     let next_header = bytes[6];
+    let hop_limit = bytes[7];
     let payload_len = usize::from(u16::from_be_bytes([bytes[4], bytes[5]]));
     let source =
         Ipv6Addr::from(<[u8; 16]>::try_from(&bytes[8..24]).expect("valid IPv6 source slice"));
@@ -38,6 +41,9 @@ pub fn parse(bytes: &[u8]) -> Result<NetworkPayload<'_>, DecodeError> {
             source,
             destination,
             next_header,
+            traffic_class,
+            flow_label,
+            hop_limit,
         }),
         protocol: next_header,
         payload: &bytes[HEADER_LEN..payload_end],

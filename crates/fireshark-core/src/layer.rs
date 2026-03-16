@@ -1,5 +1,25 @@
 use std::net::{Ipv4Addr, Ipv6Addr};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TcpFlags {
+    pub fin: bool,
+    pub syn: bool,
+    pub rst: bool,
+    pub psh: bool,
+    pub ack: bool,
+    pub urg: bool,
+    pub ece: bool,
+    pub cwr: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IcmpDetail {
+    EchoRequest { identifier: u16, sequence: u16 },
+    EchoReply { identifier: u16, sequence: u16 },
+    DestinationUnreachable { next_hop_mtu: u16 },
+    Other { rest_of_header: u32 },
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EthernetLayer {
     pub destination: [u8; 6],
@@ -19,8 +39,14 @@ pub struct Ipv4Layer {
     pub source: Ipv4Addr,
     pub destination: Ipv4Addr,
     pub protocol: u8,
+    pub ttl: u8,
+    pub identification: u16,
+    pub dscp: u8,
+    pub ecn: u8,
+    pub dont_fragment: bool,
     pub fragment_offset: u16,
     pub more_fragments: bool,
+    pub header_checksum: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,24 +54,34 @@ pub struct Ipv6Layer {
     pub source: Ipv6Addr,
     pub destination: Ipv6Addr,
     pub next_header: u8,
+    pub traffic_class: u8,
+    pub flow_label: u32,
+    pub hop_limit: u8,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TcpLayer {
     pub source_port: u16,
     pub destination_port: u16,
+    pub seq: u32,
+    pub ack: u32,
+    pub data_offset: u8,
+    pub flags: TcpFlags,
+    pub window: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UdpLayer {
     pub source_port: u16,
     pub destination_port: u16,
+    pub length: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IcmpLayer {
     pub type_: u8,
     pub code: u8,
+    pub detail: Option<IcmpDetail>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

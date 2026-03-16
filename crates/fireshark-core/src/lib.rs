@@ -8,7 +8,8 @@ mod summary;
 pub use frame::{Frame, FrameBuilder};
 pub use issues::{DecodeIssue, DecodeIssueKind};
 pub use layer::{
-    ArpLayer, EthernetLayer, IcmpLayer, Ipv4Layer, Ipv6Layer, Layer, TcpLayer, UdpLayer,
+    ArpLayer, EthernetLayer, IcmpDetail, IcmpLayer, Ipv4Layer, Ipv6Layer, Layer, TcpFlags,
+    TcpLayer, UdpLayer,
 };
 pub use packet::Packet;
 pub use pipeline::{DecodedFrame, Pipeline, PipelineError};
