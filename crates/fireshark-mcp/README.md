@@ -63,3 +63,7 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 | `audit.rs` | Security heuristic engine |
 | `model.rs` | Serializable view types for MCP responses |
 | `filter.rs` | Shared filter utilities |
+
+---
+
+**Version:** 0.2.2 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

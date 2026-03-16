@@ -34,3 +34,7 @@ for frame in reader {
 - `fireshark-core` — for `Frame` and `FrameBuilder`
 - `pcap-file` — pcap/pcapng parsing
 - `thiserror` — error types
+
+---
+
+**Version:** 0.2.2 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

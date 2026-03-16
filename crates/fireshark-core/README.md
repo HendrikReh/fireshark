@@ -29,3 +29,7 @@ Each protocol has a plain struct with public fields:
 | `TcpLayer` | ports, seq, ack, data_offset, flags (`TcpFlags`), window |
 | `UdpLayer` | ports, length |
 | `IcmpLayer` | type, code, detail (`IcmpDetail`) |
+
+---
+
+**Version:** 0.2.2 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

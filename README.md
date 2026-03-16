@@ -126,3 +126,7 @@ cargo fuzz run fuzz_capture_reader -- -max_total_time=60
 - APIs support streaming/iteration instead of forcing full-file loading
 - Features are added in vertical slices, not as large speculative frameworks
 - MCP types stay in `fireshark-mcp` — no protocol leakage into core crates
+
+---
+
+**Version:** 0.2.2 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

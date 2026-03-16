@@ -76,3 +76,7 @@ input string -> lexer -> tokens -> parser -> AST -> evaluator(packet) -> bool
 - `lexer.rs` — tokenizer with IPv4/IPv6/CIDR disambiguation
 - `parser.rs` — recursive descent with correct operator precedence
 - `evaluate.rs` — field resolution and comparison logic
+
+---
+
+**Version:** 0.2.2 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

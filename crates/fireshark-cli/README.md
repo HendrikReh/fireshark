@@ -38,3 +38,7 @@ Output: header line, indented layer fields for each protocol, then a hex dump wh
 | `hexdump.rs` | Color-coded hex dump formatter |
 | `color.rs` | Protocol-to-color mapping (Wireshark-inspired) |
 | `timestamp.rs` | ISO 8601 UTC formatting via Hinnant civil_from_days |
+
+---
+
+**Version:** 0.2.2 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

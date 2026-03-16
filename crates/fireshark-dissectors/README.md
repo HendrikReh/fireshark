@@ -48,3 +48,7 @@ Layer byte spans are tracked alongside layers for hex dump coloring.
 - `DecodeError::Malformed` — header fields are invalid (wrong version, bad IHL, etc.)
 
 Decode errors at inner layers are captured as `DecodeIssue` on the packet, not propagated as `Err`. Only Ethernet truncation prevents packet creation entirely.
+
+---
+
+**Version:** 0.2.2 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
