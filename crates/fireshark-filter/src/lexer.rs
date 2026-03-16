@@ -101,10 +101,7 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, FilterError> {
                 return Err(FilterError::new(
                     format!(
                         "unexpected character '{}'",
-                        input[start..start + 1]
-                            .chars()
-                            .next()
-                            .unwrap_or('?')
+                        input[start..start + 1].chars().next().unwrap_or('?')
                     ),
                     start,
                 ));
