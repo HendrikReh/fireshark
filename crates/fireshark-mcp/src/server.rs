@@ -56,7 +56,10 @@ impl Default for FiresharkMcpServer {
 #[tool_router(router = tool_router)]
 impl FiresharkMcpServer {
     #[tool(description = "Open a packet capture file and create an analysis session")]
-    async fn open_capture(&self, Parameters(request): Parameters<OpenCaptureRequest>) -> McpResult<OpenCaptureResponse> {
+    async fn open_capture(
+        &self,
+        Parameters(request): Parameters<OpenCaptureRequest>,
+    ) -> McpResult<OpenCaptureResponse> {
         self.tools
             .open_capture(request.path.as_str())
             .await

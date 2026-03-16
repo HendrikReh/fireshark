@@ -40,14 +40,16 @@ fn audit_decode_issues(capture: &AnalyzedCapture) -> Option<FindingView> {
         .collect::<Vec<_>>();
 
     finding_for_ratio(
-        "decode-issues",
-        "decode_issues",
-        "high",
-        "Decode issues affect a large share of packets",
-        "Packets contain malformed or truncated decode results that may indicate capture corruption or evasive traffic.",
+        RatioFindingSpec {
+            id: "decode-issues",
+            category: "decode_issues",
+            severity: "high",
+            title: "Decode issues affect a large share of packets",
+            summary: "Packets contain malformed or truncated decode results that may indicate capture corruption or evasive traffic.",
+            threshold: ISSUE_RATIO_THRESHOLD,
+        },
         capture.packet_count(),
         packet_indexes,
-        ISSUE_RATIO_THRESHOLD,
     )
 }
 
@@ -62,14 +64,16 @@ fn audit_unknown_traffic(capture: &AnalyzedCapture) -> Option<FindingView> {
         .collect::<Vec<_>>();
 
     finding_for_ratio(
-        "unknown-traffic",
-        "unknown_traffic",
-        "medium",
-        "Unknown traffic dominates the capture",
-        "A large portion of packets could not be classified beyond the link layer, which reduces audit confidence.",
+        RatioFindingSpec {
+            id: "unknown-traffic",
+            category: "unknown_traffic",
+            severity: "medium",
+            title: "Unknown traffic dominates the capture",
+            summary: "A large portion of packets could not be classified beyond the link layer, which reduces audit confidence.",
+            threshold: UNKNOWN_RATIO_THRESHOLD,
+        },
         capture.packet_count(),
         packet_indexes,
-        UNKNOWN_RATIO_THRESHOLD,
     )
 }
 
@@ -157,35 +161,40 @@ fn audit_suspicious_ports(capture: &AnalyzedCapture) -> Vec<FindingView> {
         .collect()
 }
 
+struct RatioFindingSpec {
+    id: &'static str,
+    category: &'static str,
+    severity: &'static str,
+    title: &'static str,
+    summary: &'static str,
+    threshold: f64,
+}
+
 fn finding_for_ratio(
-    id: &str,
-    category: &str,
-    severity: &str,
-    title: &str,
-    summary: &str,
+    spec: RatioFindingSpec,
     packet_count: usize,
     packet_indexes: Vec<usize>,
-    threshold: f64,
 ) -> Option<FindingView> {
     if packet_count == 0 {
         return None;
     }
 
     let ratio = packet_indexes.len() as f64 / packet_count as f64;
-    if ratio < threshold {
+    if ratio < spec.threshold {
         return None;
     }
 
     Some(FindingView {
-        id: id.to_string(),
-        severity: severity.to_string(),
-        category: category.to_string(),
-        title: title.to_string(),
-        summary: summary.to_string(),
+        id: spec.id.to_string(),
+        severity: spec.severity.to_string(),
+        category: spec.category.to_string(),
+        title: spec.title.to_string(),
+        summary: spec.summary.to_string(),
         evidence: vec![FindingEvidenceView {
             packet_indexes,
             description: format!(
-                "{category} affected {:.0}% of packets in the capture.",
+                "{} affected {:.0}% of packets in the capture.",
+                spec.category,
                 ratio * 100.0
             ),
         }],

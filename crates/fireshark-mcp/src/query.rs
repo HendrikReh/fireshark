@@ -108,7 +108,10 @@ pub fn top_endpoints(capture: &AnalyzedCapture, limit: usize) -> Vec<EndpointCou
     endpoints
 }
 
-pub fn search_packets(capture: &AnalyzedCapture, search: &PacketSearch<'_>) -> Vec<PacketSummaryView> {
+pub fn search_packets(
+    capture: &AnalyzedCapture,
+    search: &PacketSearch<'_>,
+) -> Vec<PacketSummaryView> {
     filtered_packets(capture, search)
         .map(|(index, packet)| PacketSummaryView::from_frame(index, packet))
         .collect()
@@ -141,10 +144,10 @@ fn matches_search(packet: &DecodedFrame, search: &PacketSearch<'_>) -> bool {
         return false;
     }
 
-    if let Some(expected) = search.has_issues {
-        if has_issues != expected {
-            return false;
-        }
+    if let Some(expected) = search.has_issues
+        && has_issues != expected
+    {
+        return false;
     }
 
     if let Some(port) = search.port {

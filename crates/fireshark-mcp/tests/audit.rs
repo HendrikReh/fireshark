@@ -17,7 +17,11 @@ fn audit_flags_decode_issue_heavy_capture() {
 
     let findings = AuditEngine::audit(&capture);
 
-    assert!(findings.iter().any(|finding| finding.category == "decode_issues"));
+    assert!(
+        findings
+            .iter()
+            .any(|finding| finding.category == "decode_issues")
+    );
 }
 
 #[test]
@@ -31,7 +35,11 @@ fn audit_flags_unknown_traffic_concentration() {
 
     let findings = AuditEngine::audit(&capture);
 
-    assert!(findings.iter().any(|finding| finding.category == "unknown_traffic"));
+    assert!(
+        findings
+            .iter()
+            .any(|finding| finding.category == "unknown_traffic")
+    );
 }
 
 #[test]
@@ -46,21 +54,25 @@ fn audit_flags_scan_like_fan_out() {
 
     let findings = AuditEngine::audit(&capture);
 
-    assert!(findings.iter().any(|finding| finding.category == "scan_activity"));
+    assert!(
+        findings
+            .iter()
+            .any(|finding| finding.category == "scan_activity")
+    );
 }
 
 #[test]
 fn audit_flags_suspicious_port_usage() {
-    let capture = AnalyzedCapture::from_packets(vec![tcp_packet(
-        "10.0.0.1",
-        "10.0.0.2",
-        23,
-        Vec::new(),
-    )]);
+    let capture =
+        AnalyzedCapture::from_packets(vec![tcp_packet("10.0.0.1", "10.0.0.2", 23, Vec::new())]);
 
     let findings = AuditEngine::audit(&capture);
 
-    assert!(findings.iter().any(|finding| finding.category == "suspicious_ports"));
+    assert!(
+        findings
+            .iter()
+            .any(|finding| finding.category == "suspicious_ports")
+    );
 }
 
 fn unknown_packet(issues: Vec<DecodeIssue>) -> DecodedFrame {

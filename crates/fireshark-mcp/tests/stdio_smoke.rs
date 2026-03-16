@@ -1,11 +1,7 @@
 mod support;
 
 use assert_cmd::cargo::cargo_bin;
-use rmcp::{
-    ServiceExt,
-    model::CallToolRequestParams,
-    transport::TokioChildProcess,
-};
+use rmcp::{ServiceExt, model::CallToolRequestParams, transport::TokioChildProcess};
 use tokio::process::Command;
 
 #[tokio::test]

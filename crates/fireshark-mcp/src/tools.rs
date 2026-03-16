@@ -8,8 +8,8 @@ use crate::model::{
     FindingView, OpenCaptureResponse, PacketDetailView, PacketSummaryView, ProtocolCountView,
 };
 use crate::query::{
-    PacketSearch, get_packet, list_decode_issues, list_packets, search_packets, summarize_protocols,
-    top_endpoints,
+    PacketSearch, get_packet, list_decode_issues, list_packets, search_packets,
+    summarize_protocols, top_endpoints,
 };
 use crate::session::{CaptureSession, SessionError, SessionManager};
 
@@ -49,7 +49,10 @@ impl ToolService {
         }
     }
 
-    pub async fn open_capture(&self, path: impl AsRef<Path>) -> Result<OpenCaptureResponse, ToolError> {
+    pub async fn open_capture(
+        &self,
+        path: impl AsRef<Path>,
+    ) -> Result<OpenCaptureResponse, ToolError> {
         let mut sessions = self.lock_sessions()?;
         let session_id = sessions.open_path(path)?;
         let session = sessions
