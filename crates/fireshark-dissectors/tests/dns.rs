@@ -106,6 +106,17 @@ fn dns_span_covers_full_payload() {
     );
 }
 
+#[test]
+fn dns_respects_declared_udp_payload_length() {
+    let mut bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin").to_vec();
+    bytes[38] = 0;
+    bytes[39] = 8;
+
+    let packet = decode_packet(&bytes).unwrap();
+
+    assert_eq!(packet.layer_names(), vec!["Ethernet", "IPv4", "UDP"]);
+}
+
 /// Helper: wrap raw DNS bytes in Ethernet + IPv4 + UDP headers.
 fn build_dns_frame(dns_payload: &[u8]) -> Vec<u8> {
     let mut frame = Vec::new();

@@ -7,6 +7,8 @@ use crate::model::{
     PacketSummaryView, ProtocolCountView, format_issue_kind,
 };
 
+pub const MAX_PAGE_SIZE: usize = 1_000;
+
 #[derive(Debug, Clone, Default)]
 pub struct PacketSearch<'a> {
     pub protocol: Option<&'a str>,
@@ -29,6 +31,7 @@ pub fn list_packets(
         has_issues,
         ..PacketSearch::default()
     };
+    let limit = clamp_limit(limit);
 
     filtered_packets(capture, &search)
         .skip(offset)
@@ -50,6 +53,8 @@ pub fn list_decode_issues(
     offset: usize,
     limit: usize,
 ) -> Vec<DecodeIssueEntryView> {
+    let limit = clamp_limit(limit);
+
     capture
         .packets()
         .iter()
@@ -94,6 +99,7 @@ pub fn summarize_protocols(capture: &AnalyzedCapture) -> Vec<ProtocolCountView> 
 }
 
 pub fn top_endpoints(capture: &AnalyzedCapture, limit: usize) -> Vec<EndpointCountView> {
+    let limit = clamp_limit(limit);
     let mut endpoints = capture
         .endpoint_counts()
         .iter()
@@ -119,6 +125,8 @@ pub fn search_packets(
     offset: usize,
     limit: usize,
 ) -> Vec<PacketSummaryView> {
+    let limit = clamp_limit(limit);
+
     filtered_packets(capture, search)
         .skip(offset)
         .take(limit)
@@ -135,6 +143,10 @@ fn filtered_packets<'a>(
         .iter()
         .enumerate()
         .filter(move |(_, packet)| matches_search(packet, search))
+}
+
+fn clamp_limit(limit: usize) -> usize {
+    limit.min(MAX_PAGE_SIZE)
 }
 
 fn matches_search(packet: &DecodedFrame, search: &PacketSearch<'_>) -> bool {

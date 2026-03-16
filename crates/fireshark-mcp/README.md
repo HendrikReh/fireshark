@@ -50,6 +50,7 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 - 100,000 packet limit per capture
 - 8 concurrent sessions maximum
 - 15-minute idle session timeout
+- Paginated query tools clamp `limit` to 1,000 results per call
 
 ## Architecture
 

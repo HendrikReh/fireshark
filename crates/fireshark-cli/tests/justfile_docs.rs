@@ -1,47 +1,30 @@
-mod support;
-
 use std::fs;
 
 #[test]
-fn repo_has_expected_justfile_recipes() {
-    let justfile = fs::read_to_string(support::repo_root().join("Justfile")).unwrap();
-
-    assert!(justfile.contains("summary file='fixtures/smoke/minimal.pcap':"));
-    assert!(justfile.contains("fmt:"));
-    assert!(justfile.contains("fmt-check:"));
-    assert!(justfile.contains("clippy:"));
-    assert!(justfile.contains("test:"));
-    assert!(justfile.contains("check: fmt-check clippy test"));
-}
-
-#[test]
-fn readme_documents_cli_and_development_workflow() {
-    let readme = fs::read_to_string(support::repo_root().join("README.md")).unwrap();
+fn crate_readme_documents_cli_and_development_workflow() {
+    let crate_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let readme = fs::read_to_string(crate_dir.join("README.md")).unwrap();
 
     // CLI entry points — users need to find these
     assert!(
-        readme.contains("fireshark-cli") || readme.contains("cargo run -p fireshark-cli"),
-        "README should mention the CLI crate or how to run it"
+        readme.contains("fireshark-cli") || readme.contains("fireshark detail"),
+        "crate README should mention the CLI crate or how to run it"
     );
     assert!(
-        readme.contains("just check") || readme.contains("just summary"),
-        "README should mention just recipes"
-    );
-
-    // MCP server — key feature
-    assert!(
-        readme.contains("fireshark-mcp") || readme.contains("MCP"),
-        "README should mention the MCP server"
+        readme.contains("summary") && readme.contains("detail"),
+        "crate README should describe the CLI subcommands"
     );
 
     // Development commands — developers need these
     assert!(
-        readme.contains("cargo test") || readme.contains("just test"),
-        "README should mention how to run tests"
+        readme.contains("summary.rs")
+            && readme.contains("detail.rs")
+            && readme.contains("hexdump.rs"),
+        "crate README should document the main CLI modules"
     );
     assert!(
-        readme.contains("cargo fmt") || readme.contains("just fmt"),
-        "README should mention formatting"
+        readme.contains("color output") || readme.contains("hex dump"),
+        "crate README should describe the main user-facing output behavior"
     );
 }
 

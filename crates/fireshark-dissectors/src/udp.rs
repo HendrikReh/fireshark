@@ -3,7 +3,7 @@ use fireshark_core::{Layer, UdpLayer};
 use crate::DecodeError;
 
 pub const IP_PROTOCOL: u8 = 17;
-const HEADER_LEN: usize = 8;
+pub const HEADER_LEN: usize = 8;
 
 pub fn parse(bytes: &[u8], offset: usize) -> Result<Layer, DecodeError> {
     if bytes.len() < HEADER_LEN {

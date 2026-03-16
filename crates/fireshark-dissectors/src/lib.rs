@@ -187,21 +187,30 @@ fn append_network_layer(
             // Application-layer dispatch: attempt to decode protocols above transport.
             // Extract port info and span details before the mutable borrow.
             let app_dispatch_info = layers.last().and_then(|last_transport| {
-                let (src_port, dst_port) = match last_transport {
-                    Layer::Udp(udp) => (udp.source_port, udp.destination_port),
+                let (src_port, dst_port, app_payload_len) = match last_transport {
+                    Layer::Udp(udp) => (
+                        udp.source_port,
+                        udp.destination_port,
+                        usize::from(udp.length).saturating_sub(udp::HEADER_LEN),
+                    ),
                     _ => return None,
                 };
                 let last_span = spans.last()?;
                 let transport_end = last_span.offset + last_span.len;
-                if transport_end > payload_offset && transport_end - payload_offset <= payload.len()
+                let app_payload_start = transport_end.saturating_sub(payload_offset);
+                let app_payload_end = app_payload_start
+                    + app_payload_len.min(payload.len().saturating_sub(app_payload_start));
+                if transport_end > payload_offset
+                    && app_payload_start <= app_payload_end
+                    && app_payload_end <= payload.len()
                 {
-                    Some((src_port, dst_port, transport_end))
+                    Some((src_port, dst_port, transport_end, app_payload_end))
                 } else {
                     None
                 }
             });
-            if let Some((src_port, dst_port, transport_end)) = app_dispatch_info {
-                let app_payload = &payload[transport_end - payload_offset..];
+            if let Some((src_port, dst_port, transport_end, app_payload_end)) = app_dispatch_info {
+                let app_payload = &payload[transport_end - payload_offset..app_payload_end];
                 if !app_payload.is_empty()
                     && (src_port == dns::UDP_PORT || dst_port == dns::UDP_PORT)
                 {

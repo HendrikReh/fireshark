@@ -1,39 +1,44 @@
 use crate::FilterError;
 use crate::ast::{AddrValue, CmpOp, Expr, Protocol, ShorthandKind, Value};
-use crate::lexer::{Token, tokenize};
+use crate::lexer::{SpannedToken, Token, tokenize_spanned};
 
 /// Parse a display filter expression string into an AST.
 pub fn parse(input: &str) -> Result<Expr, FilterError> {
     if input.trim().is_empty() {
         return Err(FilterError::new("empty filter expression", 0));
     }
-    let tokens = tokenize(input)?;
-    let mut cursor = Cursor::new(&tokens);
+    let tokens = tokenize_spanned(input)?;
+    let mut cursor = Cursor::new(&tokens, input.len());
     let expr = parse_expr(&mut cursor)?;
     if cursor.pos < tokens.len() {
         return Err(FilterError::new(
-            format!("unexpected token {:?}", tokens[cursor.pos]),
-            cursor.pos,
+            format!("unexpected token {:?}", tokens[cursor.pos].token),
+            tokens[cursor.pos].position,
         ));
     }
     Ok(expr)
 }
 
 struct Cursor<'a> {
-    tokens: &'a [Token],
+    tokens: &'a [SpannedToken],
     pos: usize,
+    input_len: usize,
 }
 
 impl<'a> Cursor<'a> {
-    fn new(tokens: &'a [Token]) -> Self {
-        Self { tokens, pos: 0 }
+    fn new(tokens: &'a [SpannedToken], input_len: usize) -> Self {
+        Self {
+            tokens,
+            pos: 0,
+            input_len,
+        }
     }
 
     fn peek(&self) -> Option<&Token> {
-        self.tokens.get(self.pos)
+        self.tokens.get(self.pos).map(|token| &token.token)
     }
 
-    fn advance(&mut self) -> Option<&Token> {
+    fn advance(&mut self) -> Option<&SpannedToken> {
         let token = self.tokens.get(self.pos);
         if token.is_some() {
             self.pos += 1;
@@ -41,11 +46,17 @@ impl<'a> Cursor<'a> {
         token
     }
 
-    fn expect_advance(&mut self, context: &str) -> Result<&Token, FilterError> {
+    fn current_position(&self) -> usize {
+        self.tokens
+            .get(self.pos)
+            .map_or(self.input_len, |token| token.position)
+    }
+
+    fn expect_advance(&mut self, context: &str) -> Result<&SpannedToken, FilterError> {
         if self.pos >= self.tokens.len() {
             return Err(FilterError::new(
                 format!("unexpected end of expression, expected {context}"),
-                self.pos,
+                self.input_len,
             ));
         }
         let token = &self.tokens[self.pos];
@@ -88,18 +99,24 @@ fn parse_unary(cursor: &mut Cursor<'_>) -> Result<Expr, FilterError> {
 }
 
 fn parse_atom(cursor: &mut Cursor<'_>) -> Result<Expr, FilterError> {
-    let token = cursor
-        .peek()
-        .ok_or_else(|| FilterError::new("unexpected end of expression", cursor.pos))?;
+    let token = cursor.peek().ok_or_else(|| {
+        FilterError::new("unexpected end of expression", cursor.current_position())
+    })?;
 
     match token {
         // Parenthesized expression
         Token::LParen => {
             cursor.advance();
             let expr = parse_expr(cursor)?;
-            match cursor.advance() {
-                Some(Token::RParen) => Ok(expr),
-                _ => Err(FilterError::new("expected closing ')'", cursor.pos)),
+            match cursor.peek() {
+                Some(Token::RParen) => {
+                    cursor.advance();
+                    Ok(expr)
+                }
+                _ => Err(FilterError::new(
+                    "expected closing ')'",
+                    cursor.current_position(),
+                )),
             }
         }
 
@@ -169,7 +186,10 @@ fn parse_atom(cursor: &mut Cursor<'_>) -> Result<Expr, FilterError> {
         Token::Ident(_) => {
             // Clone the identifier string so we don't hold a borrow
             let field = match cursor.advance() {
-                Some(Token::Ident(s)) => s.clone(),
+                Some(SpannedToken {
+                    token: Token::Ident(s),
+                    ..
+                }) => s.clone(),
                 _ => unreachable!(),
             };
 
@@ -185,7 +205,7 @@ fn parse_atom(cursor: &mut Cursor<'_>) -> Result<Expr, FilterError> {
 
         _ => Err(FilterError::new(
             format!("unexpected token {:?}", token),
-            cursor.pos,
+            cursor.current_position(),
         )),
     }
 }
@@ -206,19 +226,16 @@ fn peek_cmp_op(cursor: &Cursor<'_>) -> Option<CmpOp> {
 /// Parse the integer after `port`, validating u16 range.
 fn parse_port_value(cursor: &mut Cursor<'_>) -> Result<u16, FilterError> {
     let token = cursor.expect_advance("port number")?;
-    match token {
-        Token::Integer(n) => {
-            let n = *n;
-            u16::try_from(n).map_err(|_| {
-                FilterError::new(
-                    format!("port value {n} exceeds maximum 65535"),
-                    cursor.pos - 1,
-                )
-            })
-        }
+    match &token.token {
+        Token::Integer(n) => u16::try_from(*n).map_err(|_| {
+            FilterError::new(
+                format!("port value {n} exceeds maximum 65535"),
+                token.position,
+            )
+        }),
         _ => Err(FilterError::new(
-            format!("expected port number, got {token:?}"),
-            cursor.pos - 1,
+            format!("expected port number, got {:?}", token.token),
+            token.position,
         )),
     }
 }
@@ -226,13 +243,13 @@ fn parse_port_value(cursor: &mut Cursor<'_>) -> Result<u16, FilterError> {
 /// Parse an address value for src/dst/host shorthands.
 fn parse_addr_value(cursor: &mut Cursor<'_>) -> Result<AddrValue, FilterError> {
     let token = cursor.expect_advance("address")?;
-    match token {
+    match &token.token {
         Token::IpV4Addr(addr) => Ok(AddrValue::V4(*addr)),
         Token::Cidr4(addr, prefix) => Ok(AddrValue::V4Cidr(*addr, *prefix)),
         Token::IpV6Addr(addr) => Ok(AddrValue::V6(*addr)),
         _ => Err(FilterError::new(
-            format!("expected address, got {token:?}"),
-            cursor.pos - 1,
+            format!("expected address, got {:?}", token.token),
+            token.position,
         )),
     }
 }
@@ -240,15 +257,15 @@ fn parse_addr_value(cursor: &mut Cursor<'_>) -> Result<AddrValue, FilterError> {
 /// Parse a value on the right-hand side of a comparison.
 fn parse_value(cursor: &mut Cursor<'_>) -> Result<Value, FilterError> {
     let token = cursor.expect_advance("value")?;
-    match token {
+    match &token.token {
         Token::Integer(n) => Ok(Value::Integer(*n)),
         Token::IpV4Addr(addr) => Ok(Value::IpV4(*addr)),
         Token::IpV6Addr(addr) => Ok(Value::IpV6(*addr)),
         Token::Cidr4(addr, prefix) => Ok(Value::Cidr4(*addr, *prefix)),
         Token::Bool(b) => Ok(Value::Bool(*b)),
         _ => Err(FilterError::new(
-            format!("expected value, got {token:?}"),
-            cursor.pos - 1,
+            format!("expected value, got {:?}", token.token),
+            token.position,
         )),
     }
 }
@@ -451,6 +468,7 @@ mod tests {
     fn parse_error_double_and() {
         let err = parse("tcp and and").unwrap_err();
         assert!(err.message.contains("unexpected token"));
+        assert_eq!(err.position, 8);
     }
 
     #[test]

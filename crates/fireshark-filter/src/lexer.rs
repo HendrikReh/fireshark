@@ -42,8 +42,21 @@ pub enum Token {
     RParen,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct SpannedToken {
+    pub(crate) token: Token,
+    pub(crate) position: usize,
+}
+
 /// Tokenize a display filter expression string.
 pub fn tokenize(input: &str) -> Result<Vec<Token>, FilterError> {
+    Ok(tokenize_spanned(input)?
+        .into_iter()
+        .map(|token| token.token)
+        .collect())
+}
+
+pub(crate) fn tokenize_spanned(input: &str) -> Result<Vec<SpannedToken>, FilterError> {
     let mut tokens = Vec::new();
     let bytes = input.as_bytes();
     let mut pos = 0;
@@ -59,44 +72,74 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, FilterError> {
 
         match bytes[pos] {
             b'(' => {
-                tokens.push(Token::LParen);
+                tokens.push(SpannedToken {
+                    token: Token::LParen,
+                    position: start,
+                });
                 pos += 1;
             }
             b')' => {
-                tokens.push(Token::RParen);
+                tokens.push(SpannedToken {
+                    token: Token::RParen,
+                    position: start,
+                });
                 pos += 1;
             }
             b'!' if pos + 1 < bytes.len() && bytes[pos + 1] == b'=' => {
-                tokens.push(Token::Neq);
+                tokens.push(SpannedToken {
+                    token: Token::Neq,
+                    position: start,
+                });
                 pos += 2;
             }
             b'=' if pos + 1 < bytes.len() && bytes[pos + 1] == b'=' => {
-                tokens.push(Token::Eq);
+                tokens.push(SpannedToken {
+                    token: Token::Eq,
+                    position: start,
+                });
                 pos += 2;
             }
             b'>' if pos + 1 < bytes.len() && bytes[pos + 1] == b'=' => {
-                tokens.push(Token::Gte);
+                tokens.push(SpannedToken {
+                    token: Token::Gte,
+                    position: start,
+                });
                 pos += 2;
             }
             b'<' if pos + 1 < bytes.len() && bytes[pos + 1] == b'=' => {
-                tokens.push(Token::Lte);
+                tokens.push(SpannedToken {
+                    token: Token::Lte,
+                    position: start,
+                });
                 pos += 2;
             }
             b'>' => {
-                tokens.push(Token::Gt);
+                tokens.push(SpannedToken {
+                    token: Token::Gt,
+                    position: start,
+                });
                 pos += 1;
             }
             b'<' => {
-                tokens.push(Token::Lt);
+                tokens.push(SpannedToken {
+                    token: Token::Lt,
+                    position: start,
+                });
                 pos += 1;
             }
             b if b.is_ascii_digit() => {
                 let token = scan_number(input, &mut pos)?;
-                tokens.push(token);
+                tokens.push(SpannedToken {
+                    token,
+                    position: start,
+                });
             }
             b if b.is_ascii_alphabetic() || b == b'_' => {
                 let token = scan_identifier(input, &mut pos)?;
-                tokens.push(token);
+                tokens.push(SpannedToken {
+                    token,
+                    position: start,
+                });
             }
             _ => {
                 return Err(FilterError::new(

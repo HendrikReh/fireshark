@@ -93,9 +93,16 @@ impl FrameBuilder {
 
     /// Consume the builder and produce a [`Frame`].
     pub fn build(self) -> Frame {
+        assert!(
+            self.data.is_empty()
+                || self
+                    .captured_len
+                    .is_none_or(|captured_len| captured_len == self.data.len()),
+            "captured_len must match data length"
+        );
         let captured_len = self.captured_len.unwrap_or(self.data.len());
         let original_len = self.original_len.unwrap_or(captured_len);
-        debug_assert!(
+        assert!(
             original_len >= captured_len,
             "original_len must be >= captured_len"
         );

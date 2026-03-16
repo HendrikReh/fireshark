@@ -33,3 +33,13 @@ fn original_len_defaults_to_captured_len() {
     assert_eq!(frame.original_len(), 54);
     assert!(frame.timestamp().is_none());
 }
+
+#[test]
+#[should_panic(expected = "captured_len must match data length")]
+fn frame_builder_rejects_mismatched_captured_len() {
+    let _ = Frame::builder()
+        .captured_len(64)
+        .data(vec![0_u8; 60])
+        .protocol("TCP")
+        .build();
+}
