@@ -1,0 +1,467 @@
+# Fireshark User Guide
+
+## Installation
+
+Fireshark is built from source using the Rust toolchain.
+
+### Prerequisites
+
+- [Rust](https://www.rust-lang.org/tools/install) 1.85 or newer (includes `cargo`)
+
+### Build
+
+```bash
+git clone <repository-url>
+cd fireshark
+cargo build --release
+```
+
+The CLI binary is at `target/release/fireshark`. Copy it anywhere on your `PATH`:
+
+```bash
+cp target/release/fireshark /usr/local/bin/
+```
+
+## Quick Start
+
+### Packet Summary
+
+List all packets in a capture file with color-coded protocol output:
+
+```bash
+fireshark summary capture.pcap
+```
+
+Output format:
+
+```
+   1  2024-01-15T10:30:45.123Z  TCP    192.0.2.10:51514       -> 198.51.100.20:443        54
+   2  2024-01-15T10:30:45.200Z  UDP    10.0.0.5:53214         -> 8.8.8.8:53               72
+   3  2024-01-15T10:30:45.300Z  ARP    00:1a:2b:3c:4d:5e      -> ff:ff:ff:ff:ff:ff        42
+```
+
+Each line shows: packet number, timestamp (UTC), protocol, source, destination, and captured length in bytes.
+
+### Packet Detail
+
+Inspect a single packet with full layer decode and hex dump:
+
+```bash
+fireshark detail capture.pcap 1
+```
+
+Output:
+
+```
+Packet 1 . 54 bytes . 2024-01-15T10:30:45.123Z
+-----------------------------------------------
+> Ethernet
+    Destination: 00:1a:2b:3c:4d:5e
+    Source:      aa:bb:cc:dd:ee:ff
+    EtherType:   0x0800 (IPv4)
+> IPv4
+    Source:      192.0.2.10
+    Destination: 198.51.100.20
+    TTL: 64  Protocol: 6 (TCP)  ID: 0x1234
+    DSCP: 0  ECN: 0  Checksum: 0xabcd
+> TCP
+    51514 -> 443  Seq: 100  Ack: 0  [SYN]  Win: 65535
+    Data Offset: 5 (20 bytes)
+--- Hex Dump ----------------------------------
+0000  00 1a 2b 3c 4d 5e aa bb  cc dd ee ff 08 00 45 00  ..+<M^........E.
+0010  00 28 12 34 40 00 40 06  ab cd c0 00 02 0a c6 33  .(.4@.@........3
+...
+  # Ethernet  # IPv4  # TCP
+```
+
+Each byte in the hex dump is colored by its protocol layer.
+
+### Filtered Summary
+
+Apply a display filter to show only matching packets:
+
+```bash
+fireshark summary capture.pcap -f "tcp and port 443"
+```
+
+## Display Filters
+
+Fireshark supports a Wireshark-style display filter language. Pass a filter expression with the `-f` flag on the summary command.
+
+### Protocol Presence
+
+Match packets containing a specific protocol:
+
+| Expression | Matches |
+|-----------|---------|
+| `tcp` | Any packet with a TCP layer |
+| `udp` | Any packet with a UDP layer |
+| `arp` | Any packet with an ARP layer |
+| `icmp` | Any packet with an ICMP layer |
+| `ipv4` | Any packet with an IPv4 layer |
+| `ipv6` | Any packet with an IPv6 layer |
+| `ethernet` | Any packet with an Ethernet layer |
+
+### Boolean Operators
+
+Combine expressions with `and`, `or`, and `not`:
+
+| Operator | Example | Meaning |
+|----------|---------|---------|
+| `and` | `tcp and udp` | Both must be present |
+| `or` | `tcp or udp` | Either must be present |
+| `not` | `not arp` | ARP must not be present |
+| `()` | `(tcp or udp) and port 53` | Grouping for precedence |
+
+Operator precedence (highest to lowest): `not`, `and`, `or`. Use parentheses to override.
+
+### Shorthands
+
+Convenience expressions that expand to common multi-field checks:
+
+| Shorthand | Equivalent | Meaning |
+|-----------|-----------|---------|
+| `port 443` | `tcp.port == 443 or udp.port == 443` | TCP or UDP port, either direction |
+| `src 192.168.1.2` | `ip.src == 192.168.1.2` | Source IP address |
+| `dst 10.0.0.0/8` | `ip.dst == 10.0.0.0/8` | Destination IP with CIDR |
+| `host 192.168.1.1` | `ip.src == 192.168.1.1 or ip.dst == 192.168.1.1` | Source or destination IP |
+
+### Field Comparisons
+
+Compare specific protocol fields against values:
+
+```
+<field> <operator> <value>
+```
+
+#### Operators
+
+| Operator | Meaning |
+|----------|---------|
+| `==` | Equal |
+| `!=` | Not equal |
+| `>` | Greater than |
+| `<` | Less than |
+| `>=` | Greater than or equal |
+| `<=` | Less than or equal |
+
+#### Supported Fields
+
+**Frame fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `frame.len` | integer | Original wire length |
+| `frame.cap_len` | integer | Captured length |
+
+**Ethernet fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `eth.type` | integer | EtherType value |
+
+**IPv4 fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ip.src` | address | Source IP (also matches IPv6) |
+| `ip.dst` | address | Destination IP (also matches IPv6) |
+| `ip.ttl` | integer | Time to live |
+| `ip.id` | integer | Identification |
+| `ip.proto` | integer | Protocol number |
+| `ip.dscp` | integer | DSCP value |
+| `ip.ecn` | integer | ECN value |
+| `ip.checksum` | integer | Header checksum |
+| `ip.flags.df` | boolean | Don't Fragment flag |
+| `ip.flags.mf` | boolean | More Fragments flag |
+| `ip.frag_offset` | integer | Fragment offset |
+
+**IPv6 fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ip.src` | address | Source IP (dual-stack, shared with IPv4) |
+| `ip.dst` | address | Destination IP (dual-stack, shared with IPv4) |
+| `ipv6.hlim` | integer | Hop limit |
+| `ipv6.flow` | integer | Flow label |
+| `ipv6.tc` | integer | Traffic class |
+| `ipv6.nxt` | integer | Next header |
+
+**TCP fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tcp.srcport` | integer | Source port |
+| `tcp.dstport` | integer | Destination port |
+| `tcp.port` | integer | Either source or destination port |
+| `tcp.seq` | integer | Sequence number |
+| `tcp.ack` | integer | Acknowledgment number |
+| `tcp.window` | integer | Window size |
+| `tcp.hdr_len` | integer | Header length in bytes |
+| `tcp.flags.syn` | boolean | SYN flag |
+| `tcp.flags.ack` | boolean | ACK flag |
+| `tcp.flags.fin` | boolean | FIN flag |
+| `tcp.flags.rst` | boolean | RST flag |
+| `tcp.flags.psh` | boolean | PSH flag |
+| `tcp.flags.urg` | boolean | URG flag |
+| `tcp.flags.ece` | boolean | ECE flag |
+| `tcp.flags.cwr` | boolean | CWR flag |
+
+**UDP fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `udp.srcport` | integer | Source port |
+| `udp.dstport` | integer | Destination port |
+| `udp.port` | integer | Either source or destination port |
+| `udp.length` | integer | UDP datagram length |
+
+**ICMP fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `icmp.type` | integer | ICMP message type |
+| `icmp.code` | integer | ICMP message code |
+
+**ARP fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `arp.opcode` | integer | ARP operation (1=request, 2=reply) |
+| `arp.spa` | address | Sender protocol address |
+| `arp.tpa` | address | Target protocol address |
+
+#### CIDR Notation
+
+IP address fields support CIDR subnet matching:
+
+```
+ip.src == 10.0.0.0/8
+ip.dst == 192.168.1.0/24
+dst 172.16.0.0/12
+```
+
+#### Boolean Field Checks
+
+Boolean fields (TCP flags, IP flags) can be compared against `true` or `false`:
+
+```
+tcp.flags.syn == true
+ip.flags.df == true
+tcp.flags.ack == false
+```
+
+Or used as bare expressions for protocol presence checks.
+
+## Color Coding
+
+Summary output is color-coded by the highest-layer protocol:
+
+| Protocol | Color |
+|----------|-------|
+| TCP | Green |
+| UDP | Blue |
+| ARP | Yellow |
+| ICMP | Cyan |
+| Ethernet, IPv4, IPv6 | White |
+| Unknown / other | Red |
+
+Colors follow Wireshark conventions. The hex dump in the detail view colors each byte by its protocol layer, with a legend at the bottom.
+
+## Packet Detail
+
+The `detail` command shows three sections for a single packet:
+
+### Header
+
+```
+Packet 1 . 54 bytes . 2024-01-15T10:30:45.123Z
+```
+
+Packet number, captured length, and UTC timestamp.
+
+### Layer Tree
+
+Each decoded protocol layer is shown with all extracted fields:
+
+- **Ethernet** -- destination MAC, source MAC, EtherType
+- **ARP** -- operation, sender IP, target IP
+- **IPv4** -- source, destination, TTL, protocol, ID, flags (DF/MF), DSCP, ECN, checksum
+- **IPv6** -- source, destination, next header, hop limit, traffic class, flow label
+- **TCP** -- ports, sequence, acknowledgment, flags (SYN/ACK/FIN/RST/PSH/URG/ECE/CWR), window, data offset
+- **UDP** -- ports, length
+- **ICMP** -- type (with name), code, and type-specific detail (echo ID/seq, next hop MTU)
+
+### Decode Issue Indicators
+
+If a packet has decode issues, they appear after the layer tree:
+
+```
+! Truncated at offset 34
+! Malformed at offset 14
+```
+
+### Hex Dump
+
+A 16-bytes-per-line hex dump with:
+
+- Offset column (hex)
+- Hex bytes colored by protocol layer
+- ASCII column (printable characters, dots for non-printable)
+- Legend mapping colors to protocol names
+
+## MCP Server
+
+The MCP server provides LLM-driven capture analysis over stdio transport.
+
+### Starting the Server
+
+```bash
+# From source
+cargo run -p fireshark-mcp
+
+# Or the release binary
+fireshark-mcp
+```
+
+The server communicates over stdin/stdout using the Model Context Protocol. Connect with any MCP-compatible client.
+
+### Tool Reference
+
+#### Session Management
+
+| Tool | Parameters | Returns |
+|------|-----------|---------|
+| `open_capture` | `path` (string) | Session ID, packet count, protocol summary |
+| `describe_capture` | `session_id` (string) | Capture metadata, protocol breakdown, top endpoints |
+| `close_capture` | `session_id` (string) | Confirmation |
+
+#### Packet Queries
+
+| Tool | Parameters | Returns |
+|------|-----------|---------|
+| `list_packets` | `session_id`, optional `offset`, `limit`, `protocol`, `has_issues` | Paginated packet summaries |
+| `get_packet` | `session_id`, `packet_number` | Full packet detail with all layer fields |
+| `search_packets` | `session_id`, search criteria (protocol, address, port, text, issues) | Matching packet list |
+| `list_decode_issues` | `session_id`, optional `kind` filter | Paginated decode issues |
+| `summarize_protocols` | `session_id` | Protocol distribution table |
+| `top_endpoints` | `session_id` | Most active endpoints by packet count |
+
+#### Security Audit
+
+| Tool | Parameters | Returns |
+|------|-----------|---------|
+| `audit_capture` | `session_id` | Heuristic security analysis results |
+| `list_findings` | `session_id` | Audit findings with severity and evidence |
+| `explain_finding` | `session_id`, `finding_id` | Detailed explanation of a specific finding |
+
+### Workflow Example
+
+A typical MCP session:
+
+```
+Client: open_capture(path: "/tmp/suspect.pcap")
+Server: { session_id: "abc123", packets: 1500, protocols: { TCP: 1200, UDP: 250, ARP: 50 } }
+
+Client: describe_capture(session_id: "abc123")
+Server: { packet_count: 1500, duration: "5m30s", top_endpoints: [...] }
+
+Client: audit_capture(session_id: "abc123")
+Server: { findings: [{ id: "f1", severity: "high", title: "Port scan detected", ... }] }
+
+Client: explain_finding(session_id: "abc123", finding_id: "f1")
+Server: { detail: "Sequential SYN packets to ports 22, 80, 443, 8080 from 10.0.0.5...", evidence: [...] }
+
+Client: search_packets(session_id: "abc123", address: "10.0.0.5")
+Server: { packets: [{ number: 1, protocol: "TCP", ... }, ...] }
+
+Client: close_capture(session_id: "abc123")
+Server: { status: "closed" }
+```
+
+### Constraints
+
+- Stdio transport only -- no HTTP or WebSocket
+- Offline captures only -- no live packet capture
+- Maximum 100,000 packets per capture
+- Maximum 8 concurrent sessions
+- Sessions expire after 15 minutes of inactivity
+
+## Examples
+
+### Find All SYN Packets (Connection Initiations)
+
+```bash
+fireshark summary capture.pcap -f "tcp.flags.syn == true and tcp.flags.ack == false"
+```
+
+### Show Only DNS Traffic (Port 53)
+
+```bash
+fireshark summary capture.pcap -f "port 53"
+```
+
+### Filter by Subnet
+
+```bash
+fireshark summary capture.pcap -f "src 10.0.0.0/8"
+fireshark summary capture.pcap -f "dst 192.168.0.0/16"
+```
+
+### Inspect a Specific Packet
+
+```bash
+fireshark detail capture.pcap 5
+```
+
+### Show Only ARP Traffic
+
+```bash
+fireshark summary capture.pcap -f "arp"
+```
+
+### Find RST Packets (Connection Resets)
+
+```bash
+fireshark summary capture.pcap -f "tcp.flags.rst == true"
+```
+
+### Traffic Between Two Hosts
+
+```bash
+fireshark summary capture.pcap -f "host 192.168.1.10 and host 192.168.1.20"
+```
+
+### ICMP Only (Pings, Errors)
+
+```bash
+fireshark summary capture.pcap -f "icmp"
+```
+
+### High TTL Packets
+
+```bash
+fireshark summary capture.pcap -f "ip.ttl > 200"
+```
+
+### TCP Traffic on Non-Standard Ports
+
+```bash
+fireshark summary capture.pcap -f "tcp and not port 80 and not port 443 and not port 22"
+```
+
+### Show Fragmented Packets
+
+```bash
+fireshark summary capture.pcap -f "ip.flags.mf == true"
+```
+
+### UDP Traffic Excluding DNS
+
+```bash
+fireshark summary capture.pcap -f "udp and not port 53"
+```
+
+---
+
+**Version:** 0.2.2 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
