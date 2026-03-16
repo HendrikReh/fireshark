@@ -78,6 +78,121 @@ Cargo equivalent:
 cargo run -p fireshark-cli -- summary fixtures/smoke/minimal.pcap
 ```
 
+## macOS CLI Examples (`pcap` / `pcapng`)
+
+### 1) Record traffic on macOS and save to capture files
+
+List available interfaces first:
+
+```bash
+tcpdump -D
+```
+
+Record traffic with `tcpdump` (writes **pcap**):
+
+```bash
+sudo tcpdump -i en0 -s 0 -w ~/captures/session.pcap
+```
+
+- `-i en0`: capture from interface `en0` (replace with yours).
+- `-s 0`: capture full packets instead of truncating snapshots.
+- `-w ...`: write binary capture output to disk.
+
+Stop capture with `Ctrl+C`.
+
+If you want **pcapng** output directly, use Wireshark's CLI capture tool `dumpcap`:
+
+```bash
+/Applications/Wireshark.app/Contents/MacOS/dumpcap -i en0 -w ~/captures/session.pcapng
+```
+
+Convert between formats (optional) with `editcap`:
+
+```bash
+# pcap -> pcapng
+/Applications/Wireshark.app/Contents/MacOS/editcap -F pcapng ~/captures/session.pcap ~/captures/session-converted.pcapng
+
+# pcapng -> pcap
+/Applications/Wireshark.app/Contents/MacOS/editcap -F pcap ~/captures/session.pcapng ~/captures/session-converted.pcap
+```
+
+### 2) Read `.pcap` and `.pcapng` with Fireshark CLI
+
+After building, Fireshark exposes a CLI named `fireshark` with a `summary` subcommand.
+
+Build once:
+
+```bash
+cargo build -p fireshark-cli
+```
+
+Run against a `.pcap` file:
+
+```bash
+./target/debug/fireshark summary ~/captures/session.pcap
+```
+
+Run against a `.pcapng` file:
+
+```bash
+./target/debug/fireshark summary ~/captures/session.pcapng
+```
+
+Sample output shape:
+
+```text
+   1  TCP    192.0.2.10:51514       -> 198.51.100.20:443        54
+   2  UDP    203.0.113.5:5353       -> 224.0.0.251:5353         76
+```
+
+Packets without IPv4/IPv6 endpoints leave the `source` and `destination`
+columns blank, so the examples below trim Fireshark's fixed-width columns
+instead of assuming every row has the same whitespace-separated fields.
+
+### 3) Summarize Fireshark CLI output with macOS shell tools
+
+Save a packet summary to a file:
+
+```bash
+./target/debug/fireshark summary ~/captures/session.pcapng > /tmp/fireshark-summary.txt
+```
+
+Count packets by protocol:
+
+```bash
+awk '{
+  protocol = substr($0, 7, 5)
+  gsub(/^ +| +$/, "", protocol)
+  if (protocol != "") print protocol
+}' /tmp/fireshark-summary.txt | sort | uniq -c | sort -nr
+```
+
+Top source endpoints:
+
+```bash
+awk '{
+  source = substr($0, 14, 22)
+  gsub(/^ +| +$/, "", source)
+  if (source != "") print source
+}' /tmp/fireshark-summary.txt | sort | uniq -c | sort -nr | head
+```
+
+Top destination endpoints:
+
+```bash
+awk '{
+  destination = substr($0, 40, 22)
+  gsub(/^ +| +$/, "", destination)
+  if (destination != "") print destination
+}' /tmp/fireshark-summary.txt | sort | uniq -c | sort -nr | head
+```
+
+Largest packets in the capture (by length column):
+
+```bash
+awk '{print $NF "\t" $0}' /tmp/fireshark-summary.txt | sort -nr -k1,1 | cut -f2- | head
+```
+
 ## Development
 
 Run the full local verification pass:
