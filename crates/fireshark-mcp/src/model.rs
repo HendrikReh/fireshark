@@ -49,6 +49,22 @@ pub struct EndpointCountView {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct FindingView {
+    pub id: String,
+    pub severity: String,
+    pub category: String,
+    pub title: String,
+    pub summary: String,
+    pub evidence: Vec<FindingEvidenceView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct FindingEvidenceView {
+    pub packet_indexes: Vec<usize>,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type")]
 pub enum LayerView {
     Unknown,
