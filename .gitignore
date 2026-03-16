@@ -11,12 +11,8 @@
 /.superpowers/
 /.worktrees/
 
-# Local planning artifacts
 /docs/plans/
 /docs/reports/
 /docs/superpowers/
 
-# Local issue tracker/runtime state
-/.beads/
-/.dolt/
 /TODO.txt
