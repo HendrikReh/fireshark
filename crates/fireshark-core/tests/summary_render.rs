@@ -1,6 +1,7 @@
 use std::net::Ipv4Addr;
+use std::time::Duration;
 
-use fireshark_core::{Ipv4Layer, Layer, Packet, PacketSummary, TcpLayer};
+use fireshark_core::{Frame, Ipv4Layer, Layer, Packet, PacketSummary, TcpLayer};
 
 #[test]
 fn summary_renders_endpoints_for_tcp_packets() {
@@ -21,10 +22,17 @@ fn summary_renders_endpoints_for_tcp_packets() {
         vec![],
     );
 
-    let summary = PacketSummary::from_packet(&packet, 60);
+    let frame = Frame::builder()
+        .captured_len(60)
+        .timestamp(Duration::from_secs(1_700_000_000))
+        .protocol("TCP")
+        .build();
+
+    let summary = PacketSummary::from_packet(&packet, &frame);
 
     assert_eq!(summary.protocol, "TCP");
     assert_eq!(summary.length, 60);
     assert_eq!(summary.source, "192.0.2.10:51514");
     assert_eq!(summary.destination, "198.51.100.20:443");
+    assert_eq!(summary.timestamp, Some(Duration::from_secs(1_700_000_000)));
 }

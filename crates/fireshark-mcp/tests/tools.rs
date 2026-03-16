@@ -26,4 +26,6 @@ async fn list_packets_tool_returns_capture_packets() {
 
     assert_eq!(packets.len(), 1);
     assert_eq!(packets[0].protocol, "TCP");
+    assert!(packets[0].timestamp.is_some());
+    assert!(packets[0].original_len > 0);
 }

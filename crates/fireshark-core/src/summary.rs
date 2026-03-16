@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::Frame;
 use crate::{Layer, Packet};
 
@@ -7,6 +9,7 @@ pub struct PacketSummary {
     pub length: usize,
     pub source: String,
     pub destination: String,
+    pub timestamp: Option<Duration>,
 }
 
 impl From<&Frame> for PacketSummary {
@@ -16,12 +19,13 @@ impl From<&Frame> for PacketSummary {
             length: frame.captured_len(),
             source: String::new(),
             destination: String::new(),
+            timestamp: frame.timestamp(),
         }
     }
 }
 
 impl PacketSummary {
-    pub fn from_packet(packet: &Packet, length: usize) -> Self {
+    pub fn from_packet(packet: &Packet, frame: &Frame) -> Self {
         let protocol = packet
             .layers()
             .iter()
@@ -35,9 +39,10 @@ impl PacketSummary {
 
         Self {
             protocol,
-            length,
+            length: frame.captured_len(),
             source,
             destination,
+            timestamp: frame.timestamp(),
         }
     }
 }

@@ -23,7 +23,7 @@ impl DecodedFrame {
     }
 
     pub fn summary(&self) -> PacketSummary {
-        PacketSummary::from_packet(&self.packet, self.frame.captured_len())
+        PacketSummary::from_packet(&self.packet, &self.frame)
     }
 }
 

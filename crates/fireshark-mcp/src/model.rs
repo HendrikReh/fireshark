@@ -5,20 +5,24 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct PacketSummaryView {
     pub index: usize,
+    pub timestamp: Option<String>,
     pub protocol: String,
     pub source: String,
     pub destination: String,
     pub length: usize,
+    pub original_len: usize,
     pub has_issues: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct PacketDetailView {
     pub index: usize,
+    pub timestamp: Option<String>,
     pub protocol: String,
     pub source: String,
     pub destination: String,
     pub length: usize,
+    pub original_len: usize,
     pub has_issues: bool,
     pub layers: Vec<LayerView>,
     pub issues: Vec<DecodeIssueView>,

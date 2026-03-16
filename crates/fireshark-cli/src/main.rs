@@ -1,4 +1,5 @@
 mod summary;
+mod timestamp;
 
 use std::path::PathBuf;
 
