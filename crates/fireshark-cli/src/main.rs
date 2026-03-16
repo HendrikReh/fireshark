@@ -1,4 +1,6 @@
 mod color;
+mod detail;
+mod hexdump;
 mod summary;
 mod timestamp;
 
@@ -15,7 +17,14 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    Summary { path: PathBuf },
+    Summary {
+        path: PathBuf,
+    },
+    Detail {
+        path: PathBuf,
+        #[arg(help = "Packet number (1-indexed)")]
+        packet: usize,
+    },
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -23,6 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match cli.command {
         Command::Summary { path } => summary::run(&path)?,
+        Command::Detail { path, packet } => detail::run(&path, packet)?,
     }
 
     Ok(())
