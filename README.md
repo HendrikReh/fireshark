@@ -78,6 +78,67 @@ Cargo equivalent:
 cargo run -p fireshark-cli -- summary fixtures/smoke/minimal.pcap
 ```
 
+## macOS CLI Examples (`pcap` / `pcapng`)
+
+After building, Fireshark exposes a CLI named `fireshark` with a `summary` subcommand.
+
+Build once:
+
+```bash
+cargo build -p fireshark-cli
+```
+
+Run against a `.pcap` file:
+
+```bash
+./target/debug/fireshark summary ~/captures/example.pcap
+```
+
+Run against a `.pcapng` file:
+
+```bash
+./target/debug/fireshark summary ~/captures/example.pcapng
+```
+
+Sample output shape:
+
+```text
+   1  TCP    192.0.2.10:51514       -> 198.51.100.20:443        54
+   2  UDP    203.0.113.5:5353       -> 224.0.0.251:5353         76
+```
+
+### Summarize the summaries (macOS shell examples)
+
+Save a packet summary to a file:
+
+```bash
+./target/debug/fireshark summary ~/captures/example.pcapng > /tmp/fireshark-summary.txt
+```
+
+Count packets by protocol:
+
+```bash
+awk '{print $2}' /tmp/fireshark-summary.txt | sort | uniq -c | sort -nr
+```
+
+Top source endpoints:
+
+```bash
+awk '{print $3}' /tmp/fireshark-summary.txt | sort | uniq -c | sort -nr | head
+```
+
+Top destination endpoints:
+
+```bash
+awk '{print $5}' /tmp/fireshark-summary.txt | sort | uniq -c | sort -nr | head
+```
+
+Largest packets in the capture (by length column):
+
+```bash
+sort -k6,6nr /tmp/fireshark-summary.txt | head
+```
+
 ## Development
 
 Run the full local verification pass:
