@@ -1,3 +1,9 @@
+//! ISO 8601 UTC timestamp formatting using the Hinnant civil_from_days algorithm.
+//!
+//! Converts `Duration` since Unix epoch to `YYYY-MM-DDThh:mm:ss.mmmZ` with no
+//! external datetime dependency. The civil_from_days algorithm handles leap years
+//! and century rules correctly for all positive Unix timestamps.
+
 use std::time::Duration;
 
 /// Format a Duration (since Unix epoch) as ISO 8601 UTC with millisecond precision.

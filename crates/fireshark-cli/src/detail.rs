@@ -1,3 +1,5 @@
+//! Single-packet detail view with decoded layer tree and color-coded hex dump.
+
 use std::io::{self, Write};
 use std::path::Path;
 

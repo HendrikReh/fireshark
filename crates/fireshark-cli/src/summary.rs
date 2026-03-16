@@ -1,3 +1,5 @@
+//! Packet summary listing with protocol coloring and optional display filter.
+
 use std::path::Path;
 
 use fireshark_core::Pipeline;

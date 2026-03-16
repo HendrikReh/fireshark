@@ -12,6 +12,7 @@ fn summary_filter_tcp_excludes_non_tcp() {
     cmd.arg("summary").arg(&fixture).arg("-f").arg("tcp");
     cmd.assert()
         .success()
+        .stdout(predicates::str::contains("TCP"))
         .stdout(predicates::str::contains("UDP").not())
         .stdout(predicates::str::contains("ARP").not());
 }

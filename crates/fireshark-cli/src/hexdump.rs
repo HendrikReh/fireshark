@@ -1,4 +1,10 @@
-use std::fmt::Write as _;
+//! Color-coded hex dump renderer.
+//!
+//! Renders raw packet bytes in 16-bytes-per-line format with each byte colored
+//! by its protocol layer. Callers must pass spans ordered outermost-first
+//! (e.g., Ethernet, IPv4, TCP) — the renderer searches in reverse so the
+//! innermost (most specific) layer wins.
+
 use std::io::Write;
 
 use colored::Colorize;
@@ -70,10 +76,10 @@ pub fn render<W: Write>(
         }
 
         // ASCII column
-        let mut ascii_part = String::new();
+        let mut ascii_part = String::with_capacity(16);
         for &byte in line_bytes {
             if (0x20..=0x7E).contains(&byte) {
-                let _ = write!(ascii_part, "{}", byte as char);
+                ascii_part.push(byte as char);
             } else {
                 ascii_part.push('.');
             }
@@ -99,13 +105,16 @@ fn find_span<'a>(offset: usize, spans: &[(LayerSpan, &'a str)]) -> Option<&'a st
 }
 
 fn render_legend<W: Write>(writer: &mut W, spans: &[(LayerSpan, &str)]) -> std::io::Result<()> {
-    let mut seen = Vec::new();
     let mut legend = String::from("  ");
+    let mut seen: Vec<&str> = Vec::new();
     for (_, protocol) in spans {
         if !seen.contains(protocol) {
             seen.push(protocol);
-            let colored_square = format!("{}", "■".color(color::protocol_color(protocol)));
-            let _ = write!(legend, "{colored_square} {protocol}  ");
+            let square = "■".color(color::protocol_color(protocol)).to_string();
+            legend.push_str(&square);
+            legend.push(' ');
+            legend.push_str(protocol);
+            legend.push_str("  ");
         }
     }
     writeln!(writer, "{legend}")
