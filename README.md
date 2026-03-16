@@ -23,6 +23,8 @@ Requirements: Rust toolchain, `cargo`, and [`just`](https://github.com/casey/jus
 
 ```bash
 just summary
+# or directly:
+cargo run -p fireshark-cli -- summary fixtures/smoke/minimal.pcap
 ```
 
 ```text
@@ -71,10 +73,11 @@ cargo run -p fireshark-mcp
 ## Development
 
 ```bash
-just fmt       # cargo fmt --all
-just clippy    # cargo clippy --workspace --all-targets -- -D warnings
-just test      # cargo test --workspace
-just check     # all of the above
+just fmt          # cargo fmt --all
+just fmt-check    # cargo fmt --all -- --check
+just clippy       # cargo clippy --workspace --all-targets -- -D warnings
+just test         # cargo test --workspace
+just check        # all of the above
 ```
 
 ## Phases
