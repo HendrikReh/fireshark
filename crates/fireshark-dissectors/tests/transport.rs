@@ -1,4 +1,4 @@
-use fireshark_core::{DecodeIssueKind, Layer};
+use fireshark_core::{DecodeIssueKind, IcmpDetail, Layer};
 use fireshark_dissectors::decode_packet;
 
 #[test]
@@ -7,6 +7,45 @@ fn decodes_tcp_ports() {
     let packet = decode_packet(bytes).unwrap();
 
     assert_eq!(packet.transport_ports(), Some((51514, 443)));
+
+    let tcp = packet
+        .layers()
+        .iter()
+        .find_map(|layer| match layer {
+            Layer::Tcp(layer) => Some(layer),
+            _ => None,
+        })
+        .expect("TCP layer");
+    assert_eq!(tcp.seq, 1);
+    assert_eq!(tcp.ack, 0);
+    assert_eq!(tcp.data_offset, 5);
+    assert!(tcp.flags.syn);
+    assert!(!tcp.flags.ack);
+    assert!(!tcp.flags.fin);
+    assert!(!tcp.flags.rst);
+    assert_eq!(tcp.window, 1024);
+}
+
+#[test]
+fn decodes_ipv4_fields() {
+    let bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv4_tcp.bin");
+    let packet = decode_packet(bytes).unwrap();
+
+    let ipv4 = packet
+        .layers()
+        .iter()
+        .find_map(|layer| match layer {
+            Layer::Ipv4(layer) => Some(layer),
+            _ => None,
+        })
+        .expect("IPv4 layer");
+    assert_eq!(ipv4.ttl, 64);
+    assert_eq!(ipv4.identification, 1);
+    assert_eq!(ipv4.dscp, 0);
+    assert_eq!(ipv4.ecn, 0);
+    assert!(ipv4.dont_fragment);
+    assert_eq!(ipv4.fragment_offset, 0);
+    assert_eq!(ipv4.header_checksum, 0);
 }
 
 #[test]
@@ -15,6 +54,16 @@ fn decodes_udp_ports() {
     let packet = decode_packet(bytes).unwrap();
 
     assert_eq!(packet.transport_ports(), Some((5353, 53)));
+
+    let udp = packet
+        .layers()
+        .iter()
+        .find_map(|layer| match layer {
+            Layer::Udp(layer) => Some(layer),
+            _ => None,
+        })
+        .expect("UDP layer");
+    assert_eq!(udp.length, 8);
 }
 
 #[test]
@@ -23,6 +72,17 @@ fn decodes_icmp_layer() {
     let packet = decode_packet(bytes).unwrap();
 
     assert!(packet.layer_names().contains(&"ICMP"));
+
+    let icmp = packet
+        .layers()
+        .iter()
+        .find_map(|layer| match layer {
+            Layer::Icmp(layer) => Some(layer),
+            _ => None,
+        })
+        .expect("ICMP layer");
+    assert_eq!(icmp.type_, 128);
+    assert!(matches!(icmp.detail, Some(IcmpDetail::Other { .. })));
 }
 
 #[test]
@@ -158,4 +218,22 @@ fn non_initial_ipv4_fragments_skip_transport_decode() {
     assert!(ipv4.more_fragments);
     assert_eq!(packet.transport_ports(), None);
     assert!(!packet.layer_names().contains(&"TCP"));
+}
+
+#[test]
+fn decodes_ipv6_fields() {
+    let bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv6_icmp.bin");
+    let packet = decode_packet(bytes).unwrap();
+
+    let ipv6 = packet
+        .layers()
+        .iter()
+        .find_map(|layer| match layer {
+            Layer::Ipv6(layer) => Some(layer),
+            _ => None,
+        })
+        .expect("IPv6 layer");
+    assert_eq!(ipv6.traffic_class, 0);
+    assert_eq!(ipv6.flow_label, 0);
+    assert_eq!(ipv6.hop_limit, 64);
 }

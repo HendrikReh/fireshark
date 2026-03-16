@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 
 use fireshark_core::{
-    DecodeIssue, DecodedFrame, EthernetLayer, Frame, Ipv4Layer, Layer, Packet, TcpLayer,
+    DecodeIssue, DecodedFrame, EthernetLayer, Frame, Ipv4Layer, Layer, Packet, TcpFlags, TcpLayer,
 };
 use fireshark_mcp::analysis::AnalyzedCapture;
 use fireshark_mcp::audit::AuditEngine;
@@ -97,12 +97,32 @@ fn tcp_packet(
                     source: source.parse::<Ipv4Addr>().unwrap(),
                     destination: destination.parse::<Ipv4Addr>().unwrap(),
                     protocol: 6,
+                    ttl: 64,
+                    identification: 0,
+                    dscp: 0,
+                    ecn: 0,
+                    dont_fragment: true,
                     fragment_offset: 0,
                     more_fragments: false,
+                    header_checksum: 0,
                 }),
                 Layer::Tcp(TcpLayer {
                     source_port: 50_000,
                     destination_port,
+                    seq: 0,
+                    ack: 0,
+                    data_offset: 5,
+                    flags: TcpFlags {
+                        fin: false,
+                        syn: true,
+                        rst: false,
+                        psh: false,
+                        ack: false,
+                        urg: false,
+                        ece: false,
+                        cwr: false,
+                    },
+                    window: 1024,
                 }),
             ],
             issues,
