@@ -21,6 +21,8 @@ fn readme_documents_just_first_workflow() {
     assert!(readme.contains("just summary"));
     assert!(readme.contains("just check"));
     assert!(readme.contains("cargo run -p fireshark-cli -- summary"));
+    assert!(readme.contains("cargo run -p fireshark-mcp"));
+    assert!(readme.contains("open_capture"));
     assert!(readme.contains("cargo fmt --all -- --check"));
     assert!(readme.contains("cargo test --workspace"));
 }

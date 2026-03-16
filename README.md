@@ -78,6 +78,37 @@ Cargo equivalent:
 cargo run -p fireshark-cli -- summary fixtures/smoke/minimal.pcap
 ```
 
+## MCP Server
+
+Fireshark also ships an offline MCP server for LLM-driven packet analysis and
+network security audits. The v1 server is stateful: a client opens a capture
+once, receives a `session_id`, and reuses that session for follow-up queries.
+
+Current MCP scope:
+
+- offline `.pcap` and `.pcapng` only
+- stdio transport only
+- host-local, in-memory sessions
+- packet-query and audit tools
+
+Run the server over stdio:
+
+```bash
+cargo run -p fireshark-mcp
+```
+
+V1 tool families:
+
+- session: `open_capture`, `describe_capture`, `close_capture`
+- packet queries: `list_packets`, `get_packet`, `list_decode_issues`, `summarize_protocols`, `top_endpoints`, `search_packets`
+- audits: `audit_capture`, `list_findings`, `explain_finding`
+
+Session behavior:
+
+- sessions are created per process and kept in memory
+- sessions expire after idle time in the current server process
+- no live capture, prompts, or MCP resources are exposed yet
+
 ## macOS CLI Examples (`pcap` / `pcapng`)
 
 ### 1) Record traffic on macOS and save to capture files

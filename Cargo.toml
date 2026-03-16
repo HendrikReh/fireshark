@@ -4,6 +4,6 @@ members = [
     "crates/fireshark-dissectors",
     "crates/fireshark-file",
     "crates/fireshark-cli",
+    "crates/fireshark-mcp",
 ]
 resolver = "2"
-
