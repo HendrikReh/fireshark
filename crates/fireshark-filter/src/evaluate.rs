@@ -39,6 +39,7 @@ fn has_protocol(protocol: &Protocol, decoded: &DecodedFrame) -> bool {
             Protocol::Ipv4 => matches!(layer, Layer::Ipv4(_)),
             Protocol::Ipv6 => matches!(layer, Layer::Ipv6(_)),
             Protocol::Ethernet => matches!(layer, Layer::Ethernet(_)),
+            Protocol::Dns => matches!(layer, Layer::Dns(_)),
         })
 }
 
@@ -245,6 +246,24 @@ fn resolve_layer_field(field: &str, decoded: &DecodedFrame) -> Option<FieldValue
             // Ethernet
             ("eth.type", Layer::Ethernet(l)) => {
                 return Some(FieldValue::Integer(u64::from(l.ether_type)));
+            }
+
+            // DNS
+            ("dns.id", Layer::Dns(l)) => {
+                return Some(FieldValue::Integer(u64::from(l.transaction_id)));
+            }
+            ("dns.qr", Layer::Dns(l)) => return Some(FieldValue::Bool(l.is_response)),
+            ("dns.opcode", Layer::Dns(l)) => {
+                return Some(FieldValue::Integer(u64::from(l.opcode)));
+            }
+            ("dns.qcount", Layer::Dns(l)) => {
+                return Some(FieldValue::Integer(u64::from(l.question_count)));
+            }
+            ("dns.acount", Layer::Dns(l)) => {
+                return Some(FieldValue::Integer(u64::from(l.answer_count)));
+            }
+            ("dns.qtype", Layer::Dns(l)) => {
+                return l.query_type.map(|t| FieldValue::Integer(u64::from(t)));
             }
 
             _ => {}
@@ -642,5 +661,57 @@ mod tests {
         ));
         // IPv4 ether_type = 0x0800 = 2048
         assert!(run_filter("eth.type == 2048", &decoded));
+    }
+
+    // --- DNS fixture: ethernet_ipv4_udp_dns.bin ---
+    // Layers: Ethernet + IPv4 + UDP + DNS(id=0x1234, query, opcode=0, qcount=1, acount=0, qtype=A)
+
+    #[test]
+    fn has_protocol_dns_on_dns_packet() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        assert!(run_filter("dns", &decoded));
+    }
+
+    #[test]
+    fn has_protocol_dns_on_tcp_only_is_false() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp.bin"
+        ));
+        assert!(!run_filter("dns", &decoded));
+    }
+
+    #[test]
+    fn dns_id_hex_comparison() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        assert!(run_filter("dns.id == 0x1234", &decoded));
+    }
+
+    #[test]
+    fn dns_qr_bare_field_false_for_query() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        // Fixture is a query (is_response=false), so bare dns.qr evaluates to false
+        assert!(!run_filter("dns.qr", &decoded));
+    }
+
+    #[test]
+    fn dns_not_qr_true_for_query() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        assert!(run_filter("not dns.qr", &decoded));
+    }
+
+    #[test]
+    fn dns_qtype_eq_1_for_a_record() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        assert!(run_filter("dns.qtype == 1", &decoded));
     }
 }

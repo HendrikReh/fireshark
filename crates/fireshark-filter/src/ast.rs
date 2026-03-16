@@ -23,6 +23,7 @@ pub enum Protocol {
     Ipv4,
     Ipv6,
     Ethernet,
+    Dns,
 }
 
 /// A dotted field path, e.g. `"ip.src"` or `"tcp.flags.syn"`.

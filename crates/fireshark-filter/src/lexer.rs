@@ -17,6 +17,7 @@ pub enum Token {
     Ipv4,
     Ipv6,
     Ethernet,
+    Dns,
     // Shorthand keywords
     Port,
     Src,
@@ -167,6 +168,13 @@ fn scan_number(input: &str, pos: &mut usize) -> Result<Token, FilterError> {
             .map_err(|_| FilterError::new(format!("invalid IPv4 address '{text}'"), start));
     }
 
+    // Hex integer (0x prefix)
+    if let Some(hex) = text.strip_prefix("0x").or_else(|| text.strip_prefix("0X")) {
+        return u64::from_str_radix(hex, 16)
+            .map(Token::Integer)
+            .map_err(|_| FilterError::new(format!("invalid hex integer '{text}'"), start));
+    }
+
     // Plain integer
     text.parse::<u64>()
         .map(Token::Integer)
@@ -228,6 +236,7 @@ fn scan_identifier(input: &str, pos: &mut usize) -> Result<Token, FilterError> {
         "ip" => Token::Ipv4,
         "ipv6" => Token::Ipv6,
         "eth" | "ethernet" => Token::Ethernet,
+        "dns" => Token::Dns,
         "port" => Token::Port,
         "src" => Token::Src,
         "dst" => Token::Dst,
@@ -446,5 +455,30 @@ mod tests {
     fn tokenize_error_dollar_signs() {
         let err = tokenize("$$$").unwrap_err();
         assert!(err.message.contains("unexpected character"));
+    }
+
+    #[test]
+    fn tokenize_dns_keyword() {
+        let tokens = tokenize("dns").unwrap();
+        assert_eq!(tokens, vec![Token::Dns]);
+    }
+
+    #[test]
+    fn tokenize_dns_field_is_ident() {
+        let tokens = tokenize("dns.id").unwrap();
+        assert_eq!(tokens, vec![Token::Ident("dns.id".to_string())]);
+    }
+
+    #[test]
+    fn tokenize_hex_integer() {
+        let tokens = tokenize("dns.id == 0x1234").unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Ident("dns.id".to_string()),
+                Token::Eq,
+                Token::Integer(0x1234),
+            ]
+        );
     }
 }
