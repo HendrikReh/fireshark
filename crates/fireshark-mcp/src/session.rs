@@ -5,6 +5,8 @@ use std::time::{Duration, Instant};
 use thiserror::Error;
 
 use crate::analysis::{AnalysisError, AnalyzedCapture};
+use crate::audit::AuditEngine;
+use crate::model::FindingView;
 
 const DEFAULT_IDLE_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
@@ -25,6 +27,7 @@ pub struct CaptureSession {
     pub id: String,
     pub capture: AnalyzedCapture,
     pub last_accessed: Instant,
+    findings: Option<Vec<FindingView>>,
 }
 
 impl CaptureSession {
@@ -33,11 +36,18 @@ impl CaptureSession {
             id,
             capture,
             last_accessed: Instant::now(),
+            findings: None,
         }
     }
 
     pub fn touch(&mut self) {
         self.last_accessed = Instant::now();
+    }
+
+    pub fn findings(&mut self) -> &[FindingView] {
+        self.findings
+            .get_or_insert_with(|| AuditEngine::audit(&self.capture))
+            .as_slice()
     }
 }
 

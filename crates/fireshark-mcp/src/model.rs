@@ -65,6 +65,29 @@ pub struct FindingEvidenceView {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct OpenCaptureResponse {
+    pub session_id: String,
+    pub packet_count: usize,
+    pub decode_issue_count: usize,
+    pub protocol_counts: Vec<ProtocolCountView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CaptureDescriptionView {
+    pub session_id: String,
+    pub packet_count: usize,
+    pub decode_issue_count: usize,
+    pub protocol_counts: Vec<ProtocolCountView>,
+    pub top_endpoints: Vec<EndpointCountView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CloseCaptureResponse {
+    pub session_id: String,
+    pub closed: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type")]
 pub enum LayerView {
     Unknown,
