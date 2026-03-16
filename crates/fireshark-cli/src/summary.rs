@@ -7,10 +7,19 @@ use fireshark_file::CaptureReader;
 use crate::color;
 use crate::timestamp;
 
-pub fn run(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(path: &Path, filter: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
+    let filter_expr = filter.map(fireshark_filter::parse).transpose()?;
+
     let reader = CaptureReader::open(path)?;
     for (index, decoded) in Pipeline::new(reader, decode_packet).enumerate() {
         let decoded = decoded?;
+
+        if let Some(ref expr) = filter_expr
+            && !fireshark_filter::evaluate(expr, &decoded)
+        {
+            continue;
+        }
+
         let summary = decoded.summary();
         let ts = match summary.timestamp {
             Some(duration) => timestamp::format_utc(duration),

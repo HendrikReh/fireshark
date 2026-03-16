@@ -19,6 +19,8 @@ struct Cli {
 enum Command {
     Summary {
         path: PathBuf,
+        #[arg(short = 'f', long = "filter", help = "Display filter expression")]
+        filter: Option<String>,
     },
     Detail {
         path: PathBuf,
@@ -31,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::Summary { path } => summary::run(&path)?,
+        Command::Summary { path, filter } => summary::run(&path, filter.as_deref())?,
         Command::Detail { path, packet } => detail::run(&path, packet)?,
     }
 

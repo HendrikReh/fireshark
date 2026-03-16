@@ -13,6 +13,7 @@ colored = "3"
 fireshark-core = { path = "../fireshark-core" }
 fireshark-dissectors = { path = "../fireshark-dissectors" }
 fireshark-file = { path = "../fireshark-file" }
+fireshark-filter = { path = "../fireshark-filter" }
 
 [dev-dependencies]
 assert_cmd = "2.1.1"
