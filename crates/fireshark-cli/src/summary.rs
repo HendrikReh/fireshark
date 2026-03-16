@@ -4,6 +4,7 @@ use fireshark_core::Pipeline;
 use fireshark_dissectors::decode_packet;
 use fireshark_file::CaptureReader;
 
+use crate::color;
 use crate::timestamp;
 
 pub fn run(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
@@ -15,7 +16,7 @@ pub fn run(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
             Some(duration) => timestamp::format_utc(duration),
             None => String::from("-"),
         };
-        println!(
+        let line = format!(
             "{:>4}  {:<24}  {:<5}  {:<22} -> {:<22} {:>4}",
             index + 1,
             ts,
@@ -24,6 +25,7 @@ pub fn run(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
             summary.destination,
             summary.length
         );
+        println!("{}", color::colorize(&summary.protocol, &line));
     }
 
     Ok(())
