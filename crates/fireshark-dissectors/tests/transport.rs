@@ -266,6 +266,30 @@ fn decodes_ipv6_fields() {
 }
 
 #[test]
+fn decode_packet_produces_dns_spans() {
+    let bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin");
+    let packet = decode_packet(bytes).unwrap();
+    let spans = packet.spans();
+    assert_eq!(spans.len(), 4, "Ethernet + IPv4 + UDP + DNS");
+    assert_eq!(spans[0], LayerSpan { offset: 0, len: 14 }); // Ethernet
+    assert_eq!(
+        spans[1],
+        LayerSpan {
+            offset: 14,
+            len: 20
+        }
+    ); // IPv4
+    assert_eq!(spans[2], LayerSpan { offset: 34, len: 8 }); // UDP
+    assert_eq!(
+        spans[3],
+        LayerSpan {
+            offset: 42,
+            len: 29
+        }
+    ); // DNS
+}
+
+#[test]
 fn decode_packet_produces_layer_spans() {
     let bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv4_tcp.bin");
     let packet = decode_packet(bytes).unwrap();
