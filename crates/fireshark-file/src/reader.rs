@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{ErrorKind, Read, Seek, SeekFrom};
 use std::path::Path;
 
 use fireshark_core::Frame;
@@ -24,11 +24,7 @@ enum ReaderKind {
 impl CaptureReader {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, CaptureError> {
         let mut file = File::open(path)?;
-        let mut magic = [0_u8; 4];
-        let bytes_read = file.read(&mut magic)?;
-        if bytes_read < magic.len() {
-            return Err(CaptureError::UnsupportedFormat);
-        }
+        let magic = read_magic_prefix(&mut file)?;
         file.seek(SeekFrom::Start(0))?;
 
         let inner = if magic == PCAPNG_MAGIC {
@@ -48,6 +44,17 @@ impl CaptureReader {
         };
 
         Ok(Self { inner })
+    }
+}
+
+fn read_magic_prefix<R: Read>(reader: &mut R) -> Result<[u8; 4], CaptureError> {
+    let mut magic = [0_u8; 4];
+    match reader.read_exact(&mut magic) {
+        Ok(()) => Ok(magic),
+        Err(error) if error.kind() == ErrorKind::UnexpectedEof => {
+            Err(CaptureError::UnsupportedFormat)
+        }
+        Err(error) => Err(CaptureError::Io(error)),
     }
 }
 
@@ -138,4 +145,51 @@ fn validate_pcapng_linktypes(reader: &mut PcapNgReader<File>) -> Result<(), Capt
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::{self, Cursor, Read};
+
+    use super::{PCAPNG_MAGIC, read_magic_prefix};
+    use crate::CaptureError;
+
+    struct ShortReadCursor {
+        inner: Cursor<Vec<u8>>,
+        max_chunk_len: usize,
+    }
+
+    impl ShortReadCursor {
+        fn new(bytes: Vec<u8>, max_chunk_len: usize) -> Self {
+            Self {
+                inner: Cursor::new(bytes),
+                max_chunk_len,
+            }
+        }
+    }
+
+    impl Read for ShortReadCursor {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            let max_chunk_len = self.max_chunk_len.min(buf.len());
+            self.inner.read(&mut buf[..max_chunk_len])
+        }
+    }
+
+    #[test]
+    fn reads_magic_prefix_across_short_non_eof_reads() {
+        let mut reader = ShortReadCursor::new(PCAPNG_MAGIC.to_vec(), 2);
+
+        let magic = read_magic_prefix(&mut reader).unwrap();
+
+        assert_eq!(magic, PCAPNG_MAGIC);
+    }
+
+    #[test]
+    fn rejects_true_eof_before_magic_prefix_is_complete() {
+        let mut reader = ShortReadCursor::new(vec![0x0a, 0x0d, 0x0d], 2);
+
+        let error = read_magic_prefix(&mut reader).unwrap_err();
+
+        assert!(matches!(error, CaptureError::UnsupportedFormat));
+    }
 }
