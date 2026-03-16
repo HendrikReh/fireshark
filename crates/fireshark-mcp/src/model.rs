@@ -198,6 +198,16 @@ pub enum LayerView {
         code: u8,
         detail: Option<IcmpDetailView>,
     },
+    #[serde(rename = "DNS")]
+    Dns {
+        transaction_id: u16,
+        is_response: bool,
+        opcode: u8,
+        question_count: u16,
+        answer_count: u16,
+        query_name: Option<String>,
+        query_type: Option<u16>,
+    },
 }
 
 impl DecodeIssueView {
@@ -292,6 +302,15 @@ impl LayerView {
                         IcmpDetailView::Other { rest_of_header }
                     }
                 }),
+            },
+            Layer::Dns(layer) => Self::Dns {
+                transaction_id: layer.transaction_id,
+                is_response: layer.is_response,
+                opcode: layer.opcode,
+                question_count: layer.question_count,
+                answer_count: layer.answer_count,
+                query_name: layer.query_name.clone(),
+                query_type: layer.query_type,
             },
         }
     }

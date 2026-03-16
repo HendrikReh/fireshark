@@ -5,8 +5,8 @@ use std::path::Path;
 
 use colored::Colorize;
 use fireshark_core::{
-    ArpLayer, DecodedFrame, EthernetLayer, IcmpDetail, IcmpLayer, Ipv4Layer, Ipv6Layer, Layer,
-    LayerSpan, Pipeline, TcpLayer, UdpLayer,
+    ArpLayer, DecodedFrame, DnsLayer, EthernetLayer, IcmpDetail, IcmpLayer, Ipv4Layer, Ipv6Layer,
+    Layer, LayerSpan, Pipeline, TcpLayer, UdpLayer,
 };
 use fireshark_dissectors::decode_packet;
 use fireshark_file::CaptureReader;
@@ -86,6 +86,7 @@ fn render_layer<W: Write>(w: &mut W, layer: &Layer) -> io::Result<()> {
         Layer::Tcp(l) => render_tcp(w, l),
         Layer::Udp(l) => render_udp(w, l),
         Layer::Icmp(l) => render_icmp(w, l),
+        Layer::Dns(l) => render_dns(w, l),
     }
 }
 
@@ -255,6 +256,42 @@ fn render_icmp<W: Write>(w: &mut W, l: &IcmpLayer) -> io::Result<()> {
             writeln!(w, "    Rest of Header: 0x{rest_of_header:08x}")
         }
         None => Ok(()),
+    }
+}
+
+fn render_dns<W: Write>(w: &mut W, l: &DnsLayer) -> io::Result<()> {
+    writeln!(w, "{}", "▸ DNS".color(color::protocol_color("DNS")))?;
+    let direction = if l.is_response { "Response" } else { "Query" };
+    writeln!(
+        w,
+        "    Transaction ID: 0x{:04x}  [{}]",
+        l.transaction_id, direction
+    )?;
+    writeln!(
+        w,
+        "    Questions: {}  Answers: {}",
+        l.question_count, l.answer_count
+    )?;
+    match (&l.query_name, l.query_type) {
+        (Some(name), Some(qtype)) => {
+            writeln!(w, "    Query: {} ({})", name, dns_qtype_name(qtype))
+        }
+        (Some(name), None) => writeln!(w, "    Query: {}", name),
+        (None, _) => writeln!(w, "    Query: <unparseable>"),
+    }
+}
+
+fn dns_qtype_name(qtype: u16) -> &'static str {
+    match qtype {
+        1 => "A",
+        2 => "NS",
+        5 => "CNAME",
+        6 => "SOA",
+        12 => "PTR",
+        15 => "MX",
+        16 => "TXT",
+        28 => "AAAA",
+        _ => "Unknown",
     }
 }
 

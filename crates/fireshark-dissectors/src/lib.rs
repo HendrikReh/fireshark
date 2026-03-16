@@ -6,6 +6,7 @@
 //! decode issues (truncation, malformation) rather than panicking.
 
 mod arp;
+mod dns;
 mod error;
 mod ethernet;
 mod icmp;
@@ -181,6 +182,42 @@ fn append_network_layer(
                     parse_transport(icmp::parse(payload, payload_offset), layers, spans, issues);
                 }
                 _ => {}
+            }
+
+            // Application-layer dispatch: attempt to decode protocols above transport.
+            // Extract port info and span details before the mutable borrow.
+            let app_dispatch_info = layers.last().and_then(|last_transport| {
+                let (src_port, dst_port) = match last_transport {
+                    Layer::Udp(udp) => (udp.source_port, udp.destination_port),
+                    _ => return None,
+                };
+                let last_span = spans.last()?;
+                let transport_end = last_span.offset + last_span.len;
+                if transport_end > payload_offset && transport_end - payload_offset <= payload.len()
+                {
+                    Some((src_port, dst_port, transport_end))
+                } else {
+                    None
+                }
+            });
+            if let Some((src_port, dst_port, transport_end)) = app_dispatch_info {
+                let app_payload = &payload[transport_end - payload_offset..];
+                if !app_payload.is_empty()
+                    && (src_port == dns::UDP_PORT || dst_port == dns::UDP_PORT)
+                {
+                    let span = LayerSpan {
+                        offset: transport_end,
+                        len: app_payload.len(),
+                    };
+                    append_layer_with_span(
+                        dns::parse(app_payload, transport_end),
+                        transport_end,
+                        span,
+                        layers,
+                        spans,
+                        issues,
+                    );
+                }
             }
         }
         Err(error) => {
