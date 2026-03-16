@@ -12,6 +12,7 @@ Fireshark is a Wireshark-inspired packet analyzer written in Rust. It is library
 | `fireshark-dissectors` | Protocol decoders: Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP |
 | `fireshark-file` | pcap and pcapng file ingestion |
 | `fireshark-cli` | Thin CLI binary (`fireshark`) exercising the library stack |
+| `fireshark-mcp` | Offline MCP server for LLM-driven capture analysis and security audits |
 
 - `fixtures/bytes/` — handcrafted binary blobs used in unit tests
 - `fixtures/smoke/` — small pcap files for integration/CLI tests
@@ -72,3 +73,4 @@ Uses **bd** (beads) — see AGENTS.md for full workflow. Do not use markdown TOD
 - Decoding favors explicit, typed layers over ad hoc byte inspection
 - APIs support streaming/iteration, not full-file loading
 - Features are added in vertical slices, not speculative frameworks
+- MCP types stay in `fireshark-mcp` — no protocol leakage into core crates

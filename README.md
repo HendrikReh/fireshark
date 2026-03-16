@@ -1,294 +1,96 @@
 # Fireshark
 
-Fireshark is a Wireshark-inspired packet analyzer written in Rust and built in deliberate phases instead of as a "boil the ocean" clone.
+[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange?logo=rust)](https://www.rust-lang.org/)
+[![Status](https://img.shields.io/badge/status-crawl%20phase-blue)]()
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/HendrikReh/fireshark/pulls)
 
-The project is intentionally library-first. The early goal is to build a clean capture and decode core that can support multiple frontends later, rather than jumping straight into a full desktop UI.
+Wireshark-inspired packet analyzer written in Rust and built in deliberate phases instead of as a "boil the ocean" clone.
 
-## Status
+Library-first design: the early goal is a clean capture and decode core that can support multiple frontends later, rather than jumping straight into a full desktop UI.
 
-Fireshark is currently in the `crawl` phase.
+## What Works Today
 
-What works today:
-
-- read `pcap` and `pcapng` capture files
-- decode Ethernet, ARP, IPv4, IPv6, TCP, UDP, and ICMP
-- build structured packets through a reusable decode pipeline
-- print packet summaries through a minimal CLI
-- validate behavior with fixture-based tests
-
-What does not exist yet:
-
-- live packet capture
-- GUI or TUI packet inspection
-- display filter language
-- stream following or reassembly
-- advanced statistics
-
-## Why Phases
-
-The project is split into three phases so the architecture hardens around real packet data before the surface area grows:
-
-- `crawl`
-  Offline capture parsing, foundational protocol dissection, and a minimal CLI
-- `walk`
-  Live capture backends, typed filtering primitives, and conversation identity
-- `run`
-  Analyst-facing workflows such as packet views, display filters, follow-stream, and statistics
-
-This keeps early work small, testable, and hard to overengineer.
-
-## Workspace Layout
-
-- `crates/fireshark-core`
-  Core domain types, summaries, and the generic decode pipeline
-- `crates/fireshark-file`
-  `pcap` and `pcapng` ingestion
-- `crates/fireshark-dissectors`
-  Protocol decoding for Ethernet, ARP, IPv4, IPv6, TCP, UDP, and ICMP
-- `crates/fireshark-cli`
-  Thin CLI for exercising the library stack
-- `fixtures/`
-  Handcrafted binary fixtures used by the test suite
-- `docs/plans/`
-  Phase design and implementation planning documents
+- Read `pcap` and `pcapng` capture files
+- Decode Ethernet, ARP, IPv4, IPv6, TCP, UDP, and ICMP
+- Build structured packets through a reusable decode pipeline
+- Print packet summaries through a minimal CLI
+- Analyze captures via MCP server for LLM-driven workflows
+- Validate behavior with fixture-based tests
 
 ## Quick Start
 
-Requirements:
-
-- Rust toolchain installed
-- `cargo` available on your path
-- `just` available on your path
-
-Run the summary command against the smoke fixture:
+Requirements: Rust toolchain, `cargo`, and [`just`](https://github.com/casey/just) on your `PATH`.
 
 ```bash
 just summary
 ```
 
-Example output:
-
 ```text
    1  TCP    192.0.2.10:51514       -> 198.51.100.20:443        54
 ```
 
-Cargo equivalent:
+Run the full verification gate:
 
 ```bash
-cargo run -p fireshark-cli -- summary fixtures/smoke/minimal.pcap
+just check    # fmt-check + clippy + test
 ```
+
+## Workspace Layout
+
+| Crate | Purpose |
+|-------|---------|
+| `fireshark-core` | Domain types, summaries, and the generic decode pipeline |
+| `fireshark-file` | `pcap` and `pcapng` ingestion |
+| `fireshark-dissectors` | Protocol decoders: Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP |
+| `fireshark-cli` | Thin CLI for exercising the library stack |
+| `fireshark-mcp` | Offline MCP server for LLM-driven capture analysis |
+
+Other directories:
+
+- `fixtures/` — handcrafted binary fixtures used by the test suite
+- `docs/plans/` — phase design and implementation planning documents
 
 ## MCP Server
 
-Fireshark also ships an offline MCP server for LLM-driven packet analysis and
-network security audits. The v1 server is stateful: a client opens a capture
-once, receives a `session_id`, and reuses that session for follow-up queries.
-
-Current MCP scope:
-
-- offline `.pcap` and `.pcapng` only
-- stdio transport only
-- host-local, in-memory sessions
-- packet-query and audit tools
-
-Run the server over stdio:
+Fireshark ships an offline MCP server for LLM-driven packet analysis and security audits. The server is stateful: a client opens a capture once, receives a `session_id`, and reuses it for follow-up queries.
 
 ```bash
 cargo run -p fireshark-mcp
 ```
 
-V1 tool families:
+**Tool families:**
 
-- session: `open_capture`, `describe_capture`, `close_capture`
-- packet queries: `list_packets`, `get_packet`, `list_decode_issues`, `summarize_protocols`, `top_endpoints`, `search_packets`
-- audits: `audit_capture`, `list_findings`, `explain_finding`
+| Family | Tools |
+|--------|-------|
+| Session | `open_capture`, `describe_capture`, `close_capture` |
+| Packet queries | `list_packets`, `get_packet`, `search_packets`, `list_decode_issues`, `summarize_protocols`, `top_endpoints` |
+| Audit | `audit_capture`, `list_findings`, `explain_finding` |
 
-Session behavior:
-
-- sessions are created per process and kept in memory
-- sessions expire after idle time in the current server process
-- no live capture, prompts, or MCP resources are exposed yet
-
-## macOS CLI Examples (`pcap` / `pcapng`)
-
-### 1) Record traffic on macOS and save to capture files
-
-List available interfaces first:
-
-```bash
-tcpdump -D
-```
-
-Record traffic with `tcpdump` (writes **pcap**):
-
-```bash
-sudo tcpdump -i en0 -s 0 -w ~/captures/session.pcap
-```
-
-- `-i en0`: capture from interface `en0` (replace with yours).
-- `-s 0`: capture full packets instead of truncating snapshots.
-- `-w ...`: write binary capture output to disk.
-
-Stop capture with `Ctrl+C`.
-
-If you want **pcapng** output directly, use Wireshark's CLI capture tool `dumpcap`:
-
-```bash
-/Applications/Wireshark.app/Contents/MacOS/dumpcap -i en0 -w ~/captures/session.pcapng
-```
-
-Convert between formats (optional) with `editcap`:
-
-```bash
-# pcap -> pcapng
-/Applications/Wireshark.app/Contents/MacOS/editcap -F pcapng ~/captures/session.pcap ~/captures/session-converted.pcapng
-
-# pcapng -> pcap
-/Applications/Wireshark.app/Contents/MacOS/editcap -F pcap ~/captures/session.pcapng ~/captures/session-converted.pcap
-```
-
-### 2) Read `.pcap` and `.pcapng` with Fireshark CLI
-
-After building, Fireshark exposes a CLI named `fireshark` with a `summary` subcommand.
-
-Build once:
-
-```bash
-cargo build -p fireshark-cli
-```
-
-Run against a `.pcap` file:
-
-```bash
-./target/debug/fireshark summary ~/captures/session.pcap
-```
-
-Run against a `.pcapng` file:
-
-```bash
-./target/debug/fireshark summary ~/captures/session.pcapng
-```
-
-Sample output shape:
-
-```text
-   1  TCP    192.0.2.10:51514       -> 198.51.100.20:443        54
-   2  UDP    203.0.113.5:5353       -> 224.0.0.251:5353         76
-```
-
-Packets without IPv4/IPv6 endpoints leave the `source` and `destination`
-columns blank, so the examples below trim Fireshark's fixed-width columns
-instead of assuming every row has the same whitespace-separated fields.
-
-### 3) Summarize Fireshark CLI output with macOS shell tools
-
-Save a packet summary to a file:
-
-```bash
-./target/debug/fireshark summary ~/captures/session.pcapng > /tmp/fireshark-summary.txt
-```
-
-Count packets by protocol:
-
-```bash
-awk '{
-  protocol = substr($0, 7, 5)
-  gsub(/^ +| +$/, "", protocol)
-  if (protocol != "") print protocol
-}' /tmp/fireshark-summary.txt | sort | uniq -c | sort -nr
-```
-
-Top source endpoints:
-
-```bash
-awk '{
-  source = substr($0, 14, 22)
-  gsub(/^ +| +$/, "", source)
-  if (source != "") print source
-}' /tmp/fireshark-summary.txt | sort | uniq -c | sort -nr | head
-```
-
-Top destination endpoints:
-
-```bash
-awk '{
-  destination = substr($0, 40, 22)
-  gsub(/^ +| +$/, "", destination)
-  if (destination != "") print destination
-}' /tmp/fireshark-summary.txt | sort | uniq -c | sort -nr | head
-```
-
-Largest packets in the capture (by length column):
-
-```bash
-awk '{print $NF "\t" $0}' /tmp/fireshark-summary.txt | sort -nr -k1,1 | cut -f2- | head
-```
+**Constraints:** stdio transport only, offline captures only, 100k packet limit per capture, 8 concurrent sessions, 15-minute idle timeout.
 
 ## Development
 
-Run the full local verification pass:
-
 ```bash
-just check
+just fmt       # cargo fmt --all
+just clippy    # cargo clippy --workspace --all-targets -- -D warnings
+just test      # cargo test --workspace
+just check     # all of the above
 ```
 
-Run formatting:
+## Phases
 
-```bash
-just fmt
-```
+The project is split into three phases so the architecture hardens around real packet data before the surface area grows.
 
-Run linting:
+| Phase | Focus | Status |
+|-------|-------|--------|
+| **Crawl** | Offline capture parsing, foundational dissection, CLI, MCP server | Active |
+| **Walk** | Live capture backends, typed filtering, conversation identity | Planned |
+| **Run** | Analyst workflows: packet views, display filters, follow-stream, statistics | Planned |
 
-```bash
-just clippy
-```
+## Design Rules
 
-Run the full test suite:
-
-```bash
-just test
-```
-
-Cargo equivalents:
-
-```bash
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
-```
-
-## Design Direction
-
-Fireshark is being built around a stable packet-analysis core, not around a specific frontend.
-
-Current design rules:
-
-- file parsing stays separate from protocol dissection
-- decoding favors explicit, typed layers over ad hoc byte inspection
-- APIs should support streaming/iteration instead of forcing full-file loading
-- features are added in vertical slices, not as large speculative frameworks
-
-## Roadmap
-
-### Crawl
-
-- support offline `pcap` and `pcapng`
-- establish the packet model and decode pipeline
-- prove the architecture with a minimal CLI
-
-### Walk
-
-- add a live capture abstraction and one real backend
-- introduce typed filter/query APIs
-- start conversation and stream identity primitives
-
-### Run
-
-- build real analysis workflows
-- add richer packet inspection UX
-- support display filtering, follow-stream, and basic statistics
-
-## Repository Notes
-
-This repository is public but still early-stage. The current implementation is intentionally narrow: correctness, layering, and testability matter more than protocol breadth at this stage.
+- File parsing stays separate from protocol dissection
+- Decoding favors explicit, typed layers over ad hoc byte inspection
+- APIs support streaming/iteration instead of forcing full-file loading
+- Features are added in vertical slices, not as large speculative frameworks
+- MCP types stay in `fireshark-mcp` — no protocol leakage into core crates
