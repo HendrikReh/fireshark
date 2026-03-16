@@ -1,7 +1,9 @@
-use std::net::Ipv4Addr;
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::time::Duration;
 
-use fireshark_core::{Frame, Ipv4Layer, Layer, Packet, PacketSummary, TcpFlags, TcpLayer};
+use fireshark_core::{
+    ArpLayer, Frame, Ipv4Layer, Ipv6Layer, Layer, Packet, PacketSummary, TcpFlags, TcpLayer,
+};
 
 #[test]
 fn summary_renders_endpoints_for_tcp_packets() {
@@ -55,4 +57,42 @@ fn summary_renders_endpoints_for_tcp_packets() {
     assert_eq!(summary.source, "192.0.2.10:51514");
     assert_eq!(summary.destination, "198.51.100.20:443");
     assert_eq!(summary.timestamp, Some(Duration::from_secs(1_700_000_000)));
+}
+
+#[test]
+fn summary_renders_arp_endpoints() {
+    let packet = Packet::new(
+        vec![Layer::Arp(ArpLayer {
+            operation: 1,
+            sender_protocol_addr: Ipv4Addr::new(192, 168, 1, 1),
+            target_protocol_addr: Ipv4Addr::new(192, 168, 1, 2),
+        })],
+        vec![],
+    );
+    let frame = Frame::builder().captured_len(42).protocol("ARP").build();
+    let summary = PacketSummary::from_packet(&packet, &frame);
+
+    assert_eq!(summary.source, "192.168.1.1");
+    assert_eq!(summary.destination, "192.168.1.2");
+    assert_eq!(summary.protocol, "ARP");
+}
+
+#[test]
+fn summary_brackets_ipv6_without_ports() {
+    let packet = Packet::new(
+        vec![Layer::Ipv6(Ipv6Layer {
+            source: "2001:db8::1".parse::<Ipv6Addr>().unwrap(),
+            destination: "2001:db8::2".parse::<Ipv6Addr>().unwrap(),
+            next_header: 59, // No Next Header
+            traffic_class: 0,
+            flow_label: 0,
+            hop_limit: 64,
+        })],
+        vec![],
+    );
+    let frame = Frame::builder().captured_len(54).protocol("IPv6").build();
+    let summary = PacketSummary::from_packet(&packet, &frame);
+
+    assert_eq!(summary.source, "[2001:db8::1]");
+    assert_eq!(summary.destination, "[2001:db8::2]");
 }

@@ -1,3 +1,5 @@
+//! Protocol layer types used throughout the dissection pipeline.
+
 use std::net::{Ipv4Addr, Ipv6Addr};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

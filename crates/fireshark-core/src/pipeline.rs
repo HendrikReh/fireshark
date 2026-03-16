@@ -1,8 +1,11 @@
+//! Decode pipeline that pairs frame sources with protocol decoders.
+
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use crate::{Frame, Packet, PacketSummary};
 
+/// A successfully decoded frame paired with its packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DecodedFrame {
     frame: Frame,
@@ -10,26 +13,33 @@ pub struct DecodedFrame {
 }
 
 impl DecodedFrame {
+    /// Wrap a frame and its decoded packet.
     pub fn new(frame: Frame, packet: Packet) -> Self {
         Self { frame, packet }
     }
 
+    /// The original captured frame.
     pub fn frame(&self) -> &Frame {
         &self.frame
     }
 
+    /// The decoded protocol layers.
     pub fn packet(&self) -> &Packet {
         &self.packet
     }
 
+    /// Build a human-readable summary.
     pub fn summary(&self) -> PacketSummary {
         PacketSummary::from_packet(&self.packet, &self.frame)
     }
 }
 
+/// Error from either the frame source or the decoder.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PipelineError<FrameError, DecodeError> {
+    /// The frame source produced an error.
     Frame(FrameError),
+    /// The decoder produced an error.
     Decode(DecodeError),
 }
 
@@ -51,14 +61,22 @@ where
     FrameError: Error + 'static,
     DecodeError: Error + 'static,
 {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Frame(error) => Some(error),
+            Self::Decode(error) => Some(error),
+        }
+    }
 }
 
+/// An iterator that reads frames and decodes each one into a [`DecodedFrame`].
 pub struct Pipeline<I, D> {
     frames: I,
     decoder: D,
 }
 
 impl<I, D> Pipeline<I, D> {
+    /// Create a pipeline from a frame iterator and a decoder function.
     pub fn new(frames: I, decoder: D) -> Self {
         Self { frames, decoder }
     }

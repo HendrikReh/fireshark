@@ -1,8 +1,11 @@
+//! One-line packet summaries for display in list views.
+
 use std::time::Duration;
 
 use crate::Frame;
 use crate::{Layer, Packet};
 
+/// A human-readable summary of a single captured packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PacketSummary {
     pub protocol: String,
@@ -25,13 +28,16 @@ impl From<&Frame> for PacketSummary {
 }
 
 impl PacketSummary {
+    /// Build a summary from a decoded packet and its originating frame.
     pub fn from_packet(packet: &Packet, frame: &Frame) -> Self {
         let protocol = packet
             .layers()
             .iter()
             .rev()
-            .find(|layer| !matches!(layer, Layer::Ethernet(_)))
-            .map(Layer::name)
+            .find_map(|layer| match layer {
+                Layer::Unknown | Layer::Ethernet(_) => None,
+                other => Some(other.name()),
+            })
             .unwrap_or("Unknown")
             .to_string();
 
@@ -63,6 +69,12 @@ fn format_endpoints(packet: &Packet) -> (String, String) {
                     append_port(layer.destination.to_string(), ports.map(|ports| ports.1)),
                 );
             }
+            Layer::Arp(layer) => {
+                return (
+                    layer.sender_protocol_addr.to_string(),
+                    layer.target_protocol_addr.to_string(),
+                );
+            }
             _ => {}
         }
     }
@@ -74,6 +86,7 @@ fn append_port(address: String, port: Option<u16>) -> String {
     match port {
         Some(port) if address.contains(':') => format!("[{address}]:{port}"),
         Some(port) => format!("{address}:{port}"),
+        None if address.contains(':') => format!("[{address}]"),
         None => address,
     }
 }
