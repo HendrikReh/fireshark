@@ -1,16 +1,22 @@
 # macOS
 .DS_Store
 
-# Rust
+# Rust build outputs
 /target/
 /fuzz/target/
 /fuzz/corpus/
 
-# Claude Code worktrees
-.worktrees/
+# Local agent state
+/.claude/
+/.superpowers/
+/.worktrees/
 
-# Beads runtime (dolt database, server state)
-.dolt/
-.beads/dolt-monitor.pid
-.beads/dolt-server.activity
-.beads/dolt-server.port
+# Local planning artifacts
+/docs/plans/
+/docs/reports/
+/docs/superpowers/
+
+# Local issue tracker/runtime state
+/.beads/
+/.dolt/
+/TODO.txt
