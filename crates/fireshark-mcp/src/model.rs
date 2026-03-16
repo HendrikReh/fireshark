@@ -3,6 +3,27 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct TcpFlagsView {
+    pub fin: bool,
+    pub syn: bool,
+    pub rst: bool,
+    pub psh: bool,
+    pub ack: bool,
+    pub urg: bool,
+    pub ece: bool,
+    pub cwr: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "type")]
+pub enum IcmpDetailView {
+    EchoRequest { identifier: u16, sequence: u16 },
+    EchoReply { identifier: u16, sequence: u16 },
+    DestinationUnreachable { next_hop_mtu: u16 },
+    Other { rest_of_header: u32 },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct PacketSummaryView {
     pub index: usize,
     pub timestamp: Option<String>,
@@ -139,27 +160,43 @@ pub enum LayerView {
         protocol: u8,
         fragment_offset: u16,
         more_fragments: bool,
+        ttl: u8,
+        identification: u16,
+        dscp: u8,
+        ecn: u8,
+        dont_fragment: bool,
+        header_checksum: u16,
     },
     #[serde(rename = "IPv6")]
     Ipv6 {
         source: String,
         destination: String,
         next_header: u8,
+        traffic_class: u8,
+        flow_label: u32,
+        hop_limit: u8,
     },
     #[serde(rename = "TCP")]
     Tcp {
         source_port: u16,
         destination_port: u16,
+        seq: u32,
+        ack: u32,
+        data_offset: u8,
+        flags: TcpFlagsView,
+        window: u16,
     },
     #[serde(rename = "UDP")]
     Udp {
         source_port: u16,
         destination_port: u16,
+        length: u16,
     },
     #[serde(rename = "ICMP")]
     Icmp {
         type_: u8,
         code: u8,
+        detail: Option<IcmpDetailView>,
     },
 }
 
@@ -192,23 +229,69 @@ impl LayerView {
                 protocol: layer.protocol,
                 fragment_offset: layer.fragment_offset,
                 more_fragments: layer.more_fragments,
+                ttl: layer.ttl,
+                identification: layer.identification,
+                dscp: layer.dscp,
+                ecn: layer.ecn,
+                dont_fragment: layer.dont_fragment,
+                header_checksum: layer.header_checksum,
             },
             Layer::Ipv6(layer) => Self::Ipv6 {
                 source: layer.source.to_string(),
                 destination: layer.destination.to_string(),
                 next_header: layer.next_header,
+                traffic_class: layer.traffic_class,
+                flow_label: layer.flow_label,
+                hop_limit: layer.hop_limit,
             },
             Layer::Tcp(layer) => Self::Tcp {
                 source_port: layer.source_port,
                 destination_port: layer.destination_port,
+                seq: layer.seq,
+                ack: layer.ack,
+                data_offset: layer.data_offset,
+                flags: TcpFlagsView {
+                    fin: layer.flags.fin,
+                    syn: layer.flags.syn,
+                    rst: layer.flags.rst,
+                    psh: layer.flags.psh,
+                    ack: layer.flags.ack,
+                    urg: layer.flags.urg,
+                    ece: layer.flags.ece,
+                    cwr: layer.flags.cwr,
+                },
+                window: layer.window,
             },
             Layer::Udp(layer) => Self::Udp {
                 source_port: layer.source_port,
                 destination_port: layer.destination_port,
+                length: layer.length,
             },
             Layer::Icmp(layer) => Self::Icmp {
                 type_: layer.type_,
                 code: layer.code,
+                detail: layer.detail.map(|d| match d {
+                    fireshark_core::IcmpDetail::EchoRequest {
+                        identifier,
+                        sequence,
+                    } => IcmpDetailView::EchoRequest {
+                        identifier,
+                        sequence,
+                    },
+                    fireshark_core::IcmpDetail::EchoReply {
+                        identifier,
+                        sequence,
+                    } => IcmpDetailView::EchoReply {
+                        identifier,
+                        sequence,
+                    },
+                    fireshark_core::IcmpDetail::DestinationUnreachable { next_hop_mtu } => {
+                        IcmpDetailView::DestinationUnreachable { next_hop_mtu }
+                    }
+                    fireshark_core::IcmpDetail::Other { rest_of_header } => {
+                        IcmpDetailView::Other { rest_of_header }
+                    }
+                }),
             },
         }
     }
