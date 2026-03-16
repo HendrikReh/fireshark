@@ -107,7 +107,7 @@ just test
 Cargo equivalents:
 
 ```bash
-cargo fmt --all
+cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
