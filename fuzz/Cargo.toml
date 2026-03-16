@@ -1,0 +1,26 @@
+[package]
+name = "fireshark-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+fireshark-dissectors = { path = "../crates/fireshark-dissectors" }
+fireshark-file = { path = "../crates/fireshark-file" }
+tempfile = "3"
+
+[[bin]]
+name = "fuzz_decode_packet"
+path = "fuzz_targets/fuzz_decode_packet.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_capture_reader"
+path = "fuzz_targets/fuzz_capture_reader.rs"
+doc = false
+
+[workspace]
