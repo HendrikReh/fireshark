@@ -145,6 +145,10 @@ Sample output shape:
    2  UDP    203.0.113.5:5353       -> 224.0.0.251:5353         76
 ```
 
+Packets without IPv4/IPv6 endpoints leave the `source` and `destination`
+columns blank, so the examples below trim Fireshark's fixed-width columns
+instead of assuming every row has the same whitespace-separated fields.
+
 ### 3) Summarize Fireshark CLI output with macOS shell tools
 
 Save a packet summary to a file:
@@ -156,25 +160,37 @@ Save a packet summary to a file:
 Count packets by protocol:
 
 ```bash
-awk '{print $2}' /tmp/fireshark-summary.txt | sort | uniq -c | sort -nr
+awk '{
+  protocol = substr($0, 7, 5)
+  gsub(/^ +| +$/, "", protocol)
+  if (protocol != "") print protocol
+}' /tmp/fireshark-summary.txt | sort | uniq -c | sort -nr
 ```
 
 Top source endpoints:
 
 ```bash
-awk '{print $3}' /tmp/fireshark-summary.txt | sort | uniq -c | sort -nr | head
+awk '{
+  source = substr($0, 14, 22)
+  gsub(/^ +| +$/, "", source)
+  if (source != "") print source
+}' /tmp/fireshark-summary.txt | sort | uniq -c | sort -nr | head
 ```
 
 Top destination endpoints:
 
 ```bash
-awk '{print $5}' /tmp/fireshark-summary.txt | sort | uniq -c | sort -nr | head
+awk '{
+  destination = substr($0, 40, 22)
+  gsub(/^ +| +$/, "", destination)
+  if (destination != "") print destination
+}' /tmp/fireshark-summary.txt | sort | uniq -c | sort -nr | head
 ```
 
 Largest packets in the capture (by length column):
 
 ```bash
-sort -k6,6nr /tmp/fireshark-summary.txt | head
+awk '{print $NF "\t" $0}' /tmp/fireshark-summary.txt | sort -nr -k1,1 | cut -f2- | head
 ```
 
 ## Development
