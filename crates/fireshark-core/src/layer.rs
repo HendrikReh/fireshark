@@ -87,6 +87,17 @@ pub struct IcmpLayer {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DnsLayer {
+    pub transaction_id: u16,
+    pub is_response: bool,
+    pub opcode: u8,
+    pub question_count: u16,
+    pub answer_count: u16,
+    pub query_name: Option<String>,
+    pub query_type: Option<u16>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Layer {
     Unknown,
     Ethernet(EthernetLayer),
@@ -96,6 +107,7 @@ pub enum Layer {
     Tcp(TcpLayer),
     Udp(UdpLayer),
     Icmp(IcmpLayer),
+    Dns(DnsLayer),
 }
 
 impl Layer {
@@ -109,6 +121,7 @@ impl Layer {
             Self::Tcp(_) => "TCP",
             Self::Udp(_) => "UDP",
             Self::Icmp(_) => "ICMP",
+            Self::Dns(_) => "DNS",
         }
     }
 }
