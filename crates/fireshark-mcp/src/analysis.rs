@@ -6,6 +6,8 @@ use fireshark_dissectors::{DecodeError, decode_packet};
 use fireshark_file::{CaptureError, CaptureReader};
 use thiserror::Error;
 
+pub const DEFAULT_MAX_PACKETS: usize = 100_000;
+
 #[derive(Debug, Error)]
 pub enum AnalysisError {
     #[error(transparent)]
@@ -13,6 +15,9 @@ pub enum AnalysisError {
 
     #[error(transparent)]
     Decode(#[from] DecodePipelineError),
+
+    #[error("capture exceeds maximum packet count ({max_packets})")]
+    TooLarge { max_packets: usize },
 }
 
 type DecodePipelineError = PipelineError<CaptureError, DecodeError>;
@@ -26,10 +31,22 @@ pub struct AnalyzedCapture {
 
 impl AnalyzedCapture {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, AnalysisError> {
+        Self::open_with_limit(path, DEFAULT_MAX_PACKETS)
+    }
+
+    pub fn open_with_limit(
+        path: impl AsRef<Path>,
+        max_packets: usize,
+    ) -> Result<Self, AnalysisError> {
         let reader = CaptureReader::open(path)?;
-        let packets = Pipeline::new(reader, decode_packet)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(AnalysisError::from)?;
+        let mut packets = Vec::new();
+        for result in Pipeline::new(reader, decode_packet) {
+            let frame = result.map_err(AnalysisError::from)?;
+            packets.push(frame);
+            if packets.len() > max_packets {
+                return Err(AnalysisError::TooLarge { max_packets });
+            }
+        }
 
         Ok(Self::from_packets(packets))
     }

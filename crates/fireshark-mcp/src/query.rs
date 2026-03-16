@@ -1,6 +1,7 @@
 use fireshark_core::DecodedFrame;
 
 use crate::analysis::AnalyzedCapture;
+use crate::filter::matches_filter;
 use crate::model::{
     DecodeIssueEntryView, DecodeIssueView, EndpointCountView, LayerView, PacketDetailView,
     PacketSummaryView, ProtocolCountView, format_issue_kind,
@@ -46,6 +47,8 @@ pub fn get_packet(capture: &AnalyzedCapture, index: usize) -> Option<PacketDetai
 pub fn list_decode_issues(
     capture: &AnalyzedCapture,
     kind: Option<&str>,
+    offset: usize,
+    limit: usize,
 ) -> Vec<DecodeIssueEntryView> {
     capture
         .packets()
@@ -65,6 +68,8 @@ pub fn list_decode_issues(
                 }
             })
         })
+        .skip(offset)
+        .take(limit)
         .collect()
 }
 
@@ -111,8 +116,12 @@ pub fn top_endpoints(capture: &AnalyzedCapture, limit: usize) -> Vec<EndpointCou
 pub fn search_packets(
     capture: &AnalyzedCapture,
     search: &PacketSearch<'_>,
+    offset: usize,
+    limit: usize,
 ) -> Vec<PacketSummaryView> {
     filtered_packets(capture, search)
+        .skip(offset)
+        .take(limit)
         .map(|(index, packet)| PacketSummaryView::from_frame(index, packet))
         .collect()
 }
@@ -176,13 +185,6 @@ fn matches_search(packet: &DecodedFrame, search: &PacketSearch<'_>) -> bool {
     }
 
     true
-}
-
-fn matches_filter(value: &str, filter: Option<&str>) -> bool {
-    match filter {
-        Some(filter) => value.eq_ignore_ascii_case(filter),
-        None => true,
-    }
 }
 
 impl PacketSummaryView {

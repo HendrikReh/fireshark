@@ -1,8 +1,11 @@
 use std::path::Path;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::Arc;
+
+use tokio::sync::{Mutex, MutexGuard};
 
 use thiserror::Error;
 
+use crate::filter::matches_filter;
 use crate::model::{
     CaptureDescriptionView, CloseCaptureResponse, DecodeIssueEntryView, EndpointCountView,
     FindingView, OpenCaptureResponse, PacketDetailView, PacketSummaryView, ProtocolCountView,
@@ -28,9 +31,6 @@ pub enum ToolError {
         session_id: String,
         finding_id: String,
     },
-
-    #[error("session manager lock poisoned")]
-    LockPoisoned,
 }
 
 #[derive(Clone)]
@@ -53,12 +53,9 @@ impl ToolService {
         &self,
         path: impl AsRef<Path>,
     ) -> Result<OpenCaptureResponse, ToolError> {
-        let mut sessions = self.lock_sessions()?;
+        let mut sessions = self.lock_sessions().await;
         let session_id = sessions.open_path(path)?;
-        let session = sessions
-            .get_mut(&session_id)
-            .expect("newly opened session should exist");
-        session.touch();
+        let session = require_session(&mut sessions, &session_id)?;
         Ok(open_capture_response(session))
     }
 
@@ -66,7 +63,7 @@ impl ToolService {
         &self,
         session_id: &str,
     ) -> Result<CaptureDescriptionView, ToolError> {
-        let mut sessions = self.lock_sessions()?;
+        let mut sessions = self.lock_sessions().await;
         let session = require_session(&mut sessions, session_id)?;
 
         Ok(CaptureDescriptionView {
@@ -79,7 +76,7 @@ impl ToolService {
     }
 
     pub async fn close_capture(&self, session_id: &str) -> Result<CloseCaptureResponse, ToolError> {
-        let mut sessions = self.lock_sessions()?;
+        let mut sessions = self.lock_sessions().await;
         sessions.close(session_id)?;
 
         Ok(CloseCaptureResponse {
@@ -96,7 +93,7 @@ impl ToolService {
         protocol: Option<&str>,
         has_issues: Option<bool>,
     ) -> Result<Vec<PacketSummaryView>, ToolError> {
-        let mut sessions = self.lock_sessions()?;
+        let mut sessions = self.lock_sessions().await;
         let session = require_session(&mut sessions, session_id)?;
 
         Ok(list_packets(
@@ -113,7 +110,7 @@ impl ToolService {
         session_id: &str,
         index: usize,
     ) -> Result<PacketDetailView, ToolError> {
-        let mut sessions = self.lock_sessions()?;
+        let mut sessions = self.lock_sessions().await;
         let session = require_session(&mut sessions, session_id)?;
 
         get_packet(&session.capture, index).ok_or_else(|| ToolError::PacketNotFound {
@@ -126,18 +123,20 @@ impl ToolService {
         &self,
         session_id: &str,
         kind: Option<&str>,
+        offset: usize,
+        limit: usize,
     ) -> Result<Vec<DecodeIssueEntryView>, ToolError> {
-        let mut sessions = self.lock_sessions()?;
+        let mut sessions = self.lock_sessions().await;
         let session = require_session(&mut sessions, session_id)?;
 
-        Ok(list_decode_issues(&session.capture, kind))
+        Ok(list_decode_issues(&session.capture, kind, offset, limit))
     }
 
     pub async fn summarize_protocols(
         &self,
         session_id: &str,
     ) -> Result<Vec<ProtocolCountView>, ToolError> {
-        let mut sessions = self.lock_sessions()?;
+        let mut sessions = self.lock_sessions().await;
         let session = require_session(&mut sessions, session_id)?;
 
         Ok(summarize_protocols(&session.capture))
@@ -148,7 +147,7 @@ impl ToolService {
         session_id: &str,
         limit: usize,
     ) -> Result<Vec<EndpointCountView>, ToolError> {
-        let mut sessions = self.lock_sessions()?;
+        let mut sessions = self.lock_sessions().await;
         let session = require_session(&mut sessions, session_id)?;
 
         Ok(top_endpoints(&session.capture, limit))
@@ -158,15 +157,17 @@ impl ToolService {
         &self,
         session_id: &str,
         search: &PacketSearch<'_>,
+        offset: usize,
+        limit: usize,
     ) -> Result<Vec<PacketSummaryView>, ToolError> {
-        let mut sessions = self.lock_sessions()?;
+        let mut sessions = self.lock_sessions().await;
         let session = require_session(&mut sessions, session_id)?;
 
-        Ok(search_packets(&session.capture, search))
+        Ok(search_packets(&session.capture, search, offset, limit))
     }
 
     pub async fn audit_capture(&self, session_id: &str) -> Result<Vec<FindingView>, ToolError> {
-        let mut sessions = self.lock_sessions()?;
+        let mut sessions = self.lock_sessions().await;
         let session = require_session(&mut sessions, session_id)?;
 
         Ok(session.findings().to_vec())
@@ -178,7 +179,7 @@ impl ToolService {
         severity: Option<&str>,
         category: Option<&str>,
     ) -> Result<Vec<FindingView>, ToolError> {
-        let mut sessions = self.lock_sessions()?;
+        let mut sessions = self.lock_sessions().await;
         let session = require_session(&mut sessions, session_id)?;
 
         Ok(session
@@ -195,7 +196,7 @@ impl ToolService {
         session_id: &str,
         finding_id: &str,
     ) -> Result<FindingView, ToolError> {
-        let mut sessions = self.lock_sessions()?;
+        let mut sessions = self.lock_sessions().await;
         let session = require_session(&mut sessions, session_id)?;
 
         session
@@ -209,8 +210,8 @@ impl ToolService {
             })
     }
 
-    fn lock_sessions(&self) -> Result<MutexGuard<'_, SessionManager>, ToolError> {
-        self.sessions.lock().map_err(|_| ToolError::LockPoisoned)
+    async fn lock_sessions(&self) -> MutexGuard<'_, SessionManager> {
+        self.sessions.lock().await
     }
 }
 
@@ -241,11 +242,4 @@ fn decode_issue_count(capture: &crate::analysis::AnalyzedCapture) -> usize {
         .iter()
         .map(|packet| packet.packet().issues().len())
         .sum()
-}
-
-fn matches_filter(value: &str, filter: Option<&str>) -> bool {
-    match filter {
-        Some(filter) => value.eq_ignore_ascii_case(filter),
-        None => true,
-    }
 }

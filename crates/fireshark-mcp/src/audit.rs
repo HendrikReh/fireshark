@@ -8,6 +8,7 @@ use crate::model::{FindingEvidenceView, FindingView};
 const ISSUE_RATIO_THRESHOLD: f64 = 0.5;
 const UNKNOWN_RATIO_THRESHOLD: f64 = 0.5;
 const SCAN_FAN_OUT_THRESHOLD: usize = 5;
+const MAX_EVIDENCE_PACKETS: usize = 100;
 const SUSPICIOUS_PORTS: [u16; 5] = [23, 445, 2323, 3389, 5900];
 
 pub struct AuditEngine;
@@ -88,12 +89,14 @@ fn audit_scan_activity(capture: &AnalyzedCapture) -> Vec<FindingView> {
             continue;
         };
 
-        source_targets
+        let dest_indexes = source_targets
             .entry(source)
             .or_default()
             .entry(destination)
-            .or_default()
-            .push(index);
+            .or_default();
+        if dest_indexes.len() < MAX_EVIDENCE_PACKETS {
+            dest_indexes.push(index);
+        }
     }
 
     source_targets

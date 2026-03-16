@@ -127,7 +127,12 @@ impl FiresharkMcpServer {
         Parameters(request): Parameters<ListDecodeIssuesRequest>,
     ) -> McpResult<DecodeIssueListResponse> {
         self.tools
-            .list_decode_issues(&request.session_id, request.kind.as_deref())
+            .list_decode_issues(
+                &request.session_id,
+                request.kind.as_deref(),
+                request.offset.unwrap_or(0),
+                request.limit.unwrap_or(100),
+            )
             .await
             .map(|issues| Json(DecodeIssueListResponse { issues }))
             .map_err(tool_error)
@@ -172,7 +177,12 @@ impl FiresharkMcpServer {
         };
 
         self.tools
-            .search_packets(&request.session_id, &search)
+            .search_packets(
+                &request.session_id,
+                &search,
+                request.offset.unwrap_or(0),
+                request.limit.unwrap_or(100),
+            )
             .await
             .map(|packets| Json(PacketListResponse { packets }))
             .map_err(tool_error)
@@ -236,7 +246,6 @@ fn tool_error(error: ToolError) -> ErrorData {
         | error @ ToolError::Session(crate::session::SessionError::Analysis(_)) => {
             ErrorData::invalid_params(error.to_string(), None)
         }
-        error @ ToolError::LockPoisoned => ErrorData::internal_error(error.to_string(), None),
     }
 }
 
@@ -269,6 +278,8 @@ struct GetPacketRequest {
 struct ListDecodeIssuesRequest {
     session_id: String,
     kind: Option<String>,
+    offset: Option<usize>,
+    limit: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -280,6 +291,8 @@ struct TopEndpointsRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 struct SearchPacketsRequest {
     session_id: String,
+    offset: Option<usize>,
+    limit: Option<usize>,
     protocol: Option<String>,
     source: Option<String>,
     destination: Option<String>,
