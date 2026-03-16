@@ -1,0 +1,78 @@
+# fireshark-filter
+
+Wireshark-style display filter language for the fireshark packet analyzer.
+
+## Overview
+
+Parses and evaluates filter expressions against decoded packets. Hand-written lexer and recursive descent parser with no external parser dependencies.
+
+## Usage
+
+```rust
+use fireshark_filter::{parse, evaluate};
+
+let expr = parse("tcp and port 443")?;
+let matches = evaluate(&expr, &decoded_frame);
+```
+
+## Expression Language
+
+### Protocol presence
+
+```
+tcp
+udp
+arp
+not icmp
+```
+
+### Field comparisons
+
+```
+ip.ttl > 64
+tcp.port == 443
+ip.dst == 10.0.0.0/8
+tcp.flags.syn == true
+```
+
+### Shorthands
+
+```
+port 443          # TCP or UDP, either direction
+src 192.168.1.2   # source address
+dst 10.0.0.0/8    # destination with CIDR
+host 192.168.1.1  # source or destination
+```
+
+### Boolean operators
+
+```
+tcp and port 443
+tcp or udp
+not arp
+(tcp or udp) and port 53
+```
+
+## Supported Fields
+
+| Category | Fields |
+|----------|--------|
+| Frame | `frame.len`, `frame.cap_len` |
+| IPv4 | `ip.src`, `ip.dst`, `ip.ttl`, `ip.id`, `ip.proto`, `ip.dscp`, `ip.ecn`, `ip.checksum`, `ip.flags.df`, `ip.flags.mf`, `ip.frag_offset` |
+| IPv6 | `ip.src`, `ip.dst` (dual-stack), `ipv6.hlim`, `ipv6.flow`, `ipv6.tc`, `ipv6.nxt` |
+| TCP | `tcp.srcport`, `tcp.dstport`, `tcp.port`, `tcp.seq`, `tcp.ack`, `tcp.window`, `tcp.hdr_len`, `tcp.flags.{syn,ack,fin,rst,psh,urg,ece,cwr}` |
+| UDP | `udp.srcport`, `udp.dstport`, `udp.port`, `udp.length` |
+| ICMP | `icmp.type`, `icmp.code` |
+| ARP | `arp.opcode`, `arp.spa`, `arp.tpa` |
+| Ethernet | `eth.type` |
+
+## Architecture
+
+```
+input string -> lexer -> tokens -> parser -> AST -> evaluator(packet) -> bool
+```
+
+- `ast.rs` — expression tree types
+- `lexer.rs` — tokenizer with IPv4/IPv6/CIDR disambiguation
+- `parser.rs` — recursive descent with correct operator precedence
+- `evaluate.rs` — field resolution and comparison logic
