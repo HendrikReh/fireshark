@@ -55,7 +55,13 @@ impl ToolService {
     ) -> Result<OpenCaptureResponse, ToolError> {
         let mut sessions = self.lock_sessions().await;
         let session_id = sessions.open_path(path)?;
-        let session = require_session(&mut sessions, &session_id)?;
+        // open_path already called expire_idle and inserted the session, so
+        // fetch it directly without re-expiring (which could drop it under
+        // very short idle timeouts).
+        let session = sessions
+            .get_mut(&session_id)
+            .ok_or_else(|| SessionError::NotFound(session_id.clone()))?;
+        session.touch();
         Ok(open_capture_response(session))
     }
 
