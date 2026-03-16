@@ -1,4 +1,16 @@
-use colored::{ColoredString, Colorize};
+use colored::{Color, ColoredString, Colorize};
+
+/// Return the ANSI color for a protocol name.
+pub fn protocol_color(protocol: &str) -> Color {
+    match protocol.to_ascii_uppercase().as_str() {
+        "TCP" => Color::Green,
+        "UDP" => Color::Blue,
+        "ARP" => Color::Yellow,
+        "ICMP" => Color::Cyan,
+        "ETHERNET" | "IPV4" | "IPV6" => Color::White,
+        _ => Color::Red,
+    }
+}
 
 /// Colorize an entire summary line based on the protocol name.
 ///
@@ -7,17 +19,10 @@ use colored::{ColoredString, Colorize};
 /// - UDP → blue
 /// - ARP → yellow
 /// - ICMP → cyan
-/// - IPv4/IPv6 → white
+/// - Ethernet/IPv4/IPv6 → white
 /// - Unknown/other → red
 pub fn colorize(protocol: &str, line: &str) -> ColoredString {
-    match protocol.to_ascii_uppercase().as_str() {
-        "TCP" => line.green(),
-        "UDP" => line.blue(),
-        "ARP" => line.yellow(),
-        "ICMP" => line.cyan(),
-        "IPV4" | "IPV6" => line.white(),
-        _ => line.red(),
-    }
+    line.color(protocol_color(protocol))
 }
 
 #[cfg(test)]
@@ -67,5 +72,19 @@ mod tests {
         let lower = colorize("tcp", "line");
         let upper = colorize("TCP", "line");
         assert_eq!(lower, upper);
+    }
+
+    #[test]
+    fn ethernet_is_white() {
+        let cs = colorize("Ethernet", "test");
+        assert_eq!(cs.fgcolor, Some(Color::White));
+    }
+
+    #[test]
+    fn protocol_color_returns_correct_colors() {
+        assert_eq!(protocol_color("TCP"), Color::Green);
+        assert_eq!(protocol_color("UDP"), Color::Blue);
+        assert_eq!(protocol_color("Ethernet"), Color::White);
+        assert_eq!(protocol_color("Unknown"), Color::Red);
     }
 }
