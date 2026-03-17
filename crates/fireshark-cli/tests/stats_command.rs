@@ -13,7 +13,8 @@ fn stats_command_shows_protocol_distribution() {
         .success()
         .stdout(contains("Capture Statistics"))
         .stdout(contains("Protocol Distribution"))
-        .stdout(contains("Packets:"));
+        .stdout(contains("Packets:"))
+        .stdout(contains("Streams:"));
 }
 
 #[test]

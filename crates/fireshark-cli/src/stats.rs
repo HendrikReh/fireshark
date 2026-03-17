@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::time::Duration;
 
-use fireshark_core::Pipeline;
+use fireshark_core::TrackingPipeline;
 use fireshark_dissectors::decode_packet;
 use fireshark_file::CaptureReader;
 
@@ -19,7 +19,9 @@ pub fn run(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     let mut protocol_counts: BTreeMap<String, usize> = BTreeMap::new();
     let mut endpoint_counts: BTreeMap<String, usize> = BTreeMap::new();
 
-    for result in Pipeline::new(reader, decode_packet) {
+    let mut pipeline = TrackingPipeline::new(reader, decode_packet);
+
+    for result in pipeline.by_ref() {
         let decoded = match result {
             Ok(d) => d,
             Err(e) => {
@@ -51,10 +53,13 @@ pub fn run(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    let tracker = pipeline.into_tracker();
+
     println!("Capture Statistics");
     println!("{}", "\u{2500}".repeat(38));
 
     println!("Packets:    {packet_count}");
+    println!("Streams:    {}", tracker.stream_count());
 
     match (first_ts, last_ts) {
         (Some(first), Some(last)) => {

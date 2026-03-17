@@ -1,6 +1,7 @@
 mod audit;
 mod color;
 mod detail;
+mod follow;
 mod hexdump;
 mod issues;
 mod stats;
@@ -39,6 +40,11 @@ enum Command {
     Audit {
         path: PathBuf,
     },
+    Follow {
+        path: PathBuf,
+        #[arg(help = "Stream ID")]
+        stream: u32,
+    },
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -50,6 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::Stats { path } => stats::run(&path)?,
         Command::Issues { path } => issues::run(&path)?,
         Command::Audit { path } => audit::run(&path)?,
+        Command::Follow { path, stream } => follow::run(&path, stream)?,
     }
 
     Ok(())
