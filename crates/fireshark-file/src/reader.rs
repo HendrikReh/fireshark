@@ -79,6 +79,9 @@ impl Iterator for CaptureReader {
                             .data(packet.data.into_owned())
                             .protocol("UNKNOWN")
                             .build()
+                            // Safety: captured_len == data.len() by construction and
+                            // original_len >= captured_len via .max() above.
+                            .expect("pcap reader builds consistent frames")
                     })
                     .map_err(CaptureError::from)
             }),
@@ -94,7 +97,10 @@ impl Iterator for CaptureReader {
                             .timestamp(packet.timestamp)
                             .data(packet.data.into_owned())
                             .protocol("UNKNOWN")
-                            .build()));
+                            .build()
+                            // Safety: captured_len == data.len() by construction and
+                            // original_len >= captured_len via .max() above.
+                            .expect("pcapng reader builds consistent frames")));
                     }
                     Ok(Block::SimplePacket(packet)) => {
                         let captured_len = packet.data.len();
@@ -104,7 +110,10 @@ impl Iterator for CaptureReader {
                             .original_len(original_len)
                             .data(packet.data.into_owned())
                             .protocol("UNKNOWN")
-                            .build()));
+                            .build()
+                            // Safety: captured_len == data.len() by construction and
+                            // original_len >= captured_len via .max() above.
+                            .expect("pcapng reader builds consistent frames")));
                     }
                     Ok(_) => continue,
                     Err(error) => return Some(Err(CaptureError::from(error))),
@@ -152,14 +161,12 @@ fn validate_pcapng_linktypes(reader: &mut PcapNgReader<File>) -> Result<(), Capt
                     .copied()
                     .ok_or(PcapError::InvalidInterfaceId(packet.interface_id))?;
                 validate_linktype(datalink)?;
-                break;
             }
             Block::SimplePacket(_) => {
                 let datalink = interfaces.first().copied().ok_or(PcapError::InvalidField(
                     "SimplePacketBlock: missing interface description",
                 ))?;
                 validate_linktype(datalink)?;
-                break;
             }
             _ => {}
         }
