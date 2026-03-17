@@ -5,7 +5,11 @@
 [![Tests](https://img.shields.io/badge/tests-351%20passing-brightgreen)]()
 [![Status](https://img.shields.io/badge/phase-crawl-blue)]()
 
-Wireshark-inspired packet analyzer written in Rust. Library-first, built in deliberate phases instead of as a "boil the ocean" clone.
+Packet analyzer built for LLMs and humans. Rust-native protocol dissection with an MCP server that lets an AI assistant perform security audits, and a color-coded CLI for direct analysis.
+
+## Elevator Pitch
+
+Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wireshark — packet queries, protocol decoding, display filters, stream tracking, and security audit heuristics — through structured MCP tool calls. For humans, it's a fast, color-coded CLI that decodes 10 protocols, follows TCP/UDP conversations, and runs 7 automated security checks. An optional tshark backend extends coverage to every protocol Wireshark supports. Everything is library-first: one Rust workspace, 8 crates, 351 tests, zero unsafe code.
 
 ## Features
 
