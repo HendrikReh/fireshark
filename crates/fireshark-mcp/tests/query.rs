@@ -145,6 +145,7 @@ fn frame() -> Frame {
         .protocol("UNKNOWN")
         .data(vec![0; 64])
         .build()
+        .unwrap()
 }
 
 fn ethernet_layer() -> Layer {

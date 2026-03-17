@@ -1,10 +1,14 @@
 use std::time::Duration;
 
-use fireshark_core::{Frame, PacketSummary};
+use fireshark_core::{Frame, FrameBuildError, PacketSummary};
 
 #[test]
 fn summary_includes_protocol_and_length() {
-    let frame = Frame::builder().captured_len(60).protocol("TCP").build();
+    let frame = Frame::builder()
+        .captured_len(60)
+        .protocol("TCP")
+        .build()
+        .unwrap();
     let summary = PacketSummary::from(&frame);
 
     assert_eq!(summary.protocol, "TCP");
@@ -19,7 +23,8 @@ fn frame_carries_timestamp_and_original_len() {
         .original_len(64)
         .timestamp(Duration::from_secs(1_700_000_000))
         .protocol("TCP")
-        .build();
+        .build()
+        .unwrap();
 
     assert_eq!(frame.timestamp(), Some(Duration::from_secs(1_700_000_000)));
     assert_eq!(frame.original_len(), 64);
@@ -28,28 +33,48 @@ fn frame_carries_timestamp_and_original_len() {
 
 #[test]
 fn original_len_defaults_to_captured_len() {
-    let frame = Frame::builder().captured_len(54).protocol("TCP").build();
+    let frame = Frame::builder()
+        .captured_len(54)
+        .protocol("TCP")
+        .build()
+        .unwrap();
 
     assert_eq!(frame.original_len(), 54);
     assert!(frame.timestamp().is_none());
 }
 
 #[test]
-#[should_panic(expected = "captured_len must match data length")]
 fn frame_builder_rejects_mismatched_captured_len() {
-    let _ = Frame::builder()
+    let err = Frame::builder()
         .captured_len(64)
         .data(vec![0_u8; 60])
         .protocol("TCP")
-        .build();
+        .build()
+        .unwrap_err();
+
+    assert!(matches!(
+        err,
+        FrameBuildError::CapturedLenMismatch {
+            captured_len: 64,
+            data_len: 60,
+        }
+    ));
 }
 
 #[test]
-#[should_panic(expected = "original_len must be >= captured_len")]
 fn frame_builder_rejects_original_len_less_than_captured_len() {
-    let _ = Frame::builder()
+    let err = Frame::builder()
         .captured_len(60)
         .original_len(40)
         .protocol("TCP")
-        .build();
+        .build()
+        .unwrap_err();
+
+    assert!(matches!(
+        err,
+        FrameBuildError::OriginalLenTooSmall {
+            original_len: 40,
+            captured_len: 60,
+        }
+    ));
 }

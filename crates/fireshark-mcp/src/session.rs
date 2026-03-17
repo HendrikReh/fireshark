@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use thiserror::Error;
@@ -25,7 +26,7 @@ pub enum SessionError {
 #[derive(Debug, Clone)]
 pub struct CaptureSession {
     pub id: String,
-    pub capture: AnalyzedCapture,
+    capture: Arc<AnalyzedCapture>,
     pub last_accessed: Instant,
     findings: Option<Vec<FindingView>>,
 }
@@ -34,7 +35,7 @@ impl CaptureSession {
     fn new(id: String, capture: AnalyzedCapture) -> Self {
         Self {
             id,
-            capture,
+            capture: Arc::new(capture),
             last_accessed: Instant::now(),
             findings: None,
         }
@@ -42,6 +43,17 @@ impl CaptureSession {
 
     pub fn touch(&mut self) {
         self.last_accessed = Instant::now();
+    }
+
+    /// Borrow the capture through the `Arc`.
+    pub fn capture(&self) -> &AnalyzedCapture {
+        &self.capture
+    }
+
+    /// Clone the `Arc` so the caller can work with the capture after releasing
+    /// any lock that guards this session.
+    pub fn capture_arc(&self) -> Arc<AnalyzedCapture> {
+        Arc::clone(&self.capture)
     }
 
     pub fn findings(&mut self) -> &[FindingView] {
@@ -73,6 +85,10 @@ impl SessionManager {
         }
     }
 
+    /// Open a capture file, parse it, and insert the session in one step.
+    ///
+    /// This is the original all-in-one helper kept for convenience in tests and
+    /// simple call-sites that do not need to release the lock during I/O.
     pub fn open_path(&mut self, path: impl AsRef<Path>) -> Result<String, SessionError> {
         self.expire_idle();
 
@@ -90,6 +106,31 @@ impl SessionManager {
         self.sessions.insert(id.clone(), session);
 
         Ok(id)
+    }
+
+    /// Check whether there is room for another session without performing any
+    /// I/O. Returns `Ok(())` when the limit has not been reached.
+    pub fn check_limit(&self) -> Result<(), SessionError> {
+        if self.sessions.len() >= self.max_sessions {
+            return Err(SessionError::LimitReached {
+                max_sessions: self.max_sessions,
+            });
+        }
+        Ok(())
+    }
+
+    /// Insert a pre-built `AnalyzedCapture` into the manager and return the
+    /// new session id. The caller is responsible for having called
+    /// [`check_limit`] before performing the expensive I/O that produced
+    /// `capture`.
+    pub fn insert(&mut self, capture: AnalyzedCapture) -> String {
+        let id = format!("session-{}", self.next_id);
+        self.next_id += 1;
+
+        let session = CaptureSession::new(id.clone(), capture);
+        self.sessions.insert(id.clone(), session);
+
+        id
     }
 
     pub fn get(&self, id: &str) -> Option<&CaptureSession> {

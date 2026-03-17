@@ -6,7 +6,7 @@ use fireshark_file::CaptureReader;
 
 /// Helper: build a frame from raw bytes.
 fn frame_from_bytes(bytes: &[u8]) -> Frame {
-    Frame::builder().data(bytes.to_vec()).build()
+    Frame::builder().data(bytes.to_vec()).build().unwrap()
 }
 
 #[test]
@@ -36,7 +36,8 @@ fn pipeline_propagates_decode_errors() {
     let frame = Frame::builder()
         .data(vec![0u8; 14])
         .protocol("test")
-        .build();
+        .build()
+        .unwrap();
     let frames: Vec<Result<Frame, &str>> = vec![Ok(frame)];
     let pipeline = Pipeline::new(frames.into_iter(), |_: &[u8]| -> Result<Packet, &str> {
         Err("decode failed")

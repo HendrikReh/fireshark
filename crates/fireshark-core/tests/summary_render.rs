@@ -49,7 +49,8 @@ fn summary_renders_endpoints_for_tcp_packets() {
         .captured_len(60)
         .timestamp(Duration::from_secs(1_700_000_000))
         .protocol("TCP")
-        .build();
+        .build()
+        .unwrap();
 
     let summary = PacketSummary::from_packet(&packet, &frame);
 
@@ -70,7 +71,11 @@ fn summary_renders_arp_endpoints() {
         })],
         vec![],
     );
-    let frame = Frame::builder().captured_len(42).protocol("ARP").build();
+    let frame = Frame::builder()
+        .captured_len(42)
+        .protocol("ARP")
+        .build()
+        .unwrap();
     let summary = PacketSummary::from_packet(&packet, &frame);
 
     assert_eq!(summary.source, "192.168.1.1");
@@ -91,7 +96,11 @@ fn summary_brackets_ipv6_without_ports() {
         })],
         vec![],
     );
-    let frame = Frame::builder().captured_len(54).protocol("IPv6").build();
+    let frame = Frame::builder()
+        .captured_len(54)
+        .protocol("IPv6")
+        .build()
+        .unwrap();
     let summary = PacketSummary::from_packet(&packet, &frame);
 
     assert_eq!(summary.source, "[2001:db8::1]");
@@ -118,7 +127,11 @@ fn summary_brackets_ipv6_with_udp_ports() {
         ],
         vec![],
     );
-    let frame = Frame::builder().captured_len(62).protocol("UDP").build();
+    let frame = Frame::builder()
+        .captured_len(62)
+        .protocol("UDP")
+        .build()
+        .unwrap();
     let summary = PacketSummary::from_packet(&packet, &frame);
 
     assert_eq!(summary.source, "[2001:db8::1]:5353");

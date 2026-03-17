@@ -416,7 +416,7 @@ mod tests {
     /// Helper: build a DecodedFrame from raw ethernet bytes.
     fn decoded_from_bytes(bytes: &[u8]) -> DecodedFrame {
         let packet = decode_packet(bytes).unwrap();
-        let frame = Frame::builder().data(bytes.to_vec()).build();
+        let frame = Frame::builder().data(bytes.to_vec()).build().unwrap();
         DecodedFrame::new(frame, packet)
     }
 
@@ -811,7 +811,7 @@ mod tests {
     /// Helper: build a DecodedFrame from raw ethernet bytes with a stream ID.
     fn decoded_from_bytes_with_stream(bytes: &[u8], stream_id: Option<u32>) -> DecodedFrame {
         let packet = decode_packet(bytes).unwrap();
-        let frame = Frame::builder().data(bytes.to_vec()).build();
+        let frame = Frame::builder().data(bytes.to_vec()).build().unwrap();
         DecodedFrame::new(frame, packet).with_stream_id(stream_id)
     }
 

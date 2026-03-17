@@ -1,4 +1,4 @@
-use fireshark_core::{DecodeIssue, DecodeIssueKind, DnsAnswerData, Layer};
+use fireshark_core::{DecodeIssue, DecodeIssueKind, DnsAnswerData, Layer, format_mac};
 use fireshark_dissectors::tls;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -491,11 +491,4 @@ pub fn format_issue_kind(kind: &DecodeIssueKind) -> String {
         DecodeIssueKind::Malformed => "malformed",
     }
     .to_string()
-}
-
-fn format_mac(bytes: [u8; 6]) -> String {
-    format!(
-        "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5]
-    )
 }

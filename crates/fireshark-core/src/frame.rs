@@ -2,6 +2,21 @@
 
 use std::time::Duration;
 
+/// Error returned when `FrameBuilder::build()` detects invalid field combinations.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum FrameBuildError {
+    #[error("captured_len ({captured_len}) does not match data length ({data_len})")]
+    CapturedLenMismatch {
+        captured_len: usize,
+        data_len: usize,
+    },
+    #[error("original_len ({original_len}) must be >= captured_len ({captured_len})")]
+    OriginalLenTooSmall {
+        original_len: usize,
+        captured_len: usize,
+    },
+}
+
 /// A single captured frame with its wire metadata and raw bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Frame {
@@ -92,26 +107,33 @@ impl FrameBuilder {
     }
 
     /// Consume the builder and produce a [`Frame`].
-    pub fn build(self) -> Frame {
-        assert!(
-            self.data.is_empty()
-                || self
-                    .captured_len
-                    .is_none_or(|captured_len| captured_len == self.data.len()),
-            "captured_len must match data length"
-        );
+    ///
+    /// Returns an error if `captured_len` was set explicitly and does not match
+    /// the data length, or if `original_len` is less than `captured_len`.
+    pub fn build(self) -> Result<Frame, FrameBuildError> {
+        if !self.data.is_empty()
+            && let Some(captured_len) = self.captured_len
+            && captured_len != self.data.len()
+        {
+            return Err(FrameBuildError::CapturedLenMismatch {
+                captured_len,
+                data_len: self.data.len(),
+            });
+        }
         let captured_len = self.captured_len.unwrap_or(self.data.len());
         let original_len = self.original_len.unwrap_or(captured_len);
-        assert!(
-            original_len >= captured_len,
-            "original_len must be >= captured_len"
-        );
-        Frame {
+        if original_len < captured_len {
+            return Err(FrameBuildError::OriginalLenTooSmall {
+                original_len,
+                captured_len,
+            });
+        }
+        Ok(Frame {
             captured_len,
             original_len,
             timestamp: self.timestamp,
             protocol: self.protocol,
             data: self.data,
-        }
+        })
     }
 }

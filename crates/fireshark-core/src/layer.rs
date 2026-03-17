@@ -152,6 +152,14 @@ pub enum Layer {
     TlsServerHello(TlsServerHelloLayer),
 }
 
+/// Format a 6-byte MAC address as colon-separated hex.
+pub fn format_mac(bytes: [u8; 6]) -> String {
+    format!(
+        "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5]
+    )
+}
+
 impl Layer {
     pub fn name(&self) -> &'static str {
         match self {

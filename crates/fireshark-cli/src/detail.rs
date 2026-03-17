@@ -7,7 +7,7 @@ use colored::Colorize;
 use fireshark_core::{
     ArpLayer, DecodedFrame, DnsAnswerData, DnsLayer, EthernetLayer, IcmpDetail, IcmpLayer,
     Ipv4Layer, Ipv6Layer, Layer, LayerSpan, Pipeline, TcpLayer, TlsClientHelloLayer,
-    TlsServerHelloLayer, UdpLayer,
+    TlsServerHelloLayer, UdpLayer, format_mac,
 };
 use fireshark_dissectors::decode_packet;
 use fireshark_file::CaptureReader;
@@ -455,13 +455,6 @@ fn dns_qtype_name(qtype: u16) -> &'static str {
         28 => "AAAA",
         _ => "Unknown",
     }
-}
-
-fn format_mac(bytes: [u8; 6]) -> String {
-    format!(
-        "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5]
-    )
 }
 
 fn ether_type_name(ether_type: u16) -> &'static str {

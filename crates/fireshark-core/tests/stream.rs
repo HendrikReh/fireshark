@@ -9,14 +9,18 @@ use fireshark_dissectors::decode_packet;
 /// Helper: build a DecodedFrame from raw ethernet bytes.
 fn decoded_from_bytes(bytes: &[u8]) -> DecodedFrame {
     let packet = decode_packet(bytes).unwrap();
-    let frame = Frame::builder().data(bytes.to_vec()).build();
+    let frame = Frame::builder().data(bytes.to_vec()).build().unwrap();
     DecodedFrame::new(frame, packet)
 }
 
 /// Helper: build a DecodedFrame from raw bytes with a timestamp.
 fn decoded_from_bytes_ts(bytes: &[u8], ts: Duration) -> DecodedFrame {
     let packet = decode_packet(bytes).unwrap();
-    let frame = Frame::builder().data(bytes.to_vec()).timestamp(ts).build();
+    let frame = Frame::builder()
+        .data(bytes.to_vec())
+        .timestamp(ts)
+        .build()
+        .unwrap();
     DecodedFrame::new(frame, packet)
 }
 
@@ -100,7 +104,8 @@ fn stream_byte_count_uses_captured_len_not_original_len() {
     let frame = Frame::builder()
         .data(tcp_bytes.clone())
         .original_len(tcp_bytes.len() + 100)
-        .build();
+        .build()
+        .unwrap();
     let decoded = DecodedFrame::new(frame, packet);
 
     let mut tracker = StreamTracker::new();
@@ -167,7 +172,11 @@ fn tcp_decoded_with_flags(flags: TcpFlags) -> DecodedFrame {
         ],
         Vec::new(),
     );
-    let frame = Frame::builder().captured_len(64).data(vec![0; 64]).build();
+    let frame = Frame::builder()
+        .captured_len(64)
+        .data(vec![0; 64])
+        .build()
+        .unwrap();
     DecodedFrame::new(frame, packet)
 }
 
