@@ -140,6 +140,34 @@ fn resolve_field(field: &str, decoded: &DecodedFrame) -> Option<FieldValue> {
     match field {
         "frame.len" => Some(FieldValue::Integer(decoded.frame().original_len() as u64)),
         "frame.cap_len" => Some(FieldValue::Integer(decoded.frame().captured_len() as u64)),
+        "tcp.stream" => {
+            if decoded
+                .packet()
+                .layers()
+                .iter()
+                .any(|l| matches!(l, Layer::Tcp(_)))
+            {
+                decoded
+                    .stream_id()
+                    .map(|id| FieldValue::Integer(u64::from(id)))
+            } else {
+                None
+            }
+        }
+        "udp.stream" => {
+            if decoded
+                .packet()
+                .layers()
+                .iter()
+                .any(|l| matches!(l, Layer::Udp(_)))
+            {
+                decoded
+                    .stream_id()
+                    .map(|id| FieldValue::Integer(u64::from(id)))
+            } else {
+                None
+            }
+        }
         _ => resolve_layer_field(field, decoded),
     }
 }
@@ -776,5 +804,59 @@ mod tests {
         // ipv6.hlim should be resolvable
         let field = resolve_field("ipv6.hlim", &decoded);
         assert!(field.is_some());
+    }
+
+    // --- Stream filter fields ---
+
+    /// Helper: build a DecodedFrame from raw ethernet bytes with a stream ID.
+    fn decoded_from_bytes_with_stream(bytes: &[u8], stream_id: Option<u32>) -> DecodedFrame {
+        let packet = decode_packet(bytes).unwrap();
+        let frame = Frame::builder().data(bytes.to_vec()).build();
+        DecodedFrame::new(frame, packet).with_stream_id(stream_id)
+    }
+
+    #[test]
+    fn tcp_stream_field_returns_some_for_tcp_packet() {
+        let decoded = decoded_from_bytes_with_stream(
+            include_bytes!("../../../fixtures/bytes/ethernet_ipv4_tcp.bin"),
+            Some(5),
+        );
+        assert!(run_filter("tcp.stream == 5", &decoded));
+    }
+
+    #[test]
+    fn tcp_stream_field_returns_none_for_udp_packet() {
+        let decoded = decoded_from_bytes_with_stream(
+            include_bytes!("../../../fixtures/bytes/ethernet_ipv4_udp.bin"),
+            Some(3),
+        );
+        assert!(!run_filter("tcp.stream == 3", &decoded));
+    }
+
+    #[test]
+    fn udp_stream_field_returns_some_for_udp_packet() {
+        let decoded = decoded_from_bytes_with_stream(
+            include_bytes!("../../../fixtures/bytes/ethernet_ipv4_udp.bin"),
+            Some(3),
+        );
+        assert!(run_filter("udp.stream == 3", &decoded));
+    }
+
+    #[test]
+    fn tcp_stream_bare_field_check() {
+        let decoded = decoded_from_bytes_with_stream(
+            include_bytes!("../../../fixtures/bytes/ethernet_ipv4_tcp.bin"),
+            Some(0),
+        );
+        assert!(run_filter("tcp.stream", &decoded));
+    }
+
+    #[test]
+    fn tcp_stream_without_tracking_returns_none() {
+        let decoded = decoded_from_bytes_with_stream(
+            include_bytes!("../../../fixtures/bytes/ethernet_ipv4_tcp.bin"),
+            None,
+        );
+        assert!(!run_filter("tcp.stream == 0", &decoded));
     }
 }
