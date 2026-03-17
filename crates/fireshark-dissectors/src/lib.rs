@@ -245,7 +245,7 @@ fn append_network_layer(
                             issues,
                         );
                     } else if is_tcp
-                        && app_payload.len() >= 6
+                        && app_payload.len() >= 9
                         && app_payload[0] == 0x16
                         && app_payload[1] == 0x03
                         && app_payload[2] <= 0x03

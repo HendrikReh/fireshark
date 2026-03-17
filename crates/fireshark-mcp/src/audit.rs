@@ -370,10 +370,8 @@ fn audit_connection_anomalies(capture: &AnalyzedCapture) -> Vec<FindingView> {
         let endpoint_a = format!("{}:{}", meta.key.addr_lo, meta.key.port_lo);
         let endpoint_b = format!("{}:{}", meta.key.addr_hi, meta.key.port_hi);
 
-        // Incomplete handshake: SYN seen but never a SYN+ACK in the same packet.
-        if meta.tcp_flags_seen & SYN_FLAG != 0
-            && meta.tcp_flags_seen & SYN_ACK_FLAGS != SYN_ACK_FLAGS
-        {
+        // Incomplete handshake: SYN seen but no SYN+ACK packet observed.
+        if meta.tcp_flags_seen & SYN_FLAG != 0 && !meta.syn_ack_seen {
             let packet_indexes = stream_evidence_indexes(capture, id);
             findings.push(FindingView {
                 id: format!("incomplete-handshake-{id}"),

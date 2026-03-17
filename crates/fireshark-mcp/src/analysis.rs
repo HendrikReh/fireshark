@@ -43,7 +43,11 @@ impl AnalyzedCapture {
         let mut packets = Vec::new();
         let mut pipeline = TrackingPipeline::new(reader, decode_packet);
         for result in &mut pipeline {
-            let frame = result.map_err(AnalysisError::from)?;
+            let frame = match result {
+                Ok(f) => f,
+                Err(PipelineError::Decode(_)) => continue,
+                Err(PipelineError::Frame(e)) => return Err(AnalysisError::Capture(e)),
+            };
             packets.push(frame);
             if packets.len() > max_packets {
                 return Err(AnalysisError::TooLarge { max_packets });

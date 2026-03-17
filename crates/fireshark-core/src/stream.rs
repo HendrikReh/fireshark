@@ -71,6 +71,8 @@ pub struct StreamMetadata {
     pub last_seen: Option<Duration>,
     /// Bitwise OR of all TCP flag bytes seen in this stream.
     pub tcp_flags_seen: u8,
+    /// Whether a SYN+ACK packet was observed in this stream.
+    pub syn_ack_seen: bool,
     /// Count of packets with RST flag set.
     pub rst_count: u16,
 }
@@ -117,6 +119,7 @@ impl StreamTracker {
                 first_seen: None,
                 last_seen: None,
                 tcp_flags_seen: 0,
+                syn_ack_seen: false,
                 rst_count: 0,
             });
             id
@@ -146,6 +149,9 @@ impl StreamTracker {
                 | ((tcp.flags.ece as u8) << 6)
                 | ((tcp.flags.cwr as u8) << 7);
             meta.tcp_flags_seen |= flags_byte;
+            if tcp.flags.syn && tcp.flags.ack {
+                meta.syn_ack_seen = true;
+            }
             if tcp.flags.rst {
                 meta.rst_count = meta.rst_count.saturating_add(1);
             }

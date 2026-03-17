@@ -96,10 +96,11 @@ fn tls_truncated_record() {
 
     let packet = decode_packet(&frame).unwrap();
 
-    // Should have Ethernet + IPv4 + TCP but TLS truncated -> issue
+    // Should have Ethernet + IPv4 + TCP; the heuristic now requires >= 9 bytes
+    // (matching MIN_RECORD_LEN) so TLS dispatch is skipped entirely — no issue recorded.
     assert!(packet.layer_names().contains(&"TCP"));
     assert!(!packet.layer_names().contains(&"TLS"));
-    assert!(!packet.issues().is_empty());
+    assert!(packet.issues().is_empty());
 }
 
 #[test]

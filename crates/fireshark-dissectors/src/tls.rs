@@ -66,6 +66,10 @@ fn parse_client_hello(bytes: &[u8], record_version: u16) -> TlsClientHelloLayer 
     let session_id_len = bytes[43] as usize;
     let mut pos = 44 + session_id_len;
 
+    if pos > bytes.len() {
+        return layer;
+    }
+
     // Cipher suites: 2-byte length, then 2-byte entries
     if pos + 2 > bytes.len() {
         return layer;
@@ -136,6 +140,10 @@ fn parse_server_hello(bytes: &[u8], record_version: u16) -> TlsServerHelloLayer 
     }
     let session_id_len = bytes[43] as usize;
     let mut pos = 44 + session_id_len;
+
+    if pos > bytes.len() {
+        return layer;
+    }
 
     // Cipher suite: single 2-byte value
     if pos + 2 > bytes.len() {

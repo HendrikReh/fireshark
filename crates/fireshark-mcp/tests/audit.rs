@@ -166,6 +166,7 @@ fn frame() -> Frame {
         .protocol("UNKNOWN")
         .data(vec![0; 64])
         .build()
+        .unwrap()
 }
 
 fn ethernet_layer() -> Layer {
@@ -581,4 +582,56 @@ fn audit_does_not_flag_normal_tcp_connection() {
             .filter(|f| f.category == "connection_anomaly")
             .collect::<Vec<_>>()
     );
+}
+
+#[test]
+fn audit_incomplete_handshake_with_separate_ack_data() {
+    // SYN packet followed by ACK-only data packets (no SYN+ACK).
+    // The old bitmask logic missed this because SYN | ACK == SYN_ACK_FLAGS
+    // even though no single packet carried both SYN and ACK.
+    let packets = vec![
+        tcp_packet_with_flags(
+            "10.0.0.1",
+            "10.0.0.2",
+            50000,
+            80,
+            TcpFlags {
+                syn: true,
+                ..default_flags()
+            },
+        ),
+        tcp_packet_with_flags(
+            "10.0.0.1",
+            "10.0.0.2",
+            50000,
+            80,
+            TcpFlags {
+                ack: true,
+                ..default_flags()
+            },
+        ),
+        tcp_packet_with_flags(
+            "10.0.0.1",
+            "10.0.0.2",
+            50000,
+            80,
+            TcpFlags {
+                ack: true,
+                psh: true,
+                ..default_flags()
+            },
+        ),
+    ];
+
+    let capture = tracked_capture(packets);
+    let findings = AuditEngine::audit(&capture);
+
+    let finding = findings
+        .iter()
+        .find(|f| f.category == "connection_anomaly" && f.id.starts_with("incomplete-handshake"))
+        .expect(
+            "incomplete handshake finding should fire when SYN+ACK never seen in single packet",
+        );
+    assert_eq!(finding.severity, "medium");
+    assert!(finding.title.contains("Incomplete TCP handshake"));
 }
