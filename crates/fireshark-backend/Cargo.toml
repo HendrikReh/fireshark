@@ -1,0 +1,11 @@
+[package]
+name = "fireshark-backend"
+version = "0.5.1"
+edition = "2024"
+license = "Apache-2.0"
+
+[dependencies]
+fireshark-core = { path = "../fireshark-core" }
+fireshark-dissectors = { path = "../fireshark-dissectors" }
+fireshark-file = { path = "../fireshark-file" }
+thiserror = "2.0.17"

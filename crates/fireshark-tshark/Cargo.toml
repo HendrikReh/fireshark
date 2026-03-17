@@ -1,0 +1,9 @@
+[package]
+name = "fireshark-tshark"
+version = "0.5.1"
+edition = "2024"
+license = "Apache-2.0"
+
+[dependencies]
+fireshark-backend = { path = "../fireshark-backend" }
+thiserror = "2.0.17"

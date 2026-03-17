@@ -11,5 +11,7 @@ members = [
     "crates/fireshark-cli",
     "crates/fireshark-mcp",
     "crates/fireshark-filter",
+    "crates/fireshark-backend",
+    "crates/fireshark-tshark",
 ]
 resolver = "2"
