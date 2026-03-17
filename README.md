@@ -133,6 +133,10 @@ cargo fuzz run fuzz_capture_reader -- -max_total_time=60
 - Features are added in vertical slices, not as large speculative frameworks
 - MCP types stay in `fireshark-mcp` — no protocol leakage into core crates
 
+## License
+
+Licensed under the Apache License, Version 2.0. See [`LICENSE`](LICENSE).
+
 ---
 
 **Version:** 0.3.0 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

@@ -2,6 +2,7 @@
 name = "fireshark-mcp"
 version = "0.3.0"
 edition = "2024"
+license.workspace = true
 
 [[bin]]
 name = "fireshark-mcp"

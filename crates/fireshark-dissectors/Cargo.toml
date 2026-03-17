@@ -2,6 +2,7 @@
 name = "fireshark-dissectors"
 version = "0.3.0"
 edition = "2024"
+license.workspace = true
 
 [dependencies]
 fireshark-core = { path = "../fireshark-core" }
