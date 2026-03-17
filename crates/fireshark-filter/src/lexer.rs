@@ -149,11 +149,9 @@ pub(crate) fn tokenize_spanned(input: &str) -> Result<Vec<SpannedToken>, FilterE
                 });
             }
             _ => {
+                let ch = input[start..].chars().next().unwrap_or('?');
                 return Err(FilterError::new(
-                    format!(
-                        "unexpected character '{}'",
-                        input[start..start + 1].chars().next().unwrap_or('?')
-                    ),
+                    format!("unexpected character '{ch}'"),
                     start,
                 ));
             }

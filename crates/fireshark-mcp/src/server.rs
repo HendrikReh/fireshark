@@ -300,9 +300,11 @@ fn tool_error(error: ToolError) -> ErrorData {
         | error @ ToolError::StreamNotFound { .. } => {
             ErrorData::resource_not_found(error.to_string(), None)
         }
-        error @ ToolError::Session(crate::session::SessionError::LimitReached { .. })
-        | error @ ToolError::Session(crate::session::SessionError::Analysis(_)) => {
+        error @ ToolError::Session(crate::session::SessionError::LimitReached { .. }) => {
             ErrorData::invalid_params(error.to_string(), None)
+        }
+        error @ ToolError::Session(crate::session::SessionError::Analysis(_)) => {
+            ErrorData::internal_error(error.to_string(), None)
         }
     }
 }

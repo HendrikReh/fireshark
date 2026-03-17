@@ -25,10 +25,12 @@ pub fn parse(bytes: &[u8], layer_offset: usize) -> Result<NetworkPayload<'_>, De
     let next_header = bytes[6];
     let hop_limit = bytes[7];
     let payload_len = usize::from(u16::from_be_bytes([bytes[4], bytes[5]]));
-    let source =
-        Ipv6Addr::from(<[u8; 16]>::try_from(&bytes[8..24]).expect("valid IPv6 source slice"));
-    let destination =
-        Ipv6Addr::from(<[u8; 16]>::try_from(&bytes[24..40]).expect("valid IPv6 destination slice"));
+    let mut src = [0u8; 16];
+    src.copy_from_slice(&bytes[8..24]);
+    let source = Ipv6Addr::from(src);
+    let mut dst = [0u8; 16];
+    dst.copy_from_slice(&bytes[24..40]);
+    let destination = Ipv6Addr::from(dst);
     let packet_len = HEADER_LEN + payload_len;
     let payload_end = packet_len.min(bytes.len());
     let mut issues = Vec::new();

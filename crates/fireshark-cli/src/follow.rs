@@ -19,7 +19,11 @@ pub fn run(path: &Path, stream_id: u32) -> Result<(), Box<dyn std::error::Error>
     for result in pipeline.by_ref() {
         packet_index += 1;
         match result {
-            Ok(decoded) => frames.push((packet_index, decoded)),
+            Ok(decoded) => {
+                if decoded.stream_id() == Some(stream_id) {
+                    frames.push((packet_index, decoded));
+                }
+            }
             Err(e) => {
                 eprintln!("warning: packet {packet_index}: {e}");
             }
@@ -67,18 +71,16 @@ pub fn run(path: &Path, stream_id: u32) -> Result<(), Box<dyn std::error::Error>
 
     // Print packets belonging to this stream.
     for (index, decoded) in &frames {
-        if decoded.stream_id() == Some(stream_id) {
-            let summary = decoded.summary();
-            let ts = match summary.timestamp {
-                Some(d) => timestamp::format_utc(d),
-                None => String::from("-"),
-            };
-            let line = format!(
-                "{:>4}  {:<24}  {:<5}  {:<22} -> {:<22} {:>4}",
-                index, ts, summary.protocol, summary.source, summary.destination, summary.length,
-            );
-            println!("{}", color::colorize(&summary.protocol, &line));
-        }
+        let summary = decoded.summary();
+        let ts = match summary.timestamp {
+            Some(d) => timestamp::format_utc(d),
+            None => String::from("-"),
+        };
+        let line = format!(
+            "{:>4}  {:<24}  {:<5}  {:<22} -> {:<22} {:>4}",
+            index, ts, summary.protocol, summary.source, summary.destination, summary.length,
+        );
+        println!("{}", color::colorize(&summary.protocol, &line));
     }
 
     Ok(())

@@ -221,18 +221,18 @@ fn matches_search(packet: &DecodedFrame, search: &PacketSearch<'_>) -> bool {
 
     if let Some(text) = search.text {
         let needle = text.to_ascii_lowercase();
-        let haystacks = [
-            summary.protocol,
-            summary.source,
-            summary.destination,
-            packet.packet().layer_names().join(" "),
-        ];
-
-        if !haystacks
-            .into_iter()
-            .any(|value| value.to_ascii_lowercase().contains(&needle))
-        {
-            return false;
+        let summary_match = [&summary.protocol, &summary.source, &summary.destination]
+            .iter()
+            .any(|v| v.to_ascii_lowercase().contains(&needle));
+        if !summary_match {
+            let layer_match = packet
+                .packet()
+                .layers()
+                .iter()
+                .any(|l| l.name().to_ascii_lowercase().contains(&needle));
+            if !layer_match {
+                return false;
+            }
         }
     }
 
