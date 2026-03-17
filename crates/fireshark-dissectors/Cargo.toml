@@ -7,3 +7,6 @@ license.workspace = true
 [dependencies]
 fireshark-core = { path = "../fireshark-core" }
 thiserror = "2.0.17"
+
+[dev-dependencies]
+fireshark-file = { path = "../fireshark-file" }

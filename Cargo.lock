@@ -369,6 +369,7 @@ name = "fireshark-dissectors"
 version = "0.4.0"
 dependencies = [
  "fireshark-core",
+ "fireshark-file",
  "thiserror 2.0.18",
 ]
 
