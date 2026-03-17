@@ -394,7 +394,31 @@ Fix any clippy warnings, formatting issues, or test failures before considering 
 
 ---
 
-## 5. How to Add a New Filter Field
+## 5. Native Dissector vs tshark: When to Use Which
+
+Fireshark has two analysis backends: a native Rust pipeline and an optional tshark subprocess. As a developer, you need to decide when a protocol requires a native dissector and when tshark coverage is sufficient.
+
+### Add a native dissector when:
+
+- **The protocol needs typed fields for audit heuristics.** The security audit engine (`fireshark-mcp/src/audit.rs`) pattern-matches on typed `Layer` fields. For example, scan detection inspects `TcpLayer.flags`, and DNS tunneling detection inspects `DnsLayer` payload sizes. If your protocol has security-relevant patterns, those patterns need typed fields to be detectable.
+- **The protocol needs typed fields for filter evaluation.** The display filter evaluator (`fireshark-filter/src/evaluate.rs`) resolves field names like `tcp.flags.syn` against concrete `Layer` variants. If users need to filter on specific fields of your protocol, those fields must exist as struct members.
+- **The protocol needs typed fields for MCP tool results.** The MCP server returns structured JSON with per-field data (`LayerView` in `fireshark-mcp/src/model.rs`). An LLM client expects typed, named fields -- not opaque strings.
+- **The protocol participates in stream tracking.** `StreamTracker` extracts 5-tuples from typed `Ipv4Layer`/`Ipv6Layer` + `TcpLayer`/`UdpLayer` fields. Any protocol that needs conversation tracking must have native layers.
+- **The protocol needs per-layer byte spans for hex dump coloring.** `LayerSpan` records are produced during native dissection. tshark cannot provide this data.
+
+### Rely on tshark when:
+
+- **You only need protocol identification for summary/stats.** If the goal is to show "this packet is HTTP/2" in a summary line and count it in protocol statistics, the tshark backend already provides protocol names without needing a native dissector.
+- **You need broad protocol coverage for triage.** When analyzing a capture with many unfamiliar protocols, `--backend tshark` gives immediate visibility into what protocols are present.
+- **You are doing differential testing.** tshark serves as a correctness oracle. Compare native dissector output against tshark output to validate field extraction.
+
+### The BackendCapture abstraction
+
+The `BackendCapture` trait in `fireshark-backend` provides a common interface for both backends. CLI commands (`summary`, `stats`) and MCP tools that only need `PacketSummary` data work with either backend transparently. Commands that require full `DecodedFrame` access (`detail`, `follow`, `audit`, `issues`) require the native backend and will return an error if invoked with `--backend tshark`.
+
+This means: when you add a new CLI command or MCP tool, decide whether it needs typed layer access or just summary-level data. If summary-level, wire it through `BackendCapture` so it works with both backends. If it needs typed layers, require the native backend.
+
+## 6. How to Add a New Filter Field
 
 The filter system works in three layers: **lexer** (tokenizes the string), **parser** (builds an AST), and **evaluator** (resolves fields against decoded frames).
 
@@ -430,7 +454,7 @@ If you are adding filter support for a completely new protocol:
 
 ---
 
-## 6. How to Add a New CLI Command
+## 7. How to Add a New CLI Command
 
 The CLI uses [clap](https://docs.rs/clap) with derive macros. Commands are defined as enum variants.
 
@@ -510,7 +534,7 @@ The `support::repo_root()` helper locates the workspace root from `CARGO_MANIFES
 
 ---
 
-## 7. Testing Guide
+## 8. Testing Guide
 
 ### Unit tests
 
@@ -607,7 +631,7 @@ If clippy fails, fix the issue rather than suppressing the lint. If tests fail, 
 
 ---
 
-## 8. Common Patterns
+## 9. Common Patterns
 
 ### The Layer / decode / summary pattern
 

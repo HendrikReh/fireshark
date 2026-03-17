@@ -9,7 +9,25 @@ Packet analyzer built for LLMs and humans. Rust-native protocol dissection with 
 
 ## Elevator Pitch
 
-Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wireshark — packet queries, protocol decoding, display filters, stream tracking, and security audit heuristics — through structured MCP tool calls. For humans, it's a fast, color-coded CLI that decodes 10 protocols, follows TCP/UDP conversations, and runs 7 automated security checks. An optional tshark backend extends coverage to every protocol Wireshark supports. Everything is library-first: one Rust workspace, 8 crates, 351 tests, zero unsafe code.
+Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wireshark — packet queries, protocol decoding, display filters, stream tracking, and security audit heuristics — through structured MCP tool calls. For humans, it's a fast, color-coded CLI that decodes 10 protocols, follows TCP/UDP conversations, and runs 7 automated security checks. Everything is library-first: one Rust workspace, 8 crates, 351 tests, zero unsafe code.
+
+## Why native dissectors when tshark exists?
+
+Fireshark includes an optional tshark backend for broad protocol coverage, but the native Rust dissectors are the core of the product — not redundant with tshark.
+
+| Capability | Native | tshark |
+|-----------|--------|--------|
+| Typed, structured layers (`TcpLayer.flags.syn`, `DnsLayer.query_name`) | Yes | No — flat string fields |
+| Security audit engine (7 heuristics: scan detection, DNS tunneling, etc.) | Yes | No — can't feed typed data into audit logic |
+| Stream tracking with `tcp.stream` filter and `follow` command | Yes | No — tshark's conversations are opaque |
+| Display filter evaluation (`tcp.flags.syn and ip.ttl > 64`) | Yes | No — separate filter engine, results can't feed fireshark pipeline |
+| Color-coded hex dump with per-layer byte spans | Yes | No — tshark doesn't expose byte offsets |
+| Zero external dependencies — works without Wireshark installed | Yes | No — requires tshark binary |
+| Broad protocol identification (3,000+ protocols) | 10 protocols | Yes |
+| Quick triage of unsupported protocols | No | Yes |
+| Correctness oracle for differential testing | Reference | Validation |
+
+**Use native** for deep analysis, audits, stream tracking, and filtering. **Use tshark** for broad protocol triage and as a correctness oracle. Both backends share the same CLI and MCP surfaces.
 
 ## Features
 

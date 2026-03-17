@@ -38,6 +38,25 @@ Copy the binary to the target host. No installer, no package manager, no runtime
 
 Fireshark is a zero-configuration tool. Point it at a pcap/pcapng file and it works.
 
+### Optional: tshark Runtime Dependency
+
+tshark (Wireshark's command-line tool) is **not required** for basic operation. Fireshark's native Rust dissectors handle all analysis by default.
+
+tshark is required **only** when `--backend tshark` is explicitly requested:
+
+```bash
+fireshark summary --backend tshark capture.pcap
+```
+
+**Discovery order:**
+
+1. `tshark` on the system `PATH`
+2. `/Applications/Wireshark.app/Contents/MacOS/tshark` (macOS Wireshark.app bundle)
+
+**Minimum version:** 3.0.0. Fireshark checks the tshark version at invocation time and rejects older versions.
+
+If tshark is not found when `--backend tshark` is requested, fireshark will exit with an error message indicating that tshark was not found. This does not affect `--backend native` (the default), which has zero external dependencies.
+
 ## CLI Operation
 
 The CLI has 6 commands:

@@ -99,17 +99,56 @@ The stream header shows the conversation's protocol, endpoints, packet/byte coun
 
 ### Backend Selection
 
-fireshark supports two analysis backends:
+fireshark supports two analysis backends. The choice affects which features are available and how broad protocol coverage is.
 
-- `native` (default) -- built-in Rust pipeline with full feature support
-- `tshark` -- uses Wireshark's tshark tool for broader protocol coverage
+#### `--backend native` (default)
+
+The native backend uses fireshark's built-in Rust dissectors. This is the default and provides the full feature set:
+
+- Deep protocol analysis with typed field extraction (10 protocols)
+- Security audit heuristics (scan detection, DNS tunneling, cleartext credentials, etc.)
+- TCP/UDP stream tracking with `follow` command and `tcp.stream`/`udp.stream` filters
+- Display filter evaluation on all supported fields (`tcp.flags.syn and ip.ttl > 64`)
+- Color-coded hex dump with per-layer byte spans in `detail` view
+- Zero external dependencies -- works without Wireshark installed
+
+```bash
+fireshark summary capture.pcap                    # native is the default
+fireshark summary --backend native capture.pcap   # explicit
+fireshark audit capture.pcap                      # audit requires native
+fireshark follow capture.pcap 0                   # follow requires native
+```
+
+#### `--backend tshark`
+
+The tshark backend delegates analysis to Wireshark's `tshark` command-line tool. It provides broader protocol recognition (3,000+ protocols) but with reduced feature depth:
+
+- Protocol identification and packet summaries work for all protocols tshark supports
+- Capture statistics (`stats` command) work
+- Stream tracking is **not available** -- no `follow` command, no `tcp.stream`/`udp.stream` filters
+- Security audit is **not available** -- no `audit` command
+- Display filters are **not available** -- fireshark's filter engine requires typed native layers
+- Detail hex dump is **not available** -- tshark does not expose per-layer byte offsets
 
 ```bash
 fireshark summary --backend tshark capture.pcap
 fireshark stats --backend tshark capture.pcap
 ```
 
-Note: `detail`, `follow`, `issues`, and `audit` commands require the native backend.
+#### When to use each
+
+| Scenario | Recommended backend |
+|----------|-------------------|
+| Deep analysis of TCP/IP traffic | `native` |
+| Security audit of a capture | `native` |
+| Following a TCP/UDP conversation | `native` |
+| Filtering packets by field values | `native` |
+| Inspecting packet bytes with hex dump | `native` |
+| Triage of a capture with many unknown protocols | `tshark` |
+| Quick protocol distribution overview | either |
+| Validating fireshark output against Wireshark | `tshark` |
+
+Note: tshark must be installed on your system for `--backend tshark` to work. If tshark is not found, fireshark will report an error. See the operations guide for tshark discovery details.
 
 ### Capture Statistics
 

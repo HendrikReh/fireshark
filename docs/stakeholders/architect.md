@@ -309,6 +309,33 @@ This design was chosen over baking stream tracking into `Pipeline` directly beca
 
 `StreamKey` normalizes the direction of a conversation by placing the "lower" `(addr, port)` pair first (lexicographic comparison). This ensures both directions of a TCP or UDP conversation map to the same key without maintaining separate forward/reverse entries. The protocol number (`6` for TCP, `17` for UDP) is part of the key, so TCP and UDP conversations between the same endpoints are distinct streams.
 
+### Native vs tshark Backend Design Rationale
+
+Fireshark includes an optional tshark backend (`fireshark-tshark`, `fireshark-backend`) for broad protocol coverage, but the native Rust dissectors are the core of the product -- not redundant with tshark.
+
+**Why fireshark maintains its own dissectors despite tshark availability:**
+
+The native dissectors produce a typed layer model (`TcpLayer.flags.syn`, `DnsLayer.query_name`) where every protocol field is a concrete Rust struct field. tshark emits flat string key-value pairs that cannot be pattern-matched, type-checked, or fed into Rust data structures without ad hoc string parsing. The typed model is the foundation that makes the rest of the product possible.
+
+**Capabilities that are native-only:**
+
+| Capability | Why it requires native dissectors |
+|-----------|-----------------------------------|
+| Security audit engine (7 heuristics) | Heuristics inspect typed fields (e.g., TCP flag combinations for scan detection, DNS payload lengths for tunneling detection). Flat string fields from tshark cannot feed this logic. |
+| Stream tracking with `tcp.stream` filter and `follow` command | The `StreamTracker` assigns stream IDs during pipeline iteration by extracting 5-tuples from typed layers. tshark's conversation tracking is opaque and cannot participate in fireshark's filter or pipeline model. |
+| Display filter evaluation (`tcp.flags.syn and ip.ttl > 64`) | The filter evaluator resolves field names against typed `Layer` variants. tshark has its own separate filter engine whose results cannot feed back into fireshark's pipeline. |
+| Color-coded hex dump with per-layer byte spans | `LayerSpan` records are produced during native dissection. tshark does not expose byte offsets for individual protocol layers. |
+
+**What tshark provides:**
+
+| Capability | Detail |
+|-----------|--------|
+| Broad protocol identification | 3,000+ protocols vs fireshark's 10 |
+| Quick triage of unsupported protocols | Useful when a capture contains protocols fireshark does not yet dissect |
+| Correctness oracle for differential testing | tshark output serves as a reference to validate native dissector correctness |
+
+**Design principle:** Fireshark owns the product API surface (the `Layer` enum, `Pipeline`, `StreamTracker`, filter evaluator, audit engine). tshark is an optional backend behind the `BackendCapture` abstraction. CLI and MCP commands work identically with either backend, but features that require typed layer access (audit, streams, filters, detail hex dump) are only available with the native backend.
+
 ## 6. Extension Points
 
 ### Adding a New Protocol
