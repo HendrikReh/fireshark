@@ -35,6 +35,19 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 | `summarize_protocols` | Protocol distribution across the capture |
 | `top_endpoints` | Most active endpoints by packet count |
 
+### Streams
+
+| Tool | Description |
+|------|-------------|
+| `list_streams` | Paginated TCP/UDP conversation stream metadata |
+| `get_stream` | All packets in a single conversation with stream metadata |
+
+### Capture Overview
+
+| Tool | Description |
+|------|-------------|
+| `summarize_capture` | Single-call capture summary: packets, streams, protocols, endpoints, timestamps, audit findings |
+
 ### Security Audit
 
 | Tool | Description |
@@ -61,7 +74,7 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 | `session.rs` | Session lifecycle management |
 | `analysis.rs` | Capture loading and analysis |
 | `query.rs` | Packet query and filtering logic |
-| `audit.rs` | Security heuristic engine (scan detection, suspicious ports, cleartext credentials, DNS tunneling) |
+| `audit.rs` | Security heuristic engine (6 heuristics: decode issues, unknown traffic, scan activity, suspicious ports, cleartext credentials, DNS tunneling) |
 | `model.rs` | Serializable view types for MCP responses |
 | `filter.rs` | Shared filter utilities |
 

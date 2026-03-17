@@ -221,14 +221,17 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 ## Test Coverage by Crate
 
-### fireshark-core (12 tests)
+### fireshark-core (40 tests)
 
 - Packet model construction and layer access
 - Frame summary generation (protocol, source, destination, length)
 - Pipeline iteration over frame sources
+- TrackingPipeline: stream ID assignment, metadata accumulation
+- StreamTracker: key normalization, direction symmetry, IPv4/IPv6, protocol separation
+- StreamKey: canonical 5-tuple ordering, protocol name
 - Summary rendering
 
-### fireshark-dissectors (53 tests)
+### fireshark-dissectors (68 tests)
 
 - Full decode of Ethernet + ARP, IPv4, IPv6 packets
 - Transport protocol decoding: TCP (SYN, SYN-ACK, RST, options), UDP, ICMP (echo, dest unreachable)
@@ -243,18 +246,24 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 - Rejection of unsupported link types (non-Ethernet)
 - Rejection of short/invalid capture files
 
-### fireshark-filter (85 tests)
+### fireshark-filter (110 tests)
 
 - Lexer tokenization for all token types
 - Parser: protocol presence, field comparisons, boolean operators, shorthands, CIDR, parentheses, precedence
 - Evaluator: field resolution against decoded packets, all comparison operators, boolean logic
 - DNS filter fields: dns.id, dns.qr, dns.opcode, dns.qcount, dns.acount, dns.qtype
+- TLS filter fields: tls.handshake.type, tls.record_version, tls.client_version, tls.selected_version, tls.cipher_suite
+- Stream filter fields: tcp.stream, udp.stream (presence check and integer comparison)
 - Error cases: invalid syntax, unknown fields
 
-### fireshark-cli (43 tests)
+### fireshark-cli (51 tests)
 
 - Summary command output format and content
 - Detail command: layer tree rendering, hex dump, packet-not-found errors
+- Follow command: stream output, error on invalid stream ID
+- Stats command: packet count, stream count, protocol distribution
+- Issues command: decode issue listing
+- Audit command: security heuristic output
 - Display filter integration: filter flag parsing and application
 - Color mapping: protocol-to-color assignments, case insensitivity, DNS=Magenta
 - Hex dump: row formatting, multi-row, legend, span coloring
@@ -262,10 +271,12 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 - Fuzz regression tests
 - Runtime path and Justfile documentation consistency checks
 
-### fireshark-mcp (14 tests)
+### fireshark-mcp (28 tests)
 
 - Session lifecycle: open, describe, close
 - Packet queries: list, get, search
+- Stream queries: list_streams, get_stream
+- Capture overview: summarize_capture
 - Audit: capture audit, findings, explain
 - Server help output and stdio smoke test
 - Session manager: creation, limits
@@ -274,7 +285,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 243 |
+| Total tests | 306 |
 | Byte fixtures | 18 |
 | Smoke captures | 3 |
 | Total fixtures | 21 |
@@ -286,7 +297,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 - No HTTP application-layer protocol tests -- HTTP is not yet implemented
 - No IP fragment reassembly tests -- reassembly is not yet implemented
-- No TCP stream reassembly tests -- reassembly is not yet implemented
+- No TCP stream reassembly tests -- stream tracking (conversation identity) is implemented, but byte-level reassembly is not
 - No performance/benchmark tests
 - No property-based tests (outside of fuzzing)
 - MCP tests do not cover the 15-minute idle timeout or the 100k packet limit at scale

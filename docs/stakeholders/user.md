@@ -76,6 +76,35 @@ Packet 1 . 54 bytes . 2024-01-15T10:30:45.123Z
 
 Each byte in the hex dump is colored by its protocol layer.
 
+### Follow a Stream
+
+Show all packets in a TCP/UDP conversation by stream ID:
+
+```bash
+fireshark follow capture.pcap 0
+```
+
+Output:
+
+```
+Stream 0: TCP 192.0.2.10:51514 ↔ 198.51.100.20:443
+3 packets, 162 bytes, duration 0.200s
+──────────────────────────────────────
+   1  2024-01-15T10:30:45.123Z  TCP    192.0.2.10:51514       -> 198.51.100.20:443        54
+   2  2024-01-15T10:30:45.200Z  TCP    198.51.100.20:443      -> 192.0.2.10:51514         54
+   3  2024-01-15T10:30:45.300Z  TCP    192.0.2.10:51514       -> 198.51.100.20:443        54
+```
+
+The stream header shows the conversation's protocol, endpoints, packet/byte count, and duration. Use `fireshark stats` to discover available stream IDs.
+
+### Capture Statistics
+
+```bash
+fireshark stats capture.pcap
+```
+
+Shows packet count, stream count, capture duration, protocol distribution, and top endpoints.
+
 ### Filtered Summary
 
 Apply a display filter to show only matching packets:
@@ -208,6 +237,7 @@ Compare specific protocol fields against values:
 | `tcp.flags.urg` | boolean | URG flag |
 | `tcp.flags.ece` | boolean | ECE flag |
 | `tcp.flags.cwr` | boolean | CWR flag |
+| `tcp.stream` | integer | TCP stream ID (conversation number, assigned by `TrackingPipeline`) |
 
 **UDP fields:**
 
@@ -217,6 +247,7 @@ Compare specific protocol fields against values:
 | `udp.dstport` | integer | Destination port |
 | `udp.port` | integer | Either source or destination port |
 | `udp.length` | integer | UDP datagram length |
+| `udp.stream` | integer | UDP stream ID (conversation number, assigned by `TrackingPipeline`) |
 
 **ICMP fields:**
 
@@ -375,6 +406,19 @@ The server communicates over stdin/stdout using the Model Context Protocol. Conn
 | `summarize_protocols` | `session_id` | Protocol distribution table |
 | `top_endpoints` | `session_id` | Most active endpoints by packet count |
 
+#### Streams
+
+| Tool | Parameters | Returns |
+|------|-----------|---------|
+| `list_streams` | `session_id`, optional `offset`, `limit` | Paginated TCP/UDP conversation metadata |
+| `get_stream` | `session_id`, `stream_id` | Stream metadata plus all packets in the conversation |
+
+#### Capture Overview
+
+| Tool | Parameters | Returns |
+|------|-----------|---------|
+| `summarize_capture` | `session_id` | Single-call summary: packets, streams, protocols, endpoints, timestamps, findings |
+
 #### Security Audit
 
 | Tool | Parameters | Returns |
@@ -530,6 +574,22 @@ fireshark summary capture.pcap -f "tls.handshake.type == 2"
 
 ```bash
 fireshark summary capture.pcap -f "tls.cipher_suite == 0x1301"
+```
+
+### Filter by Stream ID
+
+```bash
+# Show all packets in TCP conversation 0
+fireshark summary capture.pcap -f "tcp.stream == 0"
+
+# Show all packets in UDP conversation 1
+fireshark summary capture.pcap -f "udp.stream == 1"
+```
+
+### Follow a Specific Stream
+
+```bash
+fireshark follow capture.pcap 0
 ```
 
 ---

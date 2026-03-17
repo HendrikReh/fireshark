@@ -13,10 +13,12 @@ Wireshark-inspired packet analyzer written in Rust. Library-first, built in deli
 - **Protocol dissection** — Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS (ClientHello + ServerHello) with full RFC field extraction
 - **TLS handshake analysis** — heuristic dispatch on any TCP port, SNI extraction, cipher suites, ALPN, supported versions, signature algorithms, key share groups
 - **DNS response parsing** — A/AAAA answer records with typed answer data
+- **Stream tracking** — TCP/UDP conversation tracking with canonical 5-tuple keys, stream IDs, and per-stream statistics
 - **Color-coded CLI** — Wireshark-style protocol coloring in summary output
 - **Packet detail view** — decoded layer tree with color-coded hex dump (`fireshark detail`)
-- **Display filters** — Wireshark-style expression language (`-f "tcp and port 443"`)
-- **MCP server** — offline capture analysis for LLM-driven workflows and security audits
+- **Follow stream** — `fireshark follow` shows all packets in a conversation by stream ID
+- **Display filters** — Wireshark-style expression language (`-f "tcp and port 443"`, `tcp.stream == 0`)
+- **MCP server** — offline capture analysis for LLM-driven workflows and security audits, including stream and summary tools
 - **Fuzz testing** — cargo-fuzz infrastructure with two fuzz targets
 
 ## Quick Start
@@ -65,6 +67,26 @@ cargo run -p fireshark-cli -- summary capture.pcap -f "tls.handshake.type == 1"
 
 # TLS by cipher suite
 cargo run -p fireshark-cli -- summary capture.pcap -f "tls.cipher_suite == 0x1301"
+
+# Filter by stream ID (conversation)
+cargo run -p fireshark-cli -- summary capture.pcap -f "tcp.stream == 0"
+cargo run -p fireshark-cli -- summary capture.pcap -f "udp.stream == 1"
+```
+
+### Follow a Stream
+
+```bash
+# Show all packets in TCP/UDP conversation 0
+cargo run -p fireshark-cli -- follow capture.pcap 0
+```
+
+```text
+Stream 0: TCP 192.0.2.10:51514 ↔ 198.51.100.20:443
+3 packets, 162 bytes, duration 0.200s
+──────────────────────────────────────
+   1  2024-01-15T10:30:45.123Z  TCP    192.0.2.10:51514       -> 198.51.100.20:443        54
+   2  2024-01-15T10:30:45.200Z  TCP    198.51.100.20:443      -> 192.0.2.10:51514         54
+   3  2024-01-15T10:30:45.300Z  TCP    192.0.2.10:51514       -> 198.51.100.20:443        54
 ```
 
 ### Packet Detail
@@ -79,12 +101,12 @@ Shows a decoded layer tree with field values and a color-coded hex dump where ea
 
 | Crate | Purpose |
 |-------|---------|
-| `fireshark-core` | Domain types (`Frame`, `Packet`, `Layer`, `Pipeline`), summaries, decode issues |
+| `fireshark-core` | Domain types (`Frame`, `Packet`, `Layer`, `Pipeline`, `StreamTracker`, `TrackingPipeline`), summaries, decode issues |
 | `fireshark-file` | pcap and pcapng ingestion with timestamp/length extraction |
 | `fireshark-dissectors` | Protocol decoders (10 protocols) with full RFC field extraction |
-| `fireshark-filter` | Display filter language: lexer, parser, evaluator |
-| `fireshark-cli` | CLI with `summary` and `detail` commands, color output, hex dump |
-| `fireshark-mcp` | Offline MCP server for LLM-driven capture analysis |
+| `fireshark-filter` | Display filter language: lexer, parser, evaluator (including `tcp.stream`/`udp.stream`) |
+| `fireshark-cli` | CLI with 6 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow` |
+| `fireshark-mcp` | Offline MCP server (17 tools) for LLM-driven capture analysis and security audits |
 
 Other directories:
 
@@ -104,6 +126,8 @@ cargo run -p fireshark-mcp
 |--------|-------|
 | Session | `open_capture`, `describe_capture`, `close_capture` |
 | Packet queries | `list_packets`, `get_packet`, `search_packets`, `list_decode_issues`, `summarize_protocols`, `top_endpoints` |
+| Streams | `list_streams`, `get_stream` |
+| Capture overview | `summarize_capture` |
 | Audit | `audit_capture`, `list_findings`, `explain_finding` |
 
 Constraints: stdio transport, offline captures, 100k packet limit, 8 concurrent sessions, 15-minute idle timeout.
@@ -132,9 +156,9 @@ cargo fuzz run fuzz_capture_reader -- -max_total_time=60
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| **Crawl** | Offline capture parsing, dissection, CLI, MCP server, display filters | Active |
-| **Walk** | Live capture backends, conversation identity, stream tracking | Planned |
-| **Run** | Analyst workflows: follow-stream, advanced statistics, extended filter language | Planned |
+| **Crawl** | Offline capture parsing, dissection, CLI, MCP server, display filters, stream tracking | Active |
+| **Walk** | Live capture backends, TCP reassembly, streaming pipeline mode | Planned |
+| **Run** | Advanced statistics, extended filter language, application-layer dissectors, export | Planned |
 
 ## Design Rules
 

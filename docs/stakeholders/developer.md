@@ -95,12 +95,12 @@ fireshark/
   Justfile                # Task runner recipes
   CLAUDE.md               # AI agent conventions
   crates/
-    fireshark-core/       # Domain types: Layer, Packet, Frame, Pipeline, PacketSummary
+    fireshark-core/       # Domain types: Layer, Packet, Frame, Pipeline, StreamTracker, TrackingPipeline, PacketSummary
     fireshark-dissectors/  # Protocol decoders: Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS (10 protocols)
     fireshark-file/       # pcap and pcapng file ingestion (CaptureReader)
-    fireshark-filter/     # Display filter parser and evaluator
-    fireshark-cli/        # CLI binary ("fireshark") with summary/detail commands
-    fireshark-mcp/        # MCP server binary for LLM-driven capture analysis
+    fireshark-filter/     # Display filter parser and evaluator (including tcp.stream/udp.stream)
+    fireshark-cli/        # CLI binary ("fireshark") with 6 commands: summary, detail, stats, issues, audit, follow
+    fireshark-mcp/        # MCP server binary (17 tools) for LLM-driven capture analysis
   fixtures/
     bytes/                # Handcrafted binary blobs for unit tests
     smoke/                # Small pcap/pcapng files for integration tests
@@ -121,6 +121,7 @@ fireshark-cli ──┬── fireshark-dissectors ── fireshark-core
 
 fireshark-mcp ──┬── fireshark-dissectors
                 ├── fireshark-file
+                ├── fireshark-filter
                 └── fireshark-core
 ```
 
@@ -548,6 +549,10 @@ Current integration test files:
 - `summary_command.rs` -- pcap/pcapng summary output
 - `detail_command.rs` -- layer tree, hex dump, decode issues
 - `filter_command.rs` -- display filter with the summary command
+- `follow_command.rs` -- follow stream output
+- `stats_command.rs` -- capture statistics output
+- `issues_command.rs` -- decode issue listing
+- `audit_command.rs` -- security audit output
 - `fuzz_regression.rs` -- regression tests from fuzz findings
 
 ### Creating fixture files
@@ -677,6 +682,30 @@ for result in Pipeline::new(reader, decode_packet) {
 ```
 
 The `Pipeline` adapts any `Iterator<Item = Result<Frame, E>>` -- you can feed it a `CaptureReader`, a `Vec<Result<Frame, ...>>`, or any custom source. The decoder function is a plain `Fn(&[u8]) -> Result<Packet, DecodeError>`, not a trait object.
+
+### The TrackingPipeline / StreamTracker pattern
+
+`TrackingPipeline` wraps `Pipeline` and assigns stream IDs during iteration:
+
+```rust
+let reader = CaptureReader::open(path)?;
+let mut pipeline = TrackingPipeline::new(reader, decode_packet);
+
+for result in pipeline.by_ref() {
+    let decoded: DecodedFrame = result?;
+    // decoded.stream_id() is Some(u32) for TCP/UDP, None for ARP/ICMP-only
+}
+
+// After iteration, retrieve accumulated stream metadata
+let tracker = pipeline.into_tracker();
+for meta in tracker.streams() {
+    println!("Stream {}: {} packets", meta.id, meta.packet_count);
+}
+```
+
+`StreamKey` normalizes both directions of a conversation: the "lower" `(addr, port)` pair is always first. This means `(A:80 -> B:12345)` and `(B:12345 -> A:80)` produce the same key. The protocol number (6=TCP, 17=UDP) is part of the key.
+
+Use `TrackingPipeline` when you need stream IDs (follow command, stats with stream count, MCP stream tools). Use plain `Pipeline` when you do not need stream tracking (simple summary listing).
 
 ### The color / protocol_color pattern
 

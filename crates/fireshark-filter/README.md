@@ -64,8 +64,8 @@ not arp
 | Frame | `frame.len`, `frame.cap_len` |
 | IPv4 | `ip.src`, `ip.dst`, `ip.ttl`, `ip.id`, `ip.proto`, `ip.dscp`, `ip.ecn`, `ip.checksum`, `ip.flags.df`, `ip.flags.mf`, `ip.frag_offset` |
 | IPv6 | `ip.src`, `ip.dst` (dual-stack), `ipv6.hlim`, `ipv6.flow`, `ipv6.tc`, `ipv6.nxt` |
-| TCP | `tcp.srcport`, `tcp.dstport`, `tcp.port`, `tcp.seq`, `tcp.ack`, `tcp.window`, `tcp.hdr_len`, `tcp.flags.{syn,ack,fin,rst,psh,urg,ece,cwr}` |
-| UDP | `udp.srcport`, `udp.dstport`, `udp.port`, `udp.length` |
+| TCP | `tcp.srcport`, `tcp.dstport`, `tcp.port`, `tcp.seq`, `tcp.ack`, `tcp.window`, `tcp.hdr_len`, `tcp.flags.{syn,ack,fin,rst,psh,urg,ece,cwr}`, `tcp.stream` |
+| UDP | `udp.srcport`, `udp.dstport`, `udp.port`, `udp.length`, `udp.stream` |
 | ICMP | `icmp.type`, `icmp.code` |
 | ARP | `arp.opcode`, `arp.spa`, `arp.tpa` |
 | DNS | `dns.id`, `dns.qr`, `dns.opcode`, `dns.qcount`, `dns.acount`, `dns.qtype` |

@@ -8,12 +8,12 @@ Fireshark is a Wireshark-inspired packet analyzer written in Rust. It is library
 
 | Crate | Purpose |
 |---|---|
-| `fireshark-core` | Domain types (`Layer`, `Packet`, `Frame`, `Pipeline`), summaries, decode issues |
+| `fireshark-core` | Domain types (`Layer`, `Packet`, `Frame`, `Pipeline`, `StreamTracker`, `TrackingPipeline`), summaries, decode issues |
 | `fireshark-dissectors` | Protocol decoders: Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello |
-| `fireshark-filter` | Display filter language: lexer, parser, evaluator |
+| `fireshark-filter` | Display filter language: lexer, parser, evaluator (including `tcp.stream`/`udp.stream`) |
 | `fireshark-file` | pcap and pcapng file ingestion |
-| `fireshark-cli` | Thin CLI binary (`fireshark`) exercising the library stack |
-| `fireshark-mcp` | Offline MCP server for LLM-driven capture analysis and security audits |
+| `fireshark-cli` | Thin CLI binary (`fireshark`) with 6 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow` |
+| `fireshark-mcp` | Offline MCP server (17 tools) for LLM-driven capture analysis and security audits |
 
 - `fixtures/bytes/` — handcrafted binary blobs used in unit tests
 - `fixtures/smoke/` — small pcap files for integration/CLI tests
@@ -44,6 +44,8 @@ Always run `just check` before considering work complete.
 - Layer types are plain structs with public fields, defined in `fireshark-core::layer`
 - The `Layer` enum in core wraps each protocol's typed layer struct
 - The decode pipeline is generic over frame source and decoder function
+- `TrackingPipeline` wraps `Pipeline` to assign stream IDs via `StreamTracker` during iteration
+- `StreamTracker` maps canonical 5-tuples (`StreamKey`) to monotonic stream IDs with per-stream metadata
 - Application-layer protocols (e.g., DNS) are dispatched by port number after transport-layer decoding (UDP port 53 for DNS)
 - TLS uses heuristic dispatch on any TCP port by inspecting the record header bytes (`0x16 0x03`), not port-based dispatch
 

@@ -8,9 +8,9 @@ Development follows a phased approach:
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| **Crawl** | Offline pcap/pcapng parsing, protocol dissection, CLI, display filters, MCP server | Active |
-| **Walk** | Live capture backends, conversation identity, stream tracking | Planned |
-| **Run** | Analyst workflows (follow-stream, advanced statistics, extended filter language) | Planned |
+| **Crawl** | Offline pcap/pcapng parsing, protocol dissection, CLI, display filters, MCP server, stream tracking | Active |
+| **Walk** | Live capture backends, TCP reassembly, streaming pipeline mode | Planned |
+| **Run** | Advanced statistics, extended filter language, application-layer dissectors, export | Planned |
 
 The crawl phase is deliberately complete before walk begins. Each phase delivers vertical slices of functionality, not speculative frameworks.
 
@@ -35,7 +35,7 @@ The crawl phase is deliberately complete before walk begins. Each phase delivers
                       |             |
                       v             v
                +----------+  +----------+
-               | -cli     |  | -mcp     |
+               | -cli     |  | -mcp     |  (both depend on -file, -dissect, -filter, core)
                +----------+  +----------+
 ```
 
@@ -47,7 +47,7 @@ fireshark-file       -> fireshark-core, pcap-file, thiserror
 fireshark-dissectors -> fireshark-core, thiserror
 fireshark-filter     -> fireshark-core, thiserror
 fireshark-cli        -> fireshark-core, fireshark-file, fireshark-dissectors, fireshark-filter, clap, colored
-fireshark-mcp        -> fireshark-core, fireshark-file, fireshark-dissectors, rmcp, schemars, serde, serde_json, thiserror, tokio
+fireshark-mcp        -> fireshark-core, fireshark-file, fireshark-dissectors, fireshark-filter, rmcp, schemars, serde, serde_json, thiserror, tokio
 ```
 
 Key observation: `fireshark-core` has **zero external dependencies**. It defines only domain types using `std`. The three middle crates (`-file`, `-dissectors`, `-filter`) depend only on `fireshark-core` and do not depend on each other. The two leaf crates (`-cli`, `-mcp`) compose the middle crates into user-facing applications.
@@ -110,7 +110,8 @@ MCP client
 |-------|------|------------|
 | Raw file bytes | `Frame` | `fireshark-core::frame` |
 | After dissection | `Packet` (layers + issues + spans) | `fireshark-core::packet` |
-| Paired | `DecodedFrame` (Frame + Packet) | `fireshark-core::pipeline` |
+| Paired | `DecodedFrame` (Frame + Packet + optional stream ID) | `fireshark-core::pipeline` |
+| Stream tracking | `StreamTracker` (assigns stream IDs via `TrackingPipeline`) | `fireshark-core::stream` |
 | Summary | `PacketSummary` | `fireshark-core::summary` |
 | Filter AST | `Expr` | `fireshark-filter::ast` |
 | MCP response | `*View` structs | `fireshark-mcp::model` |
@@ -130,6 +131,10 @@ MCP client
 | `Layer` | Enum wrapping typed layer structs (`Ethernet`, `Arp`, `Ipv4`, `Ipv6`, `Tcp`, `Udp`, `Icmp`, `Dns`, `TlsClientHello`, `TlsServerHello`) |
 | `LayerSpan` | Byte offset + length for hex dump coloring |
 | `Pipeline<I, D>`, `DecodedFrame` | Generic iterator pairing frame source with decoder function |
+| `TrackingPipeline<I, D>` | Wraps `Pipeline`, assigns stream IDs via `StreamTracker` during iteration |
+| `StreamKey` | Canonical 5-tuple (lower addr/port, higher addr/port, protocol) for bidirectional conversations |
+| `StreamMetadata` | Per-stream statistics: ID, key, packet count, byte count, first/last seen |
+| `StreamTracker` | Maps `StreamKey` to monotonic `u32` stream IDs, accumulates metadata |
 | `PipelineError<F, D>` | Enum distinguishing frame-source errors from decode errors |
 | `PacketSummary` | One-line display summary (protocol, endpoints, ports, timestamp, length) |
 | `DecodeIssue`, `DecodeIssueKind` | Structured decode problem at a byte offset (Truncated or Malformed) |
@@ -191,7 +196,7 @@ MCP client
 
 ### fireshark-cli
 
-**Responsibility:** Thin CLI binary (`fireshark`) with `summary` and `detail` subcommands. All presentation logic (color, formatting, hex dump) is confined here.
+**Responsibility:** Thin CLI binary (`fireshark`) with 6 subcommands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`. All presentation logic (color, formatting, hex dump) is confined here.
 
 **Modules:**
 
@@ -199,6 +204,10 @@ MCP client
 |--------|---------|
 | `summary.rs` | Packet listing with optional display filter, protocol coloring |
 | `detail.rs` | Single-packet layer tree + hex dump |
+| `follow.rs` | Follow stream: all packets in a TCP/UDP conversation by stream ID |
+| `stats.rs` | Capture statistics: packets, streams, duration, protocols, endpoints |
+| `issues.rs` | Decode issue listing |
+| `audit.rs` | Security audit heuristics |
 | `hexdump.rs` | Color-coded hex dump using `LayerSpan` data |
 | `color.rs` | Protocol-to-ANSI-color mapping |
 | `timestamp.rs` | ISO 8601 UTC formatting via Hinnant `civil_from_days` (no `chrono`) |
@@ -220,19 +229,21 @@ MCP client
 | `session.rs` | `SessionManager` with `CaptureSession`, idle expiration, max-session cap |
 | `analysis.rs` | `AnalyzedCapture` loading captures via `Pipeline`, pre-computing protocol/endpoint counts |
 | `query.rs` | Packet listing, search, decode issue listing, protocol summary, top endpoints |
-| `audit.rs` | `AuditEngine` with heuristic checks: decode issues, unknown traffic, scan fan-out, suspicious ports, cleartext credential exposure, DNS tunneling detection |
+| `audit.rs` | `AuditEngine` with 6 heuristic checks: decode issues, unknown traffic, scan fan-out, suspicious ports, cleartext credential exposure, DNS tunneling detection |
 | `model.rs` | Serializable view types for MCP JSON-RPC responses |
 | `filter.rs` | Shared filter utilities |
 
-**MCP Tools (12 total):**
+**MCP Tools (17 total):**
 
 | Family | Tools |
 |--------|-------|
 | Session | `open_capture`, `describe_capture`, `close_capture` |
 | Packet queries | `list_packets`, `get_packet`, `search_packets`, `list_decode_issues`, `summarize_protocols`, `top_endpoints` |
+| Streams | `list_streams`, `get_stream` |
+| Capture overview | `summarize_capture` |
 | Audit | `audit_capture`, `list_findings`, `explain_finding` |
 
-**Depends on:** `fireshark-core`, `fireshark-file`, `fireshark-dissectors`, `rmcp`, `schemars`, `serde`, `serde_json`, `thiserror`, `tokio`
+**Depends on:** `fireshark-core`, `fireshark-file`, `fireshark-dissectors`, `fireshark-filter`, `rmcp`, `schemars`, `serde`, `serde_json`, `thiserror`, `tokio`
 
 **Source:** `crates/fireshark-mcp/src/lib.rs`
 
@@ -282,6 +293,21 @@ Each `Packet` carries a parallel `Vec<LayerSpan>` alongside its `Vec<Layer>`. Sp
 ### Zero-dependency core crate
 
 `fireshark-core` has zero external dependencies (`[dependencies]` is empty in its `Cargo.toml`). All types use only `std`. This is deliberate: the core types are the API contract between all crates, and minimizing their dependency surface maximizes reuse and minimizes compile-time coupling.
+
+### TrackingPipeline as an iterator adapter
+
+`TrackingPipeline<I, D>` wraps `Pipeline<I, D>` and intercepts each successfully decoded frame to extract the 5-tuple and assign a stream ID via `StreamTracker`. The stream ID is set on `DecodedFrame` via `with_stream_id()`. After iteration, call `into_tracker()` to retrieve the accumulated `StreamTracker` with all stream metadata.
+
+This design was chosen over baking stream tracking into `Pipeline` directly because:
+
+- Not all consumers need stream tracking (e.g., simple summary listing)
+- The tracker state (`HashMap` + `Vec<StreamMetadata>`) adds overhead per packet
+- Keeping it as a wrapper follows the Rust iterator adapter pattern (like `Peekable`, `Enumerate`)
+- Consumers that need stream data use `TrackingPipeline`; consumers that do not use `Pipeline`
+
+### Canonical 5-tuple normalization
+
+`StreamKey` normalizes the direction of a conversation by placing the "lower" `(addr, port)` pair first (lexicographic comparison). This ensures both directions of a TCP or UDP conversation map to the same key without maintaining separate forward/reverse entries. The protocol number (`6` for TCP, `17` for UDP) is part of the key, so TCP and UDP conversations between the same endpoints are distinct streams.
 
 ## 6. Extension Points
 
@@ -414,7 +440,7 @@ All ANSI color output, protocol-to-color mapping, hex dump formatting, and times
 |-----------|--------|
 | **Ethernet-only link type** | `CaptureReader` rejects captures with non-Ethernet link types at open time. No support for raw IP, loopback, Wi-Fi radiotap, or other link layers. |
 | **No live capture** | File-only ingestion. No `libpcap`/`npcap` binding, no `AF_PACKET`, no BPF. Planned for walk phase. |
-| **No TCP/IP reassembly** | Each packet is decoded independently. No TCP stream reassembly, no IP fragment reassembly (non-initial fragments skip transport decoding). |
+| **No TCP/IP reassembly** | Each packet is decoded independently. Stream tracking identifies conversations by 5-tuple, but there is no TCP stream reassembly or IP fragment reassembly (non-initial fragments skip transport decoding). |
 | **No string/regex filters** | Filter language supports protocol presence, field comparisons, and address/port shorthands. No `contains`, `matches`, or regular expression operators. |
 | **No IPv6 CIDR filtering** | IPv4 CIDR (`ip.dst == 10.0.0.0/8`, `src 10.0.0.0/8`) is supported. IPv6 CIDR is not implemented -- only exact IPv6 address matching works. |
 | **No MAC address filtering** | `eth.type` is filterable as an integer, but there is no `eth.src` or `eth.dst` field for MAC address comparison. |
@@ -425,7 +451,7 @@ All ANSI color output, protocol-to-color mapping, hex dump formatting, and times
 
 ## 9. Phase Roadmap
 
-### Crawl (Current -- v0.4.x)
+### Crawl (Current -- v0.5.x)
 
 Delivers the foundational offline analysis stack:
 
@@ -434,19 +460,21 @@ Delivers the foundational offline analysis stack:
 - **Complete:** Application-layer dispatch by port number (DNS over UDP port 53) and heuristic dispatch (TLS on any TCP port)
 - **Complete:** DNS response parsing with A/AAAA answer records
 - **Complete:** TLS handshake analysis: SNI extraction, cipher suites, ALPN, supported versions, signature algorithms, key share groups
-- **Complete:** Color-coded CLI with `summary` and `detail` commands
-- **Complete:** Display filter language with lexer, parser, evaluator (including 5 TLS filter fields)
-- **Complete:** MCP server with 12 tools across session management, packet queries, and security audit
-- **Complete:** Security audit heuristics: scan detection, suspicious ports, cleartext credential exposure, DNS tunneling detection
+- **Complete:** Color-coded CLI with 6 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`
+- **Complete:** Display filter language with lexer, parser, evaluator (including TLS filter fields, `tcp.stream`/`udp.stream`)
+- **Complete:** MCP server with 17 tools across session management, packet queries, streams, capture overview, and security audit
+- **Complete:** TCP/UDP stream tracking: `StreamTracker` with canonical 5-tuple keys, `TrackingPipeline` iterator adapter, per-stream metadata
+- **Complete:** `follow` CLI command for viewing all packets in a conversation
+- **Complete:** `list_streams`, `get_stream`, `summarize_capture` MCP tools
+- **Complete:** Security audit heuristics (6): decode issues, unknown traffic, scan detection, suspicious ports, cleartext credential exposure, DNS tunneling detection
 - **Complete:** Fuzz testing infrastructure with two targets
 
 ### Walk (Planned)
 
-Adds live capture and stream identity:
+Adds live capture and reassembly:
 
 - Live capture backends (platform-specific: `libpcap`, `AF_PACKET`, etc.)
-- Conversation/stream identity (5-tuple tracking)
-- Stream-level statistics (byte counts, duration, packet counts per stream)
+- TCP stream reassembly
 - BPF compile-time capture filters (distinct from display filters)
 - Streaming pipeline mode (process packets as they arrive, not all-at-once)
 
@@ -454,7 +482,6 @@ Adds live capture and stream identity:
 
 Enables analyst workflows:
 
-- Follow-stream command (reconstruct TCP conversation content)
 - Advanced statistics (IO graphs, flow analysis, RTT estimation)
 - Extended filter language (string contains, regex matching, MAC address fields, IPv6 CIDR)
 - Application-layer dissectors (HTTP, TCP-based DNS, full TLS record parsing beyond handshake)

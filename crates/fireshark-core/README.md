@@ -13,6 +13,10 @@ This crate defines the foundational types that all other fireshark crates depend
 - **`Layer`** — enum wrapping typed protocol layer structs (`EthernetLayer`, `Ipv4Layer`, `TcpLayer`, etc.)
 - **`LayerSpan`** — byte offset and length marking where a layer lives in the raw frame data
 - **`Pipeline`** / **`DecodedFrame`** — generic iterator that pairs frames with decoded packets
+- **`TrackingPipeline`** — wraps `Pipeline`, assigns stream IDs via `StreamTracker` during iteration
+- **`StreamKey`** — canonical 5-tuple (lower addr/port, higher addr/port, protocol) identifying a bidirectional conversation
+- **`StreamMetadata`** — per-stream statistics: packet count, byte count, first/last seen timestamps
+- **`StreamTracker`** — maps `StreamKey` values to monotonic `u32` stream IDs, accumulates per-stream metadata
 - **`PacketSummary`** — one-line summary with protocol, endpoints, ports, timestamp, and length
 - **`DecodeIssue`** — structured error with kind (truncated/malformed) and byte offset
 

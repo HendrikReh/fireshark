@@ -40,7 +40,7 @@ Fireshark is a zero-configuration tool. Point it at a pcap/pcapng file and it wo
 
 ## CLI Operation
 
-The CLI has two commands:
+The CLI has 6 commands:
 
 ```bash
 # List all packets with color-coded protocol summary
@@ -48,6 +48,18 @@ fireshark summary <capture.pcap> [-f "filter expression"]
 
 # Show detailed decode of a single packet (1-indexed)
 fireshark detail <capture.pcap> <packet-number>
+
+# Show all packets in a TCP/UDP conversation by stream ID
+fireshark follow <capture.pcap> <stream-id>
+
+# Capture statistics: packets, streams, duration, protocols, endpoints
+fireshark stats <capture.pcap>
+
+# List decode issues
+fireshark issues <capture.pcap>
+
+# Run security audit heuristics
+fireshark audit <capture.pcap>
 ```
 
 Exit codes:
@@ -78,12 +90,14 @@ Connect from any MCP-compatible client (e.g., Claude Desktop, an LLM agent) by w
 
 A session is created by calling `open_capture` with a file path. The server returns a `session_id` that must be passed to all subsequent queries. Sessions are closed explicitly with `close_capture` or automatically after 15 minutes of inactivity.
 
-### MCP Tool Families
+### MCP Tool Families (17 tools)
 
 | Family | Tools |
 |--------|-------|
 | Session | `open_capture`, `describe_capture`, `close_capture` |
 | Packet queries | `list_packets`, `get_packet`, `search_packets`, `list_decode_issues`, `summarize_protocols`, `top_endpoints` |
+| Streams | `list_streams`, `get_stream` |
+| Capture overview | `summarize_capture` |
 | Audit | `audit_capture`, `list_findings`, `explain_finding` |
 
 ## Resource Usage
@@ -108,8 +122,8 @@ No temporary files. No log files. No cache. The only disk access is reading the 
 |------------|--------|
 | Offline only | No live capture support. Fireshark reads pcap and pcapng files only. |
 | Ethernet only | Only the Ethernet link layer is supported. Wi-Fi (radiotap), PPP, raw IP, and other link types are rejected. |
-| Protocol coverage | Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP. No application-layer protocols (HTTP, DNS, TLS, etc.). |
-| No reassembly | No TCP stream reassembly, no IP fragment reassembly. |
+| Protocol coverage | Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS (ClientHello/ServerHello). No HTTP. |
+| No reassembly | TCP/UDP stream tracking (conversation identity by 5-tuple) is supported, but no byte-level TCP stream reassembly or IP fragment reassembly. |
 | Packet limit | The MCP server rejects captures with more than 100,000 packets. The CLI has no hard limit but memory scales linearly. |
 | No GUI | CLI and MCP server only. No graphical interface. |
 
@@ -168,4 +182,4 @@ The file does not have a valid pcap or pcapng magic number. Ensure the file is n
 
 ---
 
-**Version:** 0.2.2 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
