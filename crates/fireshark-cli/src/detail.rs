@@ -5,8 +5,8 @@ use std::path::Path;
 
 use colored::Colorize;
 use fireshark_core::{
-    ArpLayer, DecodedFrame, DnsLayer, EthernetLayer, IcmpDetail, IcmpLayer, Ipv4Layer, Ipv6Layer,
-    Layer, LayerSpan, Pipeline, TcpLayer, UdpLayer,
+    ArpLayer, DecodedFrame, DnsAnswerData, DnsLayer, EthernetLayer, IcmpDetail, IcmpLayer,
+    Ipv4Layer, Ipv6Layer, Layer, LayerSpan, Pipeline, TcpLayer, UdpLayer,
 };
 use fireshark_dissectors::decode_packet;
 use fireshark_file::CaptureReader;
@@ -274,11 +274,34 @@ fn render_dns<W: Write>(w: &mut W, l: &DnsLayer) -> io::Result<()> {
     )?;
     match (&l.query_name, l.query_type) {
         (Some(name), Some(qtype)) => {
-            writeln!(w, "    Query: {} ({})", name, dns_qtype_name(qtype))
+            writeln!(w, "    Query: {} ({})", name, dns_qtype_name(qtype))?;
         }
-        (Some(name), None) => writeln!(w, "    Query: {}", name),
-        (None, _) => writeln!(w, "    Query: <unparseable>"),
+        (Some(name), None) => {
+            writeln!(w, "    Query: {}", name)?;
+        }
+        (None, _) => {
+            writeln!(w, "    Query: <unparseable>")?;
+        }
     }
+    for answer in &l.answers {
+        match &answer.data {
+            DnsAnswerData::A(addr) => {
+                writeln!(w, "    Answer: A {} (TTL {})", addr, answer.ttl)?;
+            }
+            DnsAnswerData::Aaaa(addr) => {
+                writeln!(w, "    Answer: AAAA {} (TTL {})", addr, answer.ttl)?;
+            }
+            DnsAnswerData::Other(bytes) => {
+                writeln!(
+                    w,
+                    "    Answer: Type {} ({} bytes)",
+                    answer.record_type,
+                    bytes.len()
+                )?;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn dns_qtype_name(qtype: u16) -> &'static str {

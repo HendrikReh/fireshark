@@ -1,4 +1,4 @@
-use fireshark_core::{DecodeIssue, DecodeIssueKind, Layer};
+use fireshark_core::{DecodeIssue, DecodeIssueKind, DnsAnswerData, Layer};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +21,14 @@ pub enum IcmpDetailView {
     EchoReply { identifier: u16, sequence: u16 },
     DestinationUnreachable { next_hop_mtu: u16 },
     Other { rest_of_header: u32 },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DnsAnswerView {
+    pub name: String,
+    pub record_type: u16,
+    pub ttl: u32,
+    pub data: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -207,6 +215,7 @@ pub enum LayerView {
         answer_count: u16,
         query_name: Option<String>,
         query_type: Option<u16>,
+        answers: Vec<DnsAnswerView>,
     },
 }
 
@@ -311,6 +320,20 @@ impl LayerView {
                 answer_count: layer.answer_count,
                 query_name: layer.query_name.clone(),
                 query_type: layer.query_type,
+                answers: layer
+                    .answers
+                    .iter()
+                    .map(|a| DnsAnswerView {
+                        name: a.name.clone(),
+                        record_type: a.record_type,
+                        ttl: a.ttl,
+                        data: match &a.data {
+                            DnsAnswerData::A(addr) => addr.to_string(),
+                            DnsAnswerData::Aaaa(addr) => addr.to_string(),
+                            DnsAnswerData::Other(bytes) => format!("{} bytes", bytes.len()),
+                        },
+                    })
+                    .collect(),
             },
         }
     }

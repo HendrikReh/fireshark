@@ -1,4 +1,6 @@
-use fireshark_core::{DnsLayer, Layer};
+use std::net::{Ipv4Addr, Ipv6Addr};
+
+use fireshark_core::{DnsAnswer, DnsAnswerData, DnsLayer, Layer};
 
 use crate::DecodeError;
 
@@ -30,10 +32,16 @@ pub fn parse(bytes: &[u8], offset: usize) -> Result<Layer, DecodeError> {
     let _additional_count = u16::from_be_bytes([bytes[10], bytes[11]]);
 
     // Attempt to parse the first question entry
-    let (query_name, query_type) = if question_count > 0 {
+    let (query_name, query_type, question_end) = if question_count > 0 {
         parse_question(bytes)
     } else {
-        (None, None)
+        (None, None, HEADER_LEN)
+    };
+
+    let answers = if is_response && answer_count > 0 {
+        parse_answers(bytes, question_end, answer_count)
+    } else {
+        Vec::new()
     };
 
     Ok(Layer::Dns(DnsLayer {
@@ -44,28 +52,99 @@ pub fn parse(bytes: &[u8], offset: usize) -> Result<Layer, DecodeError> {
         answer_count,
         query_name,
         query_type,
+        answers,
     }))
 }
 
 /// Parse the first question entry from the DNS message.
-/// Returns (query_name, query_type) — both None if parsing fails.
-fn parse_question(bytes: &[u8]) -> (Option<String>, Option<u16>) {
+/// Returns (query_name, query_type, end_offset) — the third element is the byte offset
+/// where the question section ends, so answer parsing knows where to start.
+fn parse_question(bytes: &[u8]) -> (Option<String>, Option<u16>, usize) {
     let Some((name, consumed)) = parse_name(bytes, HEADER_LEN) else {
-        return (None, None);
+        return (None, None, HEADER_LEN);
     };
 
     let qtype_start = HEADER_LEN + consumed;
     let query_name = if name.is_empty() { None } else { Some(name) };
     // Need 4 bytes for qtype (2) + qclass (2)
     if qtype_start + 4 > bytes.len() {
-        return (query_name, None);
+        return (query_name, None, qtype_start);
     }
 
     let query_type = u16::from_be_bytes([bytes[qtype_start], bytes[qtype_start + 1]]);
     // qclass read but not stored
     let _query_class = u16::from_be_bytes([bytes[qtype_start + 2], bytes[qtype_start + 3]]);
 
-    (query_name, Some(query_type))
+    let question_end = qtype_start + 4;
+    (query_name, Some(query_type), question_end)
+}
+
+/// Maximum number of answer records to parse (guards against malicious packets).
+const MAX_ANSWERS: u16 = 100;
+
+/// Parse answer records from the DNS message.
+///
+/// Returns a `Vec<DnsAnswer>` with up to `min(count, MAX_ANSWERS)` entries.
+/// Stops early if any record is truncated.
+fn parse_answers(bytes: &[u8], start: usize, count: u16) -> Vec<DnsAnswer> {
+    let limit = count.min(MAX_ANSWERS) as usize;
+    let mut answers = Vec::with_capacity(limit);
+    let mut pos = start;
+
+    for _ in 0..limit {
+        // Parse the answer name (usually a compression pointer)
+        let Some((name, name_consumed)) = parse_name(bytes, pos) else {
+            break;
+        };
+        pos += name_consumed;
+
+        // Need 10 bytes: type(2) + class(2) + TTL(4) + rdlength(2)
+        if pos + 10 > bytes.len() {
+            break;
+        }
+
+        let record_type = u16::from_be_bytes([bytes[pos], bytes[pos + 1]]);
+        // class read but not stored
+        let _class = u16::from_be_bytes([bytes[pos + 2], bytes[pos + 3]]);
+        let ttl = u32::from_be_bytes([
+            bytes[pos + 4],
+            bytes[pos + 5],
+            bytes[pos + 6],
+            bytes[pos + 7],
+        ]);
+        let rdlength = u16::from_be_bytes([bytes[pos + 8], bytes[pos + 9]]) as usize;
+        pos += 10;
+
+        if pos + rdlength > bytes.len() {
+            break;
+        }
+
+        let data = match record_type {
+            1 if rdlength == 4 => DnsAnswerData::A(Ipv4Addr::new(
+                bytes[pos],
+                bytes[pos + 1],
+                bytes[pos + 2],
+                bytes[pos + 3],
+            )),
+            28 if rdlength == 16 => {
+                let mut octets = [0u8; 16];
+                octets.copy_from_slice(&bytes[pos..pos + 16]);
+                DnsAnswerData::Aaaa(Ipv6Addr::from(octets))
+            }
+            _ => DnsAnswerData::Other(bytes[pos..pos + rdlength].to_vec()),
+        };
+
+        pos += rdlength;
+
+        answers.push(DnsAnswer {
+            name,
+            record_type,
+            ttl,
+            data,
+        });
+    }
+
+    answers
 }
 
 /// Parse a DNS name using label-length encoding.

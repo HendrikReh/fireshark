@@ -1,4 +1,6 @@
-use fireshark_core::{Layer, LayerSpan};
+use std::net::Ipv4Addr;
+
+use fireshark_core::{DnsAnswerData, Layer, LayerSpan};
 use fireshark_dissectors::decode_packet;
 
 #[test]
@@ -22,6 +24,7 @@ fn decodes_dns_query() {
     assert_eq!(dns.answer_count, 0);
     assert_eq!(dns.query_name.as_deref(), Some("example.com"));
     assert_eq!(dns.query_type, Some(1)); // A record
+    assert!(dns.answers.is_empty());
 }
 
 #[test]
@@ -115,6 +118,51 @@ fn dns_respects_declared_udp_payload_length() {
     let packet = decode_packet(&bytes).unwrap();
 
     assert_eq!(packet.layer_names(), vec!["Ethernet", "IPv4", "UDP"]);
+}
+
+#[test]
+fn decodes_dns_response_with_a_record() {
+    let bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv4_udp_dns_response.bin");
+    let packet = decode_packet(bytes).unwrap();
+
+    let dns = packet
+        .layers()
+        .iter()
+        .find_map(|layer| match layer {
+            Layer::Dns(layer) => Some(layer),
+            _ => None,
+        })
+        .expect("DNS layer");
+
+    assert!(dns.is_response);
+    assert_eq!(dns.answer_count, 1);
+    assert_eq!(dns.answers.len(), 1);
+
+    let answer = &dns.answers[0];
+    assert_eq!(answer.record_type, 1);
+    assert_eq!(answer.ttl, 300);
+    assert_eq!(
+        answer.data,
+        DnsAnswerData::A(Ipv4Addr::new(93, 184, 216, 34))
+    );
+}
+
+#[test]
+fn dns_query_has_empty_answers() {
+    let bytes = include_bytes!("../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin");
+    let packet = decode_packet(bytes).unwrap();
+
+    let dns = packet
+        .layers()
+        .iter()
+        .find_map(|layer| match layer {
+            Layer::Dns(layer) => Some(layer),
+            _ => None,
+        })
+        .expect("DNS layer");
+
+    assert!(!dns.is_response);
+    assert!(dns.answers.is_empty());
 }
 
 /// Helper: wrap raw DNS bytes in Ethernet + IPv4 + UDP headers.

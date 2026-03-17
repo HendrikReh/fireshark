@@ -87,6 +87,21 @@ pub struct IcmpLayer {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DnsAnswer {
+    pub name: String,
+    pub record_type: u16,
+    pub ttl: u32,
+    pub data: DnsAnswerData,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DnsAnswerData {
+    A(Ipv4Addr),
+    Aaaa(Ipv6Addr),
+    Other(Vec<u8>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DnsLayer {
     pub transaction_id: u16,
     pub is_response: bool,
@@ -95,6 +110,7 @@ pub struct DnsLayer {
     pub answer_count: u16,
     pub query_name: Option<String>,
     pub query_type: Option<u16>,
+    pub answers: Vec<DnsAnswer>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

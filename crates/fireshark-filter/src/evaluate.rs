@@ -265,6 +265,9 @@ fn resolve_layer_field(field: &str, decoded: &DecodedFrame) -> Option<FieldValue
             ("dns.qtype", Layer::Dns(l)) => {
                 return l.query_type.map(|t| FieldValue::Integer(u64::from(t)));
             }
+            ("dns.answer", Layer::Dns(l)) => {
+                return Some(FieldValue::Bool(!l.answers.is_empty()));
+            }
 
             _ => {}
         }

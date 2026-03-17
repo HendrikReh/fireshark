@@ -208,6 +208,7 @@ fn dns_query_packet(source: &str, query_name: &str, query_type: u16) -> DecodedF
                     answer_count: 0,
                     query_name: Some(query_name.to_string()),
                     query_type: Some(query_type),
+                    answers: Vec::new(),
                 }),
             ],
             Vec::new(),
