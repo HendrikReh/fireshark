@@ -49,12 +49,29 @@ pub struct BackendCapture {
 }
 
 impl BackendCapture {
+    /// Construct a `BackendCapture` from pre-built components.
+    ///
+    /// Used by backend implementations (native, tshark) to return results.
+    pub fn new(
+        kind: BackendKind,
+        capabilities: BackendCapabilities,
+        packets: Vec<BackendPacket>,
+        protocol_counts: Vec<(String, usize)>,
+        endpoint_counts: Vec<(String, usize)>,
+    ) -> Self {
+        Self {
+            kind,
+            capabilities,
+            packets,
+            protocol_counts,
+            endpoint_counts,
+        }
+    }
+
     pub fn open(path: impl AsRef<Path>, kind: BackendKind) -> Result<Self, BackendError> {
         match kind {
             BackendKind::Native => crate::native::open(path),
-            BackendKind::Tshark => Err(BackendError::Unsupported(
-                "tshark backend not implemented yet".into(),
-            )),
+            BackendKind::Tshark => crate::tshark::open(path),
         }
     }
 

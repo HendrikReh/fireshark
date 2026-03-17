@@ -6,6 +6,7 @@
 mod backend;
 mod capture;
 mod native;
+mod tshark;
 
 pub use backend::{BackendCapabilities, BackendKind};
 pub use capture::{

@@ -347,6 +347,7 @@ dependencies = [
  "fireshark-core",
  "fireshark-dissectors",
  "fireshark-file",
+ "fireshark-tshark",
  "thiserror 2.0.18",
 ]
 
@@ -424,7 +425,6 @@ dependencies = [
 name = "fireshark-tshark"
 version = "0.5.1"
 dependencies = [
- "fireshark-backend",
  "thiserror 2.0.18",
 ]
 
