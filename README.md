@@ -11,6 +11,7 @@ Packet analyzer built for LLMs and humans. Rust-native protocol dissection with 
 
 - [Elevator Pitch](#elevator-pitch)
 - [Why native dissectors when tshark exists?](#why-native-dissectors-when-tshark-exists)
+- [System Requirements](#system-requirements)
 - [Features](#features)
 - [Quick Start](#quick-start)
 - [Workspace Layout](#workspace-layout)
@@ -45,6 +46,44 @@ Fireshark includes an optional tshark backend for broad protocol coverage, but t
 | Correctness oracle for differential testing | Reference | Validation |
 
 **Use native** for deep analysis, audits, stream tracking, and filtering. **Use tshark** for broad protocol triage and as a correctness oracle. Both backends share the same CLI and MCP surfaces.
+
+## System Requirements
+
+### Runtime
+
+The native backend (default) has **zero external runtime dependencies** — no Wireshark, libpcap, or other system libraries required. All protocol dissection is pure Rust. A pre-built `fireshark` or `fireshark-mcp` binary is all you need.
+
+| Dependency | Version | Required | Purpose |
+|-----------|---------|----------|---------|
+| [tshark](https://www.wireshark.org/) (Wireshark CLI) | 3.0.0+ | Optional | Broad protocol coverage via `--backend tshark` |
+
+Fireshark discovers tshark automatically by checking `PATH` first, then known locations:
+- `/Applications/Wireshark.app/Contents/MacOS/tshark` (macOS)
+- `/usr/local/bin/tshark`
+- `/usr/bin/tshark` (Linux)
+
+```bash
+# macOS
+brew install --cask wireshark
+
+# Debian/Ubuntu
+sudo apt install tshark
+
+# Fedora/RHEL
+sudo dnf install wireshark-cli
+
+# Verify
+tshark --version   # must be >= 3.0.0
+```
+
+### Building from source
+
+| Dependency | Version | Required | Purpose |
+|-----------|---------|----------|---------|
+| [Rust](https://www.rust-lang.org/) | 1.85+ (edition 2024) | Yes | Compiler toolchain |
+| [cargo](https://doc.rust-lang.org/cargo/) | (bundled with Rust) | Yes | Build system and package manager |
+| [just](https://github.com/casey/just) | any | Yes | Task runner (`just check`, `just test`, etc.) |
+| [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) | any | Only for fuzzing | Fuzz testing targets |
 
 ## Features
 
