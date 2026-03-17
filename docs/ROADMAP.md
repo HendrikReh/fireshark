@@ -74,4 +74,4 @@ Fireshark is an MCP-first packet analyzer. The LLM is the analyst — the MCP se
 
 ---
 
-**Version:** 0.3.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.4.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

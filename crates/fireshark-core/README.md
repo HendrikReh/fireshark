@@ -29,8 +29,12 @@ Each protocol has a plain struct with public fields:
 | `TcpLayer` | ports, seq, ack, data_offset, flags (`TcpFlags`), window |
 | `UdpLayer` | ports, length |
 | `IcmpLayer` | type, code, detail (`IcmpDetail`) |
-| `DnsLayer` | transaction_id, is_response, opcode, question_count, answer_count, query_name, query_type |
+| `DnsLayer` | transaction_id, is_response, opcode, question_count, answer_count, query_name, query_type, answers |
+| `DnsAnswer` | name, record_type, ttl, data (`DnsAnswerData`) |
+| `DnsAnswerData` | A (IPv4), Aaaa (IPv6), Other (raw bytes) |
+| `TlsClientHelloLayer` | record_version, client_version, cipher_suites, compression_methods, sni, alpn, supported_versions, signature_algorithms, key_share_groups |
+| `TlsServerHelloLayer` | record_version, server_version, cipher_suite, compression_method, selected_version, alpn, key_share_group |
 
 ---
 
-**Version:** 0.3.0 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.4.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

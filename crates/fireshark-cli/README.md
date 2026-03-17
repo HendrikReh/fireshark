@@ -17,7 +17,7 @@ fireshark summary capture.pcap
 fireshark summary capture.pcap -f "tcp and port 443"
 ```
 
-Output: one line per packet with index, timestamp (ISO 8601 UTC), protocol, source, destination, and length. Each row is colored by protocol (TCP=green, UDP=blue, ARP=yellow, ICMP=cyan, DNS=magenta).
+Output: one line per packet with index, timestamp (ISO 8601 UTC), protocol, source, destination, and length. Each row is colored by protocol (TCP=green, UDP=blue, ARP=yellow, ICMP=cyan, DNS=magenta, TLS=bright green).
 
 ### `detail`
 
@@ -41,4 +41,4 @@ Output: header line, indented layer fields for each protocol (including DNS tran
 
 ---
 
-**Version:** 0.3.0 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.4.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

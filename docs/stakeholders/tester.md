@@ -86,6 +86,7 @@ Handcrafted binary blobs used by dissector unit/integration tests. Each file con
 | `udp_length_mismatch.bin` | UDP with length field mismatch |
 | `ethernet_truncated.bin` | Truncated Ethernet frame |
 | `ethernet_ipv4_udp_dns.bin` | Ethernet + IPv4 + UDP + DNS query |
+| TLS fixtures | Ethernet + IPv4 + TCP + TLS ClientHello/ServerHello handshake messages |
 
 ### `fixtures/smoke/` -- Capture Files
 
@@ -231,7 +232,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 - Full decode of Ethernet + ARP, IPv4, IPv6 packets
 - Transport protocol decoding: TCP (SYN, SYN-ACK, RST, options), UDP, ICMP (echo, dest unreachable)
-- Application-layer decoding: DNS (query, response, truncated, malformed)
+- Application-layer decoding: DNS (query, response, A/AAAA answers, truncated, malformed), TLS (ClientHello, ServerHello, SNI extraction, cipher suites, heuristic dispatch)
 - Edge cases: truncated headers, malformed fields, zero-length payloads, TTL=0, fragments
 - IPv4 options handling, data offset validation
 
@@ -273,7 +274,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 216 |
+| Total tests | 243 |
 | Byte fixtures | 18 |
 | Smoke captures | 3 |
 | Total fixtures | 21 |
@@ -283,7 +284,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 ### Known Gaps
 
-- No HTTP or TLS application-layer protocol tests -- these protocols are not yet implemented
+- No HTTP application-layer protocol tests -- HTTP is not yet implemented
 - No IP fragment reassembly tests -- reassembly is not yet implemented
 - No TCP stream reassembly tests -- reassembly is not yet implemented
 - No performance/benchmark tests
@@ -292,4 +293,4 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 ---
 
-**Version:** 0.3.0 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.4.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

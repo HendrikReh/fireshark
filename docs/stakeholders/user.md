@@ -99,6 +99,7 @@ Match packets containing a specific protocol:
 | `arp` | Any packet with an ARP layer |
 | `icmp` | Any packet with an ICMP layer |
 | `dns` | Any packet with a DNS layer |
+| `tls` | Any packet with a TLS layer (ClientHello or ServerHello) |
 | `ipv4` | Any packet with an IPv4 layer |
 | `ipv6` | Any packet with an IPv6 layer |
 | `ethernet` | Any packet with an Ethernet layer |
@@ -235,6 +236,16 @@ Compare specific protocol fields against values:
 | `dns.acount` | integer | Answer count |
 | `dns.qtype` | integer | Query type (1=A, 28=AAAA, etc.) |
 
+**TLS fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tls.handshake.type` | integer | Handshake type (1=ClientHello, 2=ServerHello) |
+| `tls.record_version` | integer | TLS record layer version |
+| `tls.client_version` | integer | ClientHello version (ClientHello only) |
+| `tls.selected_version` | integer | Selected version from supported_versions extension (ServerHello only) |
+| `tls.cipher_suite` | integer | Selected cipher suite (ServerHello only) |
+
 **ARP fields:**
 
 | Field | Type | Description |
@@ -276,6 +287,7 @@ Summary output is color-coded by the highest-layer protocol:
 | ARP | Yellow |
 | ICMP | Cyan |
 | DNS | Magenta |
+| TLS | Bright Green |
 | Ethernet, IPv4, IPv6 | White |
 | Unknown / other | Red |
 
@@ -304,7 +316,9 @@ Each decoded protocol layer is shown with all extracted fields:
 - **TCP** -- ports, sequence, acknowledgment, flags (SYN/ACK/FIN/RST/PSH/URG/ECE/CWR), window, data offset
 - **UDP** -- ports, length
 - **ICMP** -- type (with name), code, and type-specific detail (echo ID/seq, next hop MTU)
-- **DNS** -- transaction ID, query/response, opcode, question count, answer count, query name, query type
+- **DNS** -- transaction ID, query/response, opcode, question count, answer count, query name, query type, A/AAAA answer records
+- **TLS ClientHello** -- record version, client version, cipher suites, SNI, ALPN, supported versions, signature algorithms, key share groups
+- **TLS ServerHello** -- record version, server version, cipher suite, selected version, ALPN, key share group
 
 ### Decode Issue Indicators
 
@@ -494,6 +508,30 @@ fireshark summary capture.pcap -f "ip.flags.mf == true"
 fireshark summary capture.pcap -f "udp and not port 53"
 ```
 
+### Show All TLS Handshakes
+
+```bash
+fireshark summary capture.pcap -f "tls"
+```
+
+### TLS ClientHello Only
+
+```bash
+fireshark summary capture.pcap -f "tls.handshake.type == 1"
+```
+
+### TLS ServerHello Only
+
+```bash
+fireshark summary capture.pcap -f "tls.handshake.type == 2"
+```
+
+### TLS by Cipher Suite
+
+```bash
+fireshark summary capture.pcap -f "tls.cipher_suite == 0x1301"
+```
+
 ---
 
-**Version:** 0.3.0 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.4.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

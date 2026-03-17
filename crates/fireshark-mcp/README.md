@@ -39,7 +39,7 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 
 | Tool | Description |
 |------|-------------|
-| `audit_capture` | Run heuristic security analysis (scan detection, suspicious ports, etc.) |
+| `audit_capture` | Run heuristic security analysis (scan detection, suspicious ports, cleartext credential exposure, DNS tunneling detection) |
 | `list_findings` | List audit findings with severity and evidence |
 | `explain_finding` | Get detailed explanation of a specific finding |
 
@@ -61,10 +61,10 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 | `session.rs` | Session lifecycle management |
 | `analysis.rs` | Capture loading and analysis |
 | `query.rs` | Packet query and filtering logic |
-| `audit.rs` | Security heuristic engine |
+| `audit.rs` | Security heuristic engine (scan detection, suspicious ports, cleartext credentials, DNS tunneling) |
 | `model.rs` | Serializable view types for MCP responses |
 | `filter.rs` | Shared filter utilities |
 
 ---
 
-**Version:** 0.3.0 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.4.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

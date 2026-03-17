@@ -24,6 +24,7 @@ tcp
 udp
 arp
 dns
+tls
 not icmp
 ```
 
@@ -68,6 +69,7 @@ not arp
 | ICMP | `icmp.type`, `icmp.code` |
 | ARP | `arp.opcode`, `arp.spa`, `arp.tpa` |
 | DNS | `dns.id`, `dns.qr`, `dns.opcode`, `dns.qcount`, `dns.acount`, `dns.qtype` |
+| TLS | `tls.handshake.type`, `tls.record_version`, `tls.client_version`, `tls.selected_version`, `tls.cipher_suite` |
 | Ethernet | `eth.type` |
 
 ## Architecture
@@ -83,4 +85,4 @@ input string -> lexer -> tokens -> parser -> AST -> evaluator(packet) -> bool
 
 ---
 
-**Version:** 0.3.0 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.4.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

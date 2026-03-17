@@ -17,7 +17,9 @@ Decodes raw Ethernet frames into structured, typed protocol layers. Each dissect
 | TCP | ports, seq, ack, flags (SYN/ACK/FIN/RST/PSH/URG/ECE/CWR), window, data offset |
 | UDP | ports, length |
 | ICMP | type, code, typed detail (echo request/reply, destination unreachable) |
-| DNS | transaction ID, query/response, opcode, question count, answer count, query name, query type |
+| DNS | transaction ID, query/response, opcode, question count, answer count, query name, query type, A/AAAA answer records |
+| TLS ClientHello | record version, client version, cipher suites, compression methods, SNI, ALPN, supported versions, signature algorithms, key share groups |
+| TLS ServerHello | record version, server version, cipher suite, compression method, selected version, ALPN, key share group |
 
 ## Usage
 
@@ -34,7 +36,7 @@ for layer in packet.layers() {
 
 ## Decode Pipeline
 
-`decode_packet` chains dissectors: Ethernet -> (ARP | IPv4 | IPv6) -> (TCP | UDP | ICMP) -> (DNS). Application-layer protocols like DNS are dispatched by port number after transport-layer decoding (UDP port 53 for DNS). Each step:
+`decode_packet` chains dissectors: Ethernet -> (ARP | IPv4 | IPv6) -> (TCP | UDP | ICMP) -> (DNS | TLS). Application-layer protocols use two dispatch strategies: DNS is dispatched by port number (UDP port 53), while TLS uses heuristic dispatch on any TCP port by inspecting the TLS record header bytes (`0x16 0x03`). Each step:
 
 1. Validates minimum header length
 2. Extracts typed fields from network byte order
@@ -52,4 +54,4 @@ Decode errors at inner layers are captured as `DecodeIssue` on the packet, not p
 
 ---
 
-**Version:** 0.3.0 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.4.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

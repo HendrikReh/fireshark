@@ -1,8 +1,8 @@
 # Fireshark
 
-[![Version](https://img.shields.io/badge/version-0.3.0-blue)]()
+[![Version](https://img.shields.io/badge/version-0.4.0-blue)]()
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange?logo=rust)](https://www.rust-lang.org/)
-[![Tests](https://img.shields.io/badge/tests-216%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-243%20passing-brightgreen)]()
 [![Status](https://img.shields.io/badge/phase-crawl-blue)]()
 
 Wireshark-inspired packet analyzer written in Rust. Library-first, built in deliberate phases instead of as a "boil the ocean" clone.
@@ -10,7 +10,9 @@ Wireshark-inspired packet analyzer written in Rust. Library-first, built in deli
 ## Features
 
 - **Capture file reading** — pcap and pcapng with timestamps and original wire length
-- **Protocol dissection** — Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS with full RFC field extraction
+- **Protocol dissection** — Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS (ClientHello + ServerHello) with full RFC field extraction
+- **TLS handshake analysis** — heuristic dispatch on any TCP port, SNI extraction, cipher suites, ALPN, supported versions, signature algorithms, key share groups
+- **DNS response parsing** — A/AAAA answer records with typed answer data
 - **Color-coded CLI** — Wireshark-style protocol coloring in summary output
 - **Packet detail view** — decoded layer tree with color-coded hex dump (`fireshark detail`)
 - **Display filters** — Wireshark-style expression language (`-f "tcp and port 443"`)
@@ -54,6 +56,15 @@ cargo run -p fireshark-cli -- summary capture.pcap -f "dns and not dns.qr"
 
 # DNS by transaction ID
 cargo run -p fireshark-cli -- summary capture.pcap -f "dns.id == 0x1234"
+
+# TLS handshakes
+cargo run -p fireshark-cli -- summary capture.pcap -f "tls"
+
+# TLS ClientHello only
+cargo run -p fireshark-cli -- summary capture.pcap -f "tls.handshake.type == 1"
+
+# TLS by cipher suite
+cargo run -p fireshark-cli -- summary capture.pcap -f "tls.cipher_suite == 0x1301"
 ```
 
 ### Packet Detail
@@ -70,7 +81,7 @@ Shows a decoded layer tree with field values and a color-coded hex dump where ea
 |-------|---------|
 | `fireshark-core` | Domain types (`Frame`, `Packet`, `Layer`, `Pipeline`), summaries, decode issues |
 | `fireshark-file` | pcap and pcapng ingestion with timestamp/length extraction |
-| `fireshark-dissectors` | Protocol decoders with full RFC field extraction |
+| `fireshark-dissectors` | Protocol decoders (10 protocols) with full RFC field extraction |
 | `fireshark-filter` | Display filter language: lexer, parser, evaluator |
 | `fireshark-cli` | CLI with `summary` and `detail` commands, color output, hex dump |
 | `fireshark-mcp` | Offline MCP server for LLM-driven capture analysis |
@@ -140,4 +151,4 @@ Copyright 2026 Hendrik Reh <hendrik.reh@blacksmith-consulting.ai>. See [`COPYRIG
 
 ---
 
-**Version:** 0.3.0 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.4.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

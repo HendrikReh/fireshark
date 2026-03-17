@@ -21,7 +21,7 @@ This runs three stages sequentially -- if any stage fails, the pipeline stops:
 | `just fmt` | `cargo fmt --all` | Auto-format before committing |
 | `just fmt-check` | `cargo fmt --all -- --check` | CI gate: fail if unformatted |
 | `just clippy` | `cargo clippy --workspace --all-targets -- -D warnings` | CI gate: all warnings are errors |
-| `just test` | `cargo test --workspace` | CI gate: run all 216 tests |
+| `just test` | `cargo test --workspace` | CI gate: run all 243 tests |
 | `just check` | All three above in sequence | Full CI gate |
 
 ### Raw Commands (Without `just`)
@@ -223,4 +223,4 @@ fireshark/
 
 ---
 
-**Version:** 0.3.0 | **Last updated:** 2026-03-16 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.4.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
