@@ -4,16 +4,19 @@
 
 Fireshark is an MCP-first packet analyzer. The LLM is the analyst — the MCP server gives it structured tools to explore captures, and the audit engine provides heuristic findings with evidence the LLM can drill into. Every new capability should give the LLM a new analytical dimension it couldn't access before.
 
-**Design rule:** Public features must be accessible both via MCP (for LLM-driven workflows) and via CLI (for direct human use).
+**Design rules:**
+- Public features must be accessible both via MCP (for LLM-driven workflows) and via CLI (for direct human use).
+- Fireshark owns the product API surface. External tools (tshark) are optional backends and correctness oracles, not the product itself.
 
 ## Progression
 
 1. **v0.3:** Packet intelligence — protocols, fields, filters, audit heuristics
 2. **v0.4:** Application intelligence — what domains? what services?
 3. **v0.5 (current):** Conversation intelligence — who talked to whom? how?
-4. **v0.6:** Comparative intelligence — what changed? what's filtered via MCP?
-5. **v0.7:** Content intelligence — what was said? what patterns?
-6. **v1.0:** Real-time intelligence — what's happening now?
+4. **v0.5.2:** Backend abstraction — tshark as optional oracle, differential testing
+5. **v0.6:** Security analyst platform — comparison, export, checksums, certificates
+6. **v0.7:** Content intelligence — string filters, HTTP, audit profiles
+7. **v1.0:** Real-time intelligence — live capture
 
 ---
 
@@ -34,7 +37,7 @@ Delivered: 10 protocol dissectors (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP wit
 | MCP display filter expression support in `list_packets` and `search_packets` | **Done** |
 | Wireshark sample capture regression tests (dns.cap, ipv4frags.pcap) | **Done** |
 
-## v0.5 — Conversation intelligence (IN PROGRESS)
+## v0.5 — Conversation intelligence (COMPLETE)
 
 | Feature | Status |
 |---------|--------|
@@ -46,16 +49,37 @@ Delivered: 10 protocol dissectors (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP wit
 | `list_streams` MCP tool — paginated stream metadata | **Done** |
 | `get_stream` MCP tool — all packets in a conversation | **Done** |
 | `summarize_capture` MCP tool — single-call capture overview | **Done** |
-| Connection anomaly audit (SYN without SYN-ACK, reset storms, half-open) | Planned (Spec 2) |
+| Connection anomaly audit (incomplete handshake, RST storm, half-open) | **Done** |
 
-## v0.6 — MCP as a security analyst platform
+## v0.5.2 — tshark backend (PLANNED)
+
+Optional `tshark` subprocess backend for offline capture analysis. The native Rust pipeline remains the default. tshark expands protocol coverage and provides a correctness oracle for differential testing.
+
+| Feature | Purpose |
+|---------|---------|
+| `fireshark-backend` crate | Shared backend abstraction: `BackendKind`, `BackendCapture`, `CaptureBackend` trait, capability model |
+| `fireshark-tshark` crate | tshark subprocess adapter: discovery, execution, JSON parsing, normalization |
+| Native backend adapter | Wraps existing pipeline into `BackendCapture` — no behavior change for current users |
+| Explicit `--backend native\|tshark` CLI flag | Backend selection for `summary` and `stats` commands |
+| MCP backend selection | `open_capture` accepts optional `backend` parameter, session records provenance |
+| Differential tests | Compare native vs tshark output for stable packet facts (count, protocols, endpoints) |
+| Capability model | `supports_streams`, `supports_decode_issues`, `supports_native_filter`, etc. Unsupported features return explicit errors. |
+
+**First milestone scope:** CLI `summary`, CLI `stats`, MCP `open_capture`, `describe_capture`, `list_packets`, `get_packet`, `summarize_protocols`, `top_endpoints`.
+
+**Deferred:** CLI `follow`, `issues`, `audit`; MCP stream/audit tools; display filter parity; hex-span parity.
+
+**Design doc:** `docs/plans/2026-03-17-tshark-backend-design.md`
+**Implementation plan:** `docs/plans/2026-03-17-tshark-backend.md`
+
+## v0.6 — Security analyst platform
 
 | Feature | MCP impact | CLI impact |
 |---------|-----------|------------|
-| Capture comparison | New tool: `compare_captures(session_a, session_b)` — new hosts, ports, missing traffic | `diff <file1> <file2>` |
+| Capture comparison | New tool: `compare_captures(session_a, session_b)` — new hosts, ports, missing traffic. Synergy with tshark backend: compare native vs tshark views. | `diff <file1> <file2>` |
 | Export tool | `export_packets(session_id, filter?, format)` as JSON | `--json` flag |
 | Checksum validation (issue #8) | `audit_capture` flags corrupted packets; `get_packet` shows checksum status | Decode issues in detail |
-| Certificate parsing (requires stream tracking from v0.5) | `get_packet` returns X.509 subject, issuer, validity | `detail` shows cert chain |
+| Certificate parsing | `get_packet` returns X.509 subject, issuer, validity. tshark backend can serve as reference implementation. | `detail` shows cert chain |
 
 ## v0.7 — String filters + extended audit
 
@@ -92,13 +116,13 @@ Delivered: 10 protocol dissectors (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP wit
 | Metric | Value |
 |--------|-------|
 | Protocols | 10 (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello) |
-| Tests | 306 |
-| Source lines | ~8,100 |
-| Crates | 6 |
+| Tests | 314 |
+| Source lines | ~8,400 |
+| Crates | 6 (+ 2 planned: fireshark-backend, fireshark-tshark) |
 | MCP tools | 17 |
 | CLI commands | 6 (summary, detail, follow, stats, issues, audit) |
 | Filter fields | 50+ |
-| Audit heuristics | 6 |
+| Audit heuristics | 7 |
 
 ---
 
