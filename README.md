@@ -136,6 +136,7 @@ cargo fuzz run fuzz_capture_reader -- -max_total_time=60
 ## License
 
 Licensed under the Apache License, Version 2.0. See [`LICENSE`](LICENSE).
+Copyright 2026 Hendrik Reh <hendrik.reh@blacksmith-consulting.ai>. See [`COPYRIGHT`](COPYRIGHT).
 
 ---
 
