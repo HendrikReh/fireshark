@@ -20,7 +20,7 @@ async fn list_packets_tool_returns_capture_packets() {
     let capture = service.open_capture(&fixture).await.unwrap();
 
     let packets = service
-        .list_packets(&capture.session_id, 0, 10, None, None)
+        .list_packets(&capture.session_id, 0, 10, None, None, None)
         .await
         .unwrap();
 

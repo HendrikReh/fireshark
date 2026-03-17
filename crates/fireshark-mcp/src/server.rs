@@ -16,6 +16,17 @@ use crate::model::{
 use crate::query::PacketSearch;
 use crate::tools::{ToolError, ToolService};
 
+fn parse_filter_opt(
+    filter: &Option<String>,
+) -> Result<Option<fireshark_filter::ast::Expr>, ErrorData> {
+    match filter {
+        Some(f) => fireshark_filter::parse(f)
+            .map(Some)
+            .map_err(|e| ErrorData::invalid_params(format!("invalid filter: {e}"), None)),
+        None => Ok(None),
+    }
+}
+
 type McpResult<T> = Result<Json<T>, ErrorData>;
 
 #[tool_handler(router = self.tool_router)]
@@ -96,6 +107,7 @@ impl FiresharkMcpServer {
         &self,
         Parameters(request): Parameters<ListPacketsRequest>,
     ) -> McpResult<PacketListResponse> {
+        let filter_expr = parse_filter_opt(&request.filter)?;
         self.tools
             .list_packets(
                 &request.session_id,
@@ -103,6 +115,7 @@ impl FiresharkMcpServer {
                 request.limit.unwrap_or(100),
                 request.protocol.as_deref(),
                 request.has_issues,
+                filter_expr.as_ref(),
             )
             .await
             .map(|packets| Json(PacketListResponse { packets }))
@@ -167,6 +180,7 @@ impl FiresharkMcpServer {
         &self,
         Parameters(request): Parameters<SearchPacketsRequest>,
     ) -> McpResult<PacketListResponse> {
+        let filter_expr = parse_filter_opt(&request.filter)?;
         let search = PacketSearch {
             protocol: request.protocol.as_deref(),
             source: request.source.as_deref(),
@@ -182,6 +196,7 @@ impl FiresharkMcpServer {
                 &search,
                 request.offset.unwrap_or(0),
                 request.limit.unwrap_or(100),
+                filter_expr.as_ref(),
             )
             .await
             .map(|packets| Json(PacketListResponse { packets }))
@@ -266,6 +281,7 @@ struct ListPacketsRequest {
     limit: Option<usize>,
     protocol: Option<String>,
     has_issues: Option<bool>,
+    filter: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -299,6 +315,7 @@ struct SearchPacketsRequest {
     port: Option<u16>,
     text: Option<String>,
     has_issues: Option<bool>,
+    filter: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

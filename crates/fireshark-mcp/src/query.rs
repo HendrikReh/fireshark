@@ -1,4 +1,5 @@
 use fireshark_core::DecodedFrame;
+use fireshark_filter::ast::Expr;
 
 use crate::analysis::AnalyzedCapture;
 use crate::filter::matches_filter;
@@ -25,6 +26,7 @@ pub fn list_packets(
     limit: usize,
     protocol: Option<&str>,
     has_issues: Option<bool>,
+    filter: Option<&Expr>,
 ) -> Vec<PacketSummaryView> {
     let search = PacketSearch {
         protocol,
@@ -33,7 +35,7 @@ pub fn list_packets(
     };
     let limit = clamp_limit(limit);
 
-    filtered_packets(capture, &search)
+    filtered_packets(capture, &search, filter)
         .skip(offset)
         .take(limit)
         .map(|(index, packet)| PacketSummaryView::from_frame(index, packet))
@@ -124,10 +126,11 @@ pub fn search_packets(
     search: &PacketSearch<'_>,
     offset: usize,
     limit: usize,
+    filter: Option<&Expr>,
 ) -> Vec<PacketSummaryView> {
     let limit = clamp_limit(limit);
 
-    filtered_packets(capture, search)
+    filtered_packets(capture, search, filter)
         .skip(offset)
         .take(limit)
         .map(|(index, packet)| PacketSummaryView::from_frame(index, packet))
@@ -137,12 +140,23 @@ pub fn search_packets(
 fn filtered_packets<'a>(
     capture: &'a AnalyzedCapture,
     search: &'a PacketSearch<'_>,
+    filter: Option<&'a Expr>,
 ) -> impl Iterator<Item = (usize, &'a DecodedFrame)> + 'a {
     capture
         .packets()
         .iter()
         .enumerate()
-        .filter(move |(_, packet)| matches_search(packet, search))
+        .filter(move |(_, packet)| {
+            if !matches_search(packet, search) {
+                return false;
+            }
+            if let Some(expr) = filter
+                && !fireshark_filter::evaluate(expr, packet)
+            {
+                return false;
+            }
+            true
+        })
 }
 
 fn clamp_limit(limit: usize) -> usize {

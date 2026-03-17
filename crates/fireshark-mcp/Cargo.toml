@@ -12,6 +12,7 @@ path = "src/main.rs"
 fireshark-core = { path = "../fireshark-core" }
 fireshark-dissectors = { path = "../fireshark-dissectors" }
 fireshark-file = { path = "../fireshark-file" }
+fireshark-filter = { path = "../fireshark-filter" }
 rmcp = { version = "0.16", features = ["client", "transport-child-process", "transport-io"] }
 schemars = "1"
 serde = { version = "1", features = ["derive"] }

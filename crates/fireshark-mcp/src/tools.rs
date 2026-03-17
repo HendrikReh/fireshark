@@ -104,6 +104,7 @@ impl ToolService {
         limit: usize,
         protocol: Option<&str>,
         has_issues: Option<bool>,
+        filter: Option<&fireshark_filter::ast::Expr>,
     ) -> Result<Vec<PacketSummaryView>, ToolError> {
         let mut sessions = self.lock_sessions().await;
         let session = require_session(&mut sessions, session_id)?;
@@ -114,6 +115,7 @@ impl ToolService {
             limit,
             protocol,
             has_issues,
+            filter,
         ))
     }
 
@@ -171,11 +173,18 @@ impl ToolService {
         search: &PacketSearch<'_>,
         offset: usize,
         limit: usize,
+        filter: Option<&fireshark_filter::ast::Expr>,
     ) -> Result<Vec<PacketSummaryView>, ToolError> {
         let mut sessions = self.lock_sessions().await;
         let session = require_session(&mut sessions, session_id)?;
 
-        Ok(search_packets(&session.capture, search, offset, limit))
+        Ok(search_packets(
+            &session.capture,
+            search,
+            offset,
+            limit,
+            filter,
+        ))
     }
 
     pub async fn audit_capture(&self, session_id: &str) -> Result<Vec<FindingView>, ToolError> {

@@ -12,7 +12,7 @@ fn list_packets_returns_packet_summaries() {
     let fixture = support::repo_root().join("fixtures/smoke/minimal.pcap");
     let capture = AnalyzedCapture::open(&fixture).unwrap();
 
-    let packets = list_packets(&capture, 0, 10, None, None);
+    let packets = list_packets(&capture, 0, 10, None, None, None);
 
     assert_eq!(packets.len(), 1);
     assert_eq!(packets[0].protocol, "TCP");
@@ -70,7 +70,7 @@ fn tcp_layer_view_exposes_new_fields() {
 fn list_packets_clamps_requested_limit() {
     let capture = AnalyzedCapture::from_packets((0..1_010).map(tcp_packet).collect());
 
-    let packets = list_packets(&capture, 0, usize::MAX, None, None);
+    let packets = list_packets(&capture, 0, usize::MAX, None, None, None);
 
     assert_eq!(packets.len(), MAX_PAGE_SIZE);
 }

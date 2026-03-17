@@ -351,6 +351,7 @@ dependencies = [
  "fireshark-dissectors",
  "fireshark-file",
  "fireshark-filter",
+ "fireshark-mcp",
  "predicates",
  "tempfile",
 ]
@@ -397,6 +398,7 @@ dependencies = [
  "fireshark-core",
  "fireshark-dissectors",
  "fireshark-file",
+ "fireshark-filter",
  "predicates",
  "rmcp",
  "schemars",

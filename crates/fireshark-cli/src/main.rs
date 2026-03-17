@@ -1,6 +1,9 @@
+mod audit;
 mod color;
 mod detail;
 mod hexdump;
+mod issues;
+mod stats;
 mod summary;
 mod timestamp;
 
@@ -27,6 +30,15 @@ enum Command {
         #[arg(help = "Packet number (1-indexed)")]
         packet: usize,
     },
+    Stats {
+        path: PathBuf,
+    },
+    Issues {
+        path: PathBuf,
+    },
+    Audit {
+        path: PathBuf,
+    },
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -35,6 +47,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
         Command::Summary { path, filter } => summary::run(&path, filter.as_deref())?,
         Command::Detail { path, packet } => detail::run(&path, packet)?,
+        Command::Stats { path } => stats::run(&path)?,
+        Command::Issues { path } => issues::run(&path)?,
+        Command::Audit { path } => audit::run(&path)?,
     }
 
     Ok(())

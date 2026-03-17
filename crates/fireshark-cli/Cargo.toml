@@ -15,6 +15,7 @@ fireshark-core = { path = "../fireshark-core" }
 fireshark-dissectors = { path = "../fireshark-dissectors" }
 fireshark-file = { path = "../fireshark-file" }
 fireshark-filter = { path = "../fireshark-filter" }
+fireshark-mcp = { path = "../fireshark-mcp" }
 
 [dev-dependencies]
 assert_cmd = "2.1.1"
