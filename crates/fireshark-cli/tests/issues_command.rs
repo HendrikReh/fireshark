@@ -26,3 +26,17 @@ fn issues_command_works_with_clean_pcap() {
         .stdout(contains("Decode Issues"))
         .stdout(contains("issues in"));
 }
+
+#[test]
+fn issues_command_rejects_tshark_backend() {
+    let fixture = support::repo_root().join("fixtures/smoke/minimal.pcap");
+
+    let mut cmd = Command::cargo_bin("fireshark").unwrap();
+    cmd.arg("issues")
+        .arg("--backend")
+        .arg("tshark")
+        .arg(&fixture);
+    cmd.assert()
+        .failure()
+        .stderr(contains("does not support the 'issues' command"));
+}

@@ -180,6 +180,7 @@ pub struct FindingEvidenceView {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct OpenCaptureResponse {
     pub session_id: String,
+    pub backend: String,
     pub packet_count: usize,
     pub decode_issue_count: usize,
     pub protocol_counts: Vec<ProtocolCountView>,

@@ -142,3 +142,18 @@ fn detail_command_renders_dns_layer() {
         .stdout(contains("Transaction ID"))
         .stdout(contains("Query"));
 }
+
+#[test]
+fn detail_command_rejects_tshark_backend() {
+    let fixture = support::repo_root().join("fixtures/smoke/minimal.pcap");
+
+    let mut cmd = Command::cargo_bin("fireshark").unwrap();
+    cmd.arg("detail")
+        .arg("--backend")
+        .arg("tshark")
+        .arg(&fixture)
+        .arg("1");
+    cmd.assert()
+        .failure()
+        .stderr(contains("does not support the 'detail' command"));
+}

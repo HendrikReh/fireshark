@@ -358,6 +358,7 @@ dependencies = [
  "assert_cmd",
  "clap",
  "colored",
+ "fireshark-backend",
  "fireshark-core",
  "fireshark-dissectors",
  "fireshark-file",

@@ -71,6 +71,13 @@ impl FiresharkMcpServer {
         &self,
         Parameters(request): Parameters<OpenCaptureRequest>,
     ) -> McpResult<OpenCaptureResponse> {
+        let backend = request.backend.as_deref().unwrap_or("native");
+        if backend != "native" {
+            return Err(ErrorData::invalid_params(
+                format!("backend '{backend}' is not yet supported for MCP sessions; use 'native'"),
+                None,
+            ));
+        }
         self.tools
             .open_capture(request.path.as_str())
             .await
@@ -312,6 +319,8 @@ fn tool_error(error: ToolError) -> ErrorData {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 struct OpenCaptureRequest {
     path: String,
+    /// Analysis backend: "native" (default) or "tshark".
+    backend: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

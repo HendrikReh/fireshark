@@ -21,3 +21,17 @@ fn follow_command_fails_for_invalid_stream() {
     cmd.arg("follow").arg(&fixture).arg("999");
     cmd.assert().failure();
 }
+
+#[test]
+fn follow_command_rejects_tshark_backend() {
+    let fixture = support::repo_root().join("fixtures/smoke/minimal.pcap");
+    let mut cmd = Command::cargo_bin("fireshark").unwrap();
+    cmd.arg("follow")
+        .arg("--backend")
+        .arg("tshark")
+        .arg(&fixture)
+        .arg("0");
+    cmd.assert()
+        .failure()
+        .stderr(contains("does not support the 'follow' command"));
+}

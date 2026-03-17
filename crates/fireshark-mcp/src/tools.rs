@@ -337,6 +337,7 @@ fn require_session<'a>(
 fn open_capture_response(capture: &AnalyzedCapture, session_id: &str) -> OpenCaptureResponse {
     OpenCaptureResponse {
         session_id: session_id.to_string(),
+        backend: "native".to_string(),
         packet_count: capture.packet_count(),
         decode_issue_count: decode_issue_count(capture),
         protocol_counts: summarize_protocols(capture),
