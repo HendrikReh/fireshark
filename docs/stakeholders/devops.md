@@ -21,7 +21,7 @@ This runs three stages sequentially -- if any stage fails, the pipeline stops:
 | `just fmt` | `cargo fmt --all` | Auto-format before committing |
 | `just fmt-check` | `cargo fmt --all -- --check` | CI gate: fail if unformatted |
 | `just clippy` | `cargo clippy --workspace --all-targets -- -D warnings` | CI gate: all warnings are errors |
-| `just test` | `cargo test --workspace` | CI gate: run all 306 tests |
+| `just test` | `cargo test --workspace` | CI gate: run all 351 tests |
 | `just check` | All three above in sequence | Full CI gate |
 
 ### Raw Commands (Without `just`)
@@ -99,6 +99,8 @@ Each crate also has its own `version` field that must match:
 - `crates/fireshark-filter/Cargo.toml`
 - `crates/fireshark-cli/Cargo.toml`
 - `crates/fireshark-mcp/Cargo.toml`
+- `crates/fireshark-backend/Cargo.toml`
+- `crates/fireshark-tshark/Cargo.toml`
 
 ### 2. Update Badges
 
@@ -182,6 +184,7 @@ Fireshark follows a minimal-dependency philosophy. External crates are used only
 | `just` | Any recent | Task running | Optional -- raw cargo commands work too |
 | `cargo-fuzz` | Any recent | Fuzz testing only | Requires nightly Rust toolchain |
 | Nightly Rust | Latest | Fuzz testing only | `rustup toolchain install nightly` |
+| `tshark` | 3.0.0+ | tshark backend only | Optional — from Wireshark, searched in PATH and known locations |
 
 ### CI Environment Setup
 
@@ -213,6 +216,8 @@ fireshark/
     fireshark-filter/      # Display filter language
     fireshark-cli/         # CLI binary
     fireshark-mcp/         # MCP server binary
+    fireshark-backend/     # Backend abstraction (native + tshark)
+    fireshark-tshark/      # tshark subprocess adapter
   fixtures/
     bytes/                 # 18 handcrafted protocol binary fixtures
     smoke/                 # 3 small capture files for integration tests

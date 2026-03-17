@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-0.5.1-blue)]()
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange?logo=rust)](https://www.rust-lang.org/)
-[![Tests](https://img.shields.io/badge/tests-312%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-351%20passing-brightgreen)]()
 [![Status](https://img.shields.io/badge/phase-crawl-blue)]()
 
 Wireshark-inspired packet analyzer written in Rust. Library-first, built in deliberate phases instead of as a "boil the ocean" clone.
@@ -106,6 +106,8 @@ Shows a decoded layer tree with field values and a color-coded hex dump where ea
 | `fireshark-dissectors` | Protocol decoders (10 protocols) with full RFC field extraction |
 | `fireshark-filter` | Display filter language: lexer, parser, evaluator (including `tcp.stream`/`udp.stream`) |
 | `fireshark-cli` | CLI with 6 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow` |
+| `fireshark-backend` | Backend abstraction: native pipeline and tshark subprocess adapters |
+| `fireshark-tshark` | tshark subprocess discovery, execution, and output normalization |
 | `fireshark-mcp` | Offline MCP server (17 tools) for LLM-driven capture analysis and security audits |
 
 Other directories:

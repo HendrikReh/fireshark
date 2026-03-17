@@ -51,23 +51,18 @@ Delivered: 10 protocol dissectors (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP wit
 | `summarize_capture` MCP tool — single-call capture overview | **Done** |
 | Connection anomaly audit (incomplete handshake, RST storm, half-open) | **Done** |
 
-## v0.5.2 — tshark backend (PLANNED)
+## v0.5.2 — tshark backend (COMPLETE)
 
 Optional `tshark` subprocess backend for offline capture analysis. The native Rust pipeline remains the default. tshark expands protocol coverage and provides a correctness oracle for differential testing.
 
-| Feature | Purpose |
-|---------|---------|
-| `fireshark-backend` crate | Shared backend abstraction: `BackendKind`, `BackendCapture`, `CaptureBackend` trait, capability model |
-| `fireshark-tshark` crate | tshark subprocess adapter: discovery, execution, JSON parsing, normalization |
-| Native backend adapter | Wraps existing pipeline into `BackendCapture` — no behavior change for current users |
-| Explicit `--backend native\|tshark` CLI flag | Backend selection for `summary` and `stats` commands |
-| MCP backend selection | `open_capture` accepts optional `backend` parameter, session records provenance |
-| Differential tests | Compare native vs tshark output for stable packet facts (count, protocols, endpoints) |
-| Capability model | `supports_streams`, `supports_decode_issues`, `supports_native_filter`, etc. Unsupported features return explicit errors. |
-
-**First milestone scope:** CLI `summary`, CLI `stats`, MCP `open_capture`, `describe_capture`, `list_packets`, `get_packet`, `summarize_protocols`, `top_endpoints`.
-
-**Deferred:** CLI `follow`, `issues`, `audit`; MCP stream/audit tools; display filter parity; hex-span parity.
+| Feature | Status |
+|---------|--------|
+| `fireshark-backend` crate — shared backend abstraction: `BackendKind`, `BackendCapture`, capability model | **Done** |
+| `fireshark-tshark` crate — tshark subprocess adapter: discovery, execution, TSV parsing, normalization | **Done** |
+| Native backend adapter — wraps existing pipeline into `BackendCapture` | **Done** |
+| Explicit `--backend native\|tshark` CLI flag for `summary` and `stats` commands | **Done** |
+| Differential tests — compare native vs tshark output for stable packet facts | **Done** |
+| Capability model — `supports_streams`, `supports_decode_issues`, `supports_native_filter`, etc. | **Done** |
 
 **Design doc:** `docs/plans/2026-03-17-tshark-backend-design.md`
 **Implementation plan:** `docs/plans/2026-03-17-tshark-backend.md`
@@ -116,9 +111,9 @@ Optional `tshark` subprocess backend for offline capture analysis. The native Ru
 | Metric | Value |
 |--------|-------|
 | Protocols | 10 (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello) |
-| Tests | 314 |
-| Source lines | ~8,400 |
-| Crates | 6 (+ 2 planned: fireshark-backend, fireshark-tshark) |
+| Tests | 351 |
+| Source lines | ~9,500 |
+| Crates | 8 (fireshark-core, fireshark-file, fireshark-dissectors, fireshark-filter, fireshark-cli, fireshark-mcp, fireshark-backend, fireshark-tshark) |
 | MCP tools | 17 |
 | CLI commands | 6 (summary, detail, follow, stats, issues, audit) |
 | Filter fields | 50+ |

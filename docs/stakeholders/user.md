@@ -97,6 +97,20 @@ Stream 0: TCP 192.0.2.10:51514 ↔ 198.51.100.20:443
 
 The stream header shows the conversation's protocol, endpoints, packet/byte count, and duration. Use `fireshark stats` to discover available stream IDs.
 
+### Backend Selection
+
+fireshark supports two analysis backends:
+
+- `native` (default) -- built-in Rust pipeline with full feature support
+- `tshark` -- uses Wireshark's tshark tool for broader protocol coverage
+
+```bash
+fireshark summary --backend tshark capture.pcap
+fireshark stats --backend tshark capture.pcap
+```
+
+Note: `detail`, `follow`, `issues`, and `audit` commands require the native backend.
+
 ### Capture Statistics
 
 ```bash

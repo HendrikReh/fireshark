@@ -44,6 +44,8 @@ cargo test -p fireshark-file
 cargo test -p fireshark-filter
 cargo test -p fireshark-cli
 cargo test -p fireshark-mcp
+cargo test -p fireshark-backend
+cargo test -p fireshark-tshark
 ```
 
 ### Single Test by Name
@@ -221,7 +223,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 ## Test Coverage by Crate
 
-### fireshark-core (40 tests)
+### fireshark-core (46 tests)
 
 - Packet model construction and layer access
 - Frame summary generation (protocol, source, destination, length)
@@ -239,7 +241,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 - Edge cases: truncated headers, malformed fields, zero-length payloads, TTL=0, fragments
 - IPv4 options handling, data offset validation
 
-### fireshark-file (9 tests)
+### fireshark-file (10 tests)
 
 - pcap file reading with correct frame data and metadata
 - pcapng file reading
@@ -256,7 +258,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 - Stream filter fields: tcp.stream, udp.stream (presence check and integer comparison)
 - Error cases: invalid syntax, unknown fields
 
-### fireshark-cli (51 tests)
+### fireshark-cli (55 tests)
 
 - Summary command output format and content
 - Detail command: layer tree rendering, hex dump, packet-not-found errors
@@ -264,6 +266,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 - Stats command: packet count, stream count, protocol distribution
 - Issues command: decode issue listing
 - Audit command: security heuristic output
+- Backend selection: `--backend native|tshark` flag
 - Display filter integration: filter flag parsing and application
 - Color mapping: protocol-to-color assignments, case insensitivity, DNS=Magenta
 - Hex dump: row formatting, multi-row, legend, span coloring
@@ -271,7 +274,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 - Fuzz regression tests
 - Runtime path and Justfile documentation consistency checks
 
-### fireshark-mcp (28 tests)
+### fireshark-mcp (33 tests)
 
 - Session lifecycle: open, describe, close
 - Packet queries: list, get, search
@@ -281,15 +284,30 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 - Server help output and stdio smoke test
 - Session manager: creation, limits
 
+### fireshark-backend (19 tests)
+
+- BackendCapture: open with native and tshark backends
+- BackendKind: parsing from strings, default selection
+- BackendCapabilities: feature queries per backend
+- BackendPacket: summary, layers, issues normalization
+- Differential tests: native vs tshark output comparison for stable packet facts
+
+### fireshark-tshark (10 tests)
+
+- TsharkVersion: parsing, comparison, validation
+- Discovery: PATH search, known locations, version check
+- Execution: TSV output parsing, field extraction
+- Error handling: missing tshark, version too old, invalid output
+
 ## Current Metrics
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 306 |
+| Total tests | 351 |
 | Byte fixtures | 18 |
 | Smoke captures | 3 |
 | Total fixtures | 21 |
-| Crates tested | 6 |
+| Crates tested | 8 |
 | Fuzz targets | 2 |
 | Test failures | 0 |
 
