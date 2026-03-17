@@ -70,7 +70,7 @@ pub fn render<W: Write>(
         let missing = 16 - line_bytes.len();
         for i in 0..missing {
             hex_part.push_str("   ");
-            if line_bytes.len() + i == 8 {
+            if line_bytes.len() < 8 && line_bytes.len() + i == 7 {
                 hex_part.push(' ');
             }
         }

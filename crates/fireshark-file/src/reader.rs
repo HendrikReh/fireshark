@@ -12,6 +12,10 @@ use crate::CaptureError;
 
 const PCAPNG_MAGIC: [u8; 4] = [0x0a, 0x0d, 0x0d, 0x0a];
 
+/// Streaming reader over captured network frames.
+///
+/// Supports both pcap and pcapng file formats. Created via [`CaptureReader::open`],
+/// then consumed as an iterator of [`Frame`] results.
 pub struct CaptureReader {
     inner: ReaderKind,
 }
@@ -66,9 +70,11 @@ impl Iterator for CaptureReader {
             ReaderKind::Pcap(reader) => reader.next_packet().map(|packet| {
                 packet
                     .map(|packet| {
+                        let captured_len = packet.data.len();
+                        let original_len = (packet.orig_len as usize).max(captured_len);
                         Frame::builder()
-                            .captured_len(packet.data.len())
-                            .original_len(packet.orig_len as usize)
+                            .captured_len(captured_len)
+                            .original_len(original_len)
                             .timestamp(packet.timestamp)
                             .data(packet.data.into_owned())
                             .protocol("UNKNOWN")
@@ -80,18 +86,22 @@ impl Iterator for CaptureReader {
                 let next_block = reader.next_block()?;
                 match next_block {
                     Ok(Block::EnhancedPacket(packet)) => {
+                        let captured_len = packet.data.len();
+                        let original_len = (packet.original_len as usize).max(captured_len);
                         return Some(Ok(Frame::builder()
-                            .captured_len(packet.data.len())
-                            .original_len(packet.original_len as usize)
+                            .captured_len(captured_len)
+                            .original_len(original_len)
                             .timestamp(packet.timestamp)
                             .data(packet.data.into_owned())
                             .protocol("UNKNOWN")
                             .build()));
                     }
                     Ok(Block::SimplePacket(packet)) => {
+                        let captured_len = packet.data.len();
+                        let original_len = (packet.original_len as usize).max(captured_len);
                         return Some(Ok(Frame::builder()
-                            .captured_len(packet.data.len())
-                            .original_len(packet.original_len as usize)
+                            .captured_len(captured_len)
+                            .original_len(original_len)
                             .data(packet.data.into_owned())
                             .protocol("UNKNOWN")
                             .build()));
@@ -122,6 +132,8 @@ fn validate_linktype(datalink: DataLink) -> Result<(), CaptureError> {
     }
 }
 
+const MAX_INTERFACES: usize = 65535;
+
 fn validate_pcapng_linktypes(reader: &mut PcapNgReader<File>) -> Result<(), CaptureError> {
     let mut interfaces = Vec::new();
 
@@ -130,7 +142,9 @@ fn validate_pcapng_linktypes(reader: &mut PcapNgReader<File>) -> Result<(), Capt
             Block::SectionHeader(_) => interfaces.clear(),
             Block::InterfaceDescription(interface) => {
                 validate_linktype(interface.linktype)?;
-                interfaces.push(interface.linktype);
+                if interfaces.len() < MAX_INTERFACES {
+                    interfaces.push(interface.linktype);
+                }
             }
             Block::EnhancedPacket(packet) => {
                 let datalink = interfaces
@@ -138,12 +152,14 @@ fn validate_pcapng_linktypes(reader: &mut PcapNgReader<File>) -> Result<(), Capt
                     .copied()
                     .ok_or(PcapError::InvalidInterfaceId(packet.interface_id))?;
                 validate_linktype(datalink)?;
+                break;
             }
             Block::SimplePacket(_) => {
                 let datalink = interfaces.first().copied().ok_or(PcapError::InvalidField(
                     "SimplePacketBlock: missing interface description",
                 ))?;
                 validate_linktype(datalink)?;
+                break;
             }
             _ => {}
         }

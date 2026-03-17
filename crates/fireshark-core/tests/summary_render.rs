@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use fireshark_core::{
     ArpLayer, Frame, Ipv4Layer, Ipv6Layer, Layer, Packet, PacketSummary, TcpFlags, TcpLayer,
+    UdpLayer,
 };
 
 #[test]
@@ -95,4 +96,31 @@ fn summary_brackets_ipv6_without_ports() {
 
     assert_eq!(summary.source, "[2001:db8::1]");
     assert_eq!(summary.destination, "[2001:db8::2]");
+}
+
+#[test]
+fn summary_brackets_ipv6_with_udp_ports() {
+    let packet = Packet::new(
+        vec![
+            Layer::Ipv6(Ipv6Layer {
+                source: "2001:db8::1".parse::<Ipv6Addr>().unwrap(),
+                destination: "2001:db8::2".parse::<Ipv6Addr>().unwrap(),
+                next_header: 17, // UDP
+                traffic_class: 0,
+                flow_label: 0,
+                hop_limit: 64,
+            }),
+            Layer::Udp(UdpLayer {
+                source_port: 5353,
+                destination_port: 53,
+                length: 8,
+            }),
+        ],
+        vec![],
+    );
+    let frame = Frame::builder().captured_len(62).protocol("UDP").build();
+    let summary = PacketSummary::from_packet(&packet, &frame);
+
+    assert_eq!(summary.source, "[2001:db8::1]:5353");
+    assert_eq!(summary.destination, "[2001:db8::2]:53");
 }

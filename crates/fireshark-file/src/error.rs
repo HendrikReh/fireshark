@@ -2,6 +2,7 @@ use thiserror::Error;
 
 use pcap_file::DataLink;
 
+/// Errors that can occur when opening or reading a capture file.
 #[derive(Debug, Error)]
 pub enum CaptureError {
     #[error("failed to read capture file")]

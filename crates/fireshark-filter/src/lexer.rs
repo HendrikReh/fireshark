@@ -92,6 +92,12 @@ pub(crate) fn tokenize_spanned(input: &str) -> Result<Vec<SpannedToken>, FilterE
                 });
                 pos += 2;
             }
+            b'!' => {
+                return Err(FilterError::new(
+                    "unexpected '!': use 'not' for negation or '!=' for inequality",
+                    start,
+                ));
+            }
             b'=' if pos + 1 < bytes.len() && bytes[pos + 1] == b'=' => {
                 tokens.push(SpannedToken {
                     token: Token::Eq,
@@ -491,7 +497,8 @@ mod tests {
     #[test]
     fn tokenize_error_bare_bang() {
         let err = tokenize("!").unwrap_err();
-        assert!(err.message.contains("unexpected character"));
+        assert!(err.message.contains("unexpected '!'"));
+        assert!(err.message.contains("use 'not' for negation"));
     }
 
     #[test]

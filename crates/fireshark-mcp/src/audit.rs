@@ -38,6 +38,7 @@ fn audit_decode_issues(capture: &AnalyzedCapture) -> Option<FindingView> {
         .iter()
         .enumerate()
         .filter_map(|(index, packet)| (!packet.packet().issues().is_empty()).then_some(index))
+        .take(MAX_EVIDENCE_PACKETS)
         .collect::<Vec<_>>();
 
     finding_for_ratio(
@@ -62,6 +63,7 @@ fn audit_unknown_traffic(capture: &AnalyzedCapture) -> Option<FindingView> {
         .filter_map(|(index, packet)| {
             (packet.summary().protocol.eq_ignore_ascii_case("unknown")).then_some(index)
         })
+        .take(MAX_EVIDENCE_PACKETS)
         .collect::<Vec<_>>();
 
     finding_for_ratio(
@@ -142,7 +144,10 @@ fn audit_suspicious_ports(capture: &AnalyzedCapture) -> Vec<FindingView> {
         };
 
         if suspicious_ports.contains(&destination_port) {
-            ports.entry(destination_port).or_default().push(index);
+            let indexes = ports.entry(destination_port).or_default();
+            if indexes.len() < MAX_EVIDENCE_PACKETS {
+                indexes.push(index);
+            }
         }
     }
 

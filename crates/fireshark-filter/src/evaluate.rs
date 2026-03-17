@@ -135,8 +135,8 @@ fn evaluate_bare_field(field: &str, decoded: &DecodedFrame) -> bool {
 
 fn resolve_field(field: &str, decoded: &DecodedFrame) -> Option<FieldValue> {
     match field {
-        "frame.len" => Some(FieldValue::Integer(decoded.frame().original_len() as u64)),
-        "frame.cap_len" => Some(FieldValue::Integer(decoded.frame().captured_len() as u64)),
+        "frame.len" => Some(FieldValue::Integer(decoded.frame().captured_len() as u64)),
+        "frame.cap_len" => Some(FieldValue::Integer(decoded.frame().original_len() as u64)),
         _ => resolve_layer_field(field, decoded),
     }
 }
@@ -310,10 +310,10 @@ fn compare_values(left: &FieldValue, op: &CmpOp, right: &Value) -> bool {
             match op {
                 CmpOp::Eq => s == *n || d == *n,
                 CmpOp::Neq => s != *n && d != *n,
-                CmpOp::Gt => s > *n || d > *n,
-                CmpOp::Lt => s < *n || d < *n,
-                CmpOp::Gte => s >= *n || d >= *n,
-                CmpOp::Lte => s <= *n || d <= *n,
+                CmpOp::Gt => s > *n && d > *n,
+                CmpOp::Lt => s < *n && d < *n,
+                CmpOp::Gte => s >= *n && d >= *n,
+                CmpOp::Lte => s <= *n && d <= *n,
             }
         }
         // Type mismatches
@@ -713,5 +713,35 @@ mod tests {
             "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
         ));
         assert!(run_filter("dns.qtype == 1", &decoded));
+    }
+
+    // --- IPv6 fixture: ethernet_ipv6_icmp.bin ---
+
+    #[test]
+    fn has_protocol_ipv6_on_ipv6_packet() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv6_icmp.bin"
+        ));
+        assert!(run_filter("ipv6", &decoded));
+    }
+
+    #[test]
+    fn ipv6_ip_src_resolved() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv6_icmp.bin"
+        ));
+        // ip.src should resolve for IPv6 packets too
+        let src = resolve_ip_src(&decoded);
+        assert!(src.is_some());
+    }
+
+    #[test]
+    fn ipv6_hlim_field() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv6_icmp.bin"
+        ));
+        // ipv6.hlim should be resolvable
+        let field = resolve_field("ipv6.hlim", &decoded);
+        assert!(field.is_some());
     }
 }

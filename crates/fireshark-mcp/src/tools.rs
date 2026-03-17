@@ -49,6 +49,12 @@ impl ToolService {
         }
     }
 
+    /// Open a capture file and create a new analysis session.
+    ///
+    /// **Path security note (v1):** No path restriction or sandboxing is applied;
+    /// the caller is responsible for validating that `path` points to a trusted
+    /// capture file. This is a known limitation documented for the current
+    /// release.
     pub async fn open_capture(
         &self,
         path: impl AsRef<Path>,

@@ -2,6 +2,9 @@ use crate::FilterError;
 use crate::ast::{AddrValue, CmpOp, Expr, Protocol, ShorthandKind, Value};
 use crate::lexer::{SpannedToken, Token, tokenize_spanned};
 
+/// Maximum nesting depth for parenthesized and unary expressions.
+const MAX_DEPTH: usize = 128;
+
 /// Parse a display filter expression string into an AST.
 pub fn parse(input: &str) -> Result<Expr, FilterError> {
     if input.trim().is_empty() {
@@ -23,6 +26,7 @@ struct Cursor<'a> {
     tokens: &'a [SpannedToken],
     pos: usize,
     input_len: usize,
+    depth: usize,
 }
 
 impl<'a> Cursor<'a> {
@@ -31,6 +35,7 @@ impl<'a> Cursor<'a> {
             tokens,
             pos: 0,
             input_len,
+            depth: 0,
         }
     }
 
@@ -91,8 +96,16 @@ fn parse_and(cursor: &mut Cursor<'_>) -> Result<Expr, FilterError> {
 
 fn parse_unary(cursor: &mut Cursor<'_>) -> Result<Expr, FilterError> {
     if cursor.peek() == Some(&Token::Not) {
+        cursor.depth += 1;
+        if cursor.depth > MAX_DEPTH {
+            return Err(FilterError::new(
+                "expression exceeds maximum nesting depth",
+                cursor.current_position(),
+            ));
+        }
         cursor.advance();
         let inner = parse_unary(cursor)?;
+        cursor.depth -= 1;
         return Ok(Expr::Not(Box::new(inner)));
     }
     parse_atom(cursor)
@@ -106,8 +119,16 @@ fn parse_atom(cursor: &mut Cursor<'_>) -> Result<Expr, FilterError> {
     match token {
         // Parenthesized expression
         Token::LParen => {
+            cursor.depth += 1;
+            if cursor.depth > MAX_DEPTH {
+                return Err(FilterError::new(
+                    "expression exceeds maximum nesting depth",
+                    cursor.current_position(),
+                ));
+            }
             cursor.advance();
             let expr = parse_expr(cursor)?;
+            cursor.depth -= 1;
             match cursor.peek() {
                 Some(Token::RParen) => {
                     cursor.advance();
@@ -536,5 +557,19 @@ mod tests {
         assert_eq!(parse("ipv6").unwrap(), Expr::HasProtocol(Protocol::Ipv6));
         assert_eq!(parse("eth").unwrap(), Expr::HasProtocol(Protocol::Ethernet));
         assert_eq!(parse("dns").unwrap(), Expr::HasProtocol(Protocol::Dns));
+    }
+
+    #[test]
+    fn parse_error_deeply_nested_parens() {
+        let input = "(".repeat(200) + "tcp" + &")".repeat(200);
+        let err = parse(&input).unwrap_err();
+        assert!(err.message.contains("nesting depth"));
+    }
+
+    #[test]
+    fn parse_error_deeply_nested_not() {
+        let input = "not ".repeat(200) + "tcp";
+        let err = parse(&input).unwrap_err();
+        assert!(err.message.contains("nesting depth"));
     }
 }

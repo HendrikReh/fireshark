@@ -55,16 +55,16 @@ fn parse_question(bytes: &[u8]) -> (Option<String>, Option<u16>) {
     };
 
     let qtype_start = HEADER_LEN + consumed;
+    let query_name = if name.is_empty() { None } else { Some(name) };
     // Need 4 bytes for qtype (2) + qclass (2)
     if qtype_start + 4 > bytes.len() {
-        return (None, None);
+        return (query_name, None);
     }
 
     let query_type = u16::from_be_bytes([bytes[qtype_start], bytes[qtype_start + 1]]);
     // qclass read but not stored
     let _query_class = u16::from_be_bytes([bytes[qtype_start + 2], bytes[qtype_start + 3]]);
 
-    let query_name = if name.is_empty() { None } else { Some(name) };
     (query_name, Some(query_type))
 }
 
@@ -95,13 +95,13 @@ fn parse_name(bytes: &[u8], start: usize) -> Option<(String, usize)> {
         if n & 0xC0 == 0xC0 {
             // Compression pointer — stop parsing, return what we have
             // (don't follow pointers in v1)
+            if pos + 1 >= bytes.len() {
+                return None; // pointer byte missing
+            }
             let name = labels.join(".");
             // If nothing was accumulated before the pointer, return empty
             // which the caller converts to None
             let consumed = pos - start + 2; // pointer is 2 bytes
-            if pos + 1 >= bytes.len() {
-                return None; // pointer byte missing
-            }
             return Some((name, consumed));
         }
 

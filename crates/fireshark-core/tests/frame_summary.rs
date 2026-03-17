@@ -43,3 +43,13 @@ fn frame_builder_rejects_mismatched_captured_len() {
         .protocol("TCP")
         .build();
 }
+
+#[test]
+#[should_panic(expected = "original_len must be >= captured_len")]
+fn frame_builder_rejects_original_len_less_than_captured_len() {
+    let _ = Frame::builder()
+        .captured_len(60)
+        .original_len(40)
+        .protocol("TCP")
+        .build();
+}
