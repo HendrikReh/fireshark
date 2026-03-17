@@ -60,15 +60,29 @@ Fireshark includes an optional tshark backend for broad protocol coverage, but t
 ## Quick Start
 
 ```bash
+# Build and verify
+just check
+
 # Packet summary with color-coded output
-just summary
+cargo run -p fireshark-cli -- summary your-capture.pcap
 
-# Or directly
-cargo run -p fireshark-cli -- summary fixtures/smoke/minimal.pcap
-```
+# With a display filter
+cargo run -p fireshark-cli -- summary your-capture.pcap -f "tcp and port 443"
 
-```text
-   1  1970-01-01T00:00:01.000Z  TCP    192.0.2.10:51514       -> 198.51.100.20:443        54
+# Inspect a single packet (layer tree + hex dump)
+cargo run -p fireshark-cli -- detail your-capture.pcap 1
+
+# Follow a TCP/UDP conversation
+cargo run -p fireshark-cli -- follow your-capture.pcap 0
+
+# Capture statistics
+cargo run -p fireshark-cli -- stats your-capture.pcap
+
+# Security audit
+cargo run -p fireshark-cli -- audit your-capture.pcap
+
+# Use tshark backend for broader protocol coverage
+cargo run -p fireshark-cli -- summary --backend tshark your-capture.pcap
 ```
 
 ### Display Filters
