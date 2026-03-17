@@ -436,7 +436,64 @@ cargo run -p fireshark-mcp
 fireshark-mcp
 ```
 
-The server communicates over stdin/stdout using the Model Context Protocol. Connect with any MCP-compatible client.
+The server communicates over stdin/stdout using the Model Context Protocol.
+
+### Connecting to Claude Code
+
+```bash
+# Build the release binary
+cargo build -p fireshark-mcp --release
+
+# Register with Claude Code
+claude mcp add fireshark ./target/release/fireshark-mcp
+```
+
+Or add manually to `~/.claude/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "fireshark": {
+      "command": "/path/to/fireshark/target/release/fireshark-mcp"
+    }
+  }
+}
+```
+
+Once connected, Claude can analyze captures directly:
+
+> "Open `/tmp/traffic.pcap` and audit it for security issues"
+
+### Connecting to Codex
+
+Add to your Codex MCP configuration:
+
+```json
+{
+  "servers": {
+    "fireshark": {
+      "command": "/path/to/fireshark/target/release/fireshark-mcp",
+      "transport": "stdio"
+    }
+  }
+}
+```
+
+### Example Analysis Workflow
+
+A typical LLM-driven session through MCP:
+
+1. `open_capture({ path: "/tmp/traffic.pcap" })` → session_id + protocol breakdown
+2. `summarize_capture({ session_id })` → protocols, endpoints, streams, findings
+3. `audit_capture({ session_id })` → security findings with evidence
+4. `get_packet({ session_id, packet_index: 42 })` → full layer decode
+5. `list_packets({ session_id, filter: "tls and tls.handshake.type == 1" })` → TLS ClientHellos
+6. `get_stream({ session_id, stream_id: 5 })` → follow a conversation
+7. `close_capture({ session_id })` → free resources
+
+### Generic MCP Clients
+
+Any MCP-compatible client can connect by spawning the binary as a subprocess over stdio.
 
 ### Tool Reference
 

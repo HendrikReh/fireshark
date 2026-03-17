@@ -15,6 +15,9 @@ Packet analyzer built for LLMs and humans. Rust-native protocol dissection with 
 - [Quick Start](#quick-start)
 - [Workspace Layout](#workspace-layout)
 - [MCP Server](#mcp-server)
+  - [Connecting to Claude Code](#connecting-to-claude-code)
+  - [Connecting to Codex](#connecting-to-codex)
+  - [Example LLM Workflow](#example-llm-workflow)
 - [Development](#development)
 - [Phases](#phases)
 - [Design Rules](#design-rules)
@@ -183,6 +186,72 @@ cargo run -p fireshark-mcp
 | Audit | `audit_capture`, `list_findings`, `explain_finding` |
 
 Constraints: stdio transport, offline captures, 100k packet limit, 8 concurrent sessions, 15-minute idle timeout.
+
+### Connecting to Claude Code
+
+Add fireshark as an MCP server so Claude can analyze packet captures during conversations:
+
+```bash
+# From the fireshark repo root — build first
+cargo build -p fireshark-mcp --release
+
+# Add to Claude Code
+claude mcp add fireshark ./target/release/fireshark-mcp
+```
+
+Or add manually to `~/.claude/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "fireshark": {
+      "command": "/path/to/fireshark/target/release/fireshark-mcp"
+    }
+  }
+}
+```
+
+Claude can then use fireshark tools directly:
+
+> "Open `/tmp/capture.pcap` and tell me what's in it"
+>
+> → Claude calls `open_capture`, `summarize_capture`, then drills into findings with `list_findings` and `get_packet`
+
+### Connecting to Codex
+
+Add to your Codex MCP configuration (typically `codex-mcp.json` or equivalent):
+
+```json
+{
+  "servers": {
+    "fireshark": {
+      "command": "/path/to/fireshark/target/release/fireshark-mcp",
+      "transport": "stdio"
+    }
+  }
+}
+```
+
+### Generic MCP Clients
+
+Fireshark's MCP server uses **stdio transport** — it reads JSON-RPC from stdin and writes to stdout. Any MCP-compatible client can connect by spawning the binary as a subprocess:
+
+```bash
+# Direct stdio interaction (for testing)
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | cargo run -p fireshark-mcp
+```
+
+### Example LLM Workflow
+
+A typical analysis session through MCP:
+
+1. **Open** — `open_capture({ path: "/tmp/traffic.pcap" })` → session_id, packet count, protocol breakdown
+2. **Summarize** — `summarize_capture({ session_id })` → protocols, top endpoints, streams, findings count
+3. **Audit** — `audit_capture({ session_id })` → security findings with evidence
+4. **Drill down** — `get_packet({ session_id, packet_index: 42 })` → full layer decode for a suspicious packet
+5. **Filter** — `list_packets({ session_id, filter: "tls and tls.handshake.type == 1" })` → all TLS ClientHellos
+6. **Stream** — `get_stream({ session_id, stream_id: 5 })` → follow a conversation
+7. **Close** — `close_capture({ session_id })` → free resources
 
 ## Development
 
