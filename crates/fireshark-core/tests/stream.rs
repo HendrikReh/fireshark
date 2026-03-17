@@ -1,6 +1,9 @@
+use std::net::Ipv4Addr;
 use std::time::Duration;
 
-use fireshark_core::{DecodedFrame, Frame, StreamTracker};
+use fireshark_core::{
+    DecodedFrame, EthernetLayer, Frame, Ipv4Layer, Layer, Packet, StreamTracker, TcpFlags, TcpLayer,
+};
 use fireshark_dissectors::decode_packet;
 
 /// Helper: build a DecodedFrame from raw ethernet bytes.
@@ -128,4 +131,92 @@ fn stream_metadata_tracks_timestamps() {
     let meta = tracker.get(0).unwrap();
     assert_eq!(meta.first_seen, Some(ts1));
     assert_eq!(meta.last_seen, Some(ts3));
+}
+
+/// Helper: build a DecodedFrame with specific TCP flags.
+fn tcp_decoded_with_flags(flags: TcpFlags) -> DecodedFrame {
+    let packet = Packet::new(
+        vec![
+            Layer::Ethernet(EthernetLayer {
+                destination: [0, 1, 2, 3, 4, 5],
+                source: [6, 7, 8, 9, 10, 11],
+                ether_type: 0x0800,
+            }),
+            Layer::Ipv4(Ipv4Layer {
+                source: Ipv4Addr::new(10, 0, 0, 1),
+                destination: Ipv4Addr::new(10, 0, 0, 2),
+                protocol: 6,
+                ttl: 64,
+                identification: 0,
+                dscp: 0,
+                ecn: 0,
+                dont_fragment: true,
+                fragment_offset: 0,
+                more_fragments: false,
+                header_checksum: 0,
+            }),
+            Layer::Tcp(TcpLayer {
+                source_port: 50_000,
+                destination_port: 80,
+                seq: 0,
+                ack: 0,
+                data_offset: 5,
+                flags,
+                window: 1024,
+            }),
+        ],
+        Vec::new(),
+    );
+    let frame = Frame::builder().captured_len(64).data(vec![0; 64]).build();
+    DecodedFrame::new(frame, packet)
+}
+
+fn default_flags() -> TcpFlags {
+    TcpFlags {
+        fin: false,
+        syn: false,
+        rst: false,
+        psh: false,
+        ack: false,
+        urg: false,
+        ece: false,
+        cwr: false,
+    }
+}
+
+#[test]
+fn stream_metadata_tracks_tcp_flags() {
+    let syn_decoded = tcp_decoded_with_flags(TcpFlags {
+        syn: true,
+        ..default_flags()
+    });
+    let ack_decoded = tcp_decoded_with_flags(TcpFlags {
+        ack: true,
+        ..default_flags()
+    });
+
+    let mut tracker = StreamTracker::new();
+    tracker.assign(&syn_decoded);
+    tracker.assign(&ack_decoded);
+
+    let meta = tracker.get(0).unwrap();
+    // SYN = bit 1 (0x02), ACK = bit 4 (0x10)
+    assert_eq!(meta.tcp_flags_seen & 0x02, 0x02, "SYN bit should be set");
+    assert_eq!(meta.tcp_flags_seen & 0x10, 0x10, "ACK bit should be set");
+}
+
+#[test]
+fn stream_metadata_counts_rst_packets() {
+    let rst_decoded = tcp_decoded_with_flags(TcpFlags {
+        rst: true,
+        ..default_flags()
+    });
+
+    let mut tracker = StreamTracker::new();
+    tracker.assign(&rst_decoded);
+    tracker.assign(&rst_decoded);
+    tracker.assign(&rst_decoded);
+
+    let meta = tracker.get(0).unwrap();
+    assert_eq!(meta.rst_count, 3);
 }

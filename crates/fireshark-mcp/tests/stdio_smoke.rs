@@ -86,7 +86,7 @@ async fn stdio_server_handles_open_capture_tool() {
             .get("findings")
             .and_then(|value| value.as_array())
             .map(|value| value.len()),
-        Some(0)
+        Some(1)
     );
 
     client.cancel().await.unwrap();

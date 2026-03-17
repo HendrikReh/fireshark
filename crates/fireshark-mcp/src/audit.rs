@@ -23,6 +23,14 @@ const DNS_TUNNEL_LONG_LABEL_LEN: usize = 50;
 const DNS_TUNNEL_UNIQUE_NAMES_THRESHOLD: usize = 50;
 const DNS_TUNNEL_TXT_QUERY_THRESHOLD: usize = 10;
 
+const RST_STORM_THRESHOLD: u16 = 3;
+const HALF_OPEN_PACKET_THRESHOLD: usize = 10;
+const SYN_FLAG: u8 = 0x02;
+const ACK_FLAG: u8 = 0x10;
+const FIN_FLAG: u8 = 0x01;
+const RST_FLAG: u8 = 0x04;
+const SYN_ACK_FLAGS: u8 = SYN_FLAG | ACK_FLAG;
+
 pub struct AuditEngine;
 
 impl AuditEngine {
@@ -41,6 +49,7 @@ impl AuditEngine {
         findings.extend(audit_suspicious_ports(capture));
         findings.extend(audit_cleartext_credentials(capture));
         findings.extend(audit_dns_tunneling(capture));
+        findings.extend(audit_connection_anomalies(capture));
 
         findings
     }
@@ -345,6 +354,105 @@ fn audit_dns_tunneling(capture: &AnalyzedCapture) -> Vec<FindingView> {
                 }],
             })
         })
+        .collect()
+}
+
+fn audit_connection_anomalies(capture: &AnalyzedCapture) -> Vec<FindingView> {
+    let mut findings = Vec::new();
+
+    for meta in capture.streams() {
+        // Only inspect TCP streams (protocol 6).
+        if meta.key.protocol != 6 {
+            continue;
+        }
+
+        let id = meta.id;
+        let endpoint_a = format!("{}:{}", meta.key.addr_lo, meta.key.port_lo);
+        let endpoint_b = format!("{}:{}", meta.key.addr_hi, meta.key.port_hi);
+
+        // Incomplete handshake: SYN seen but never a SYN+ACK in the same packet.
+        if meta.tcp_flags_seen & SYN_FLAG != 0
+            && meta.tcp_flags_seen & SYN_ACK_FLAGS != SYN_ACK_FLAGS
+        {
+            let packet_indexes = stream_evidence_indexes(capture, id);
+            findings.push(FindingView {
+                id: format!("incomplete-handshake-{id}"),
+                severity: String::from("medium"),
+                category: String::from("connection_anomaly"),
+                title: format!(
+                    "Incomplete TCP handshake on stream {id} ({endpoint_a} \u{2194} {endpoint_b})"
+                ),
+                summary: format!(
+                    "Stream {id} contains a SYN but no SYN+ACK was observed, \
+                     indicating an incomplete TCP handshake."
+                ),
+                evidence: vec![FindingEvidenceView {
+                    packet_indexes,
+                    description: format!("Packets from stream {id} with incomplete handshake."),
+                }],
+            });
+        }
+
+        // RST storm: many RST packets on the same stream.
+        if meta.rst_count >= RST_STORM_THRESHOLD {
+            let packet_indexes = stream_evidence_indexes(capture, id);
+            findings.push(FindingView {
+                id: format!("rst-storm-{id}"),
+                severity: String::from("medium"),
+                category: String::from("connection_anomaly"),
+                title: format!("RST storm on stream {id} ({} RST packets)", meta.rst_count),
+                summary: format!(
+                    "Stream {id} contains {} RST packets, which may indicate \
+                     a connection teardown storm or port scanning.",
+                    meta.rst_count
+                ),
+                evidence: vec![FindingEvidenceView {
+                    packet_indexes,
+                    description: format!("Packets from stream {id} exhibiting RST storm behavior."),
+                }],
+            });
+        }
+
+        // Half-open: handshake completed (SYN+ACK seen) but no FIN or RST,
+        // with a significant number of packets.
+        if meta.tcp_flags_seen & SYN_ACK_FLAGS == SYN_ACK_FLAGS
+            && meta.tcp_flags_seen & FIN_FLAG == 0
+            && meta.tcp_flags_seen & RST_FLAG == 0
+            && meta.packet_count >= HALF_OPEN_PACKET_THRESHOLD
+        {
+            let packet_indexes = stream_evidence_indexes(capture, id);
+            findings.push(FindingView {
+                id: format!("half-open-{id}"),
+                severity: String::from("low"),
+                category: String::from("connection_anomaly"),
+                title: format!(
+                    "Half-open connection on stream {id} ({} packets, no FIN/RST)",
+                    meta.packet_count
+                ),
+                summary: format!(
+                    "Stream {id} exchanged {} packets after the handshake \
+                     but was never closed with FIN or RST.",
+                    meta.packet_count
+                ),
+                evidence: vec![FindingEvidenceView {
+                    packet_indexes,
+                    description: format!("Packets from stream {id} with no connection teardown."),
+                }],
+            });
+        }
+    }
+
+    findings
+}
+
+fn stream_evidence_indexes(capture: &AnalyzedCapture, stream_id: u32) -> Vec<usize> {
+    capture
+        .packets()
+        .iter()
+        .enumerate()
+        .filter(|(_, pkt)| pkt.stream_id() == Some(stream_id))
+        .map(|(i, _)| i)
+        .take(MAX_EVIDENCE_PACKETS)
         .collect()
 }
 

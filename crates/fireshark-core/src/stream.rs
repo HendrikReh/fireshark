@@ -69,6 +69,10 @@ pub struct StreamMetadata {
     pub byte_count: usize,
     pub first_seen: Option<Duration>,
     pub last_seen: Option<Duration>,
+    /// Bitwise OR of all TCP flag bytes seen in this stream.
+    pub tcp_flags_seen: u8,
+    /// Count of packets with RST flag set.
+    pub rst_count: u16,
 }
 
 /// Assigns and tracks stream IDs for TCP/UDP conversations.
@@ -112,6 +116,8 @@ impl StreamTracker {
                 byte_count: 0,
                 first_seen: None,
                 last_seen: None,
+                tcp_flags_seen: 0,
+                rst_count: 0,
             });
             id
         };
@@ -124,6 +130,26 @@ impl StreamTracker {
             meta.first_seen = ts;
         }
         meta.last_seen = ts;
+
+        if let Some(Layer::Tcp(tcp)) = decoded
+            .packet()
+            .layers()
+            .iter()
+            .find(|l| matches!(l, Layer::Tcp(_)))
+        {
+            let flags_byte = (tcp.flags.fin as u8)
+                | ((tcp.flags.syn as u8) << 1)
+                | ((tcp.flags.rst as u8) << 2)
+                | ((tcp.flags.psh as u8) << 3)
+                | ((tcp.flags.ack as u8) << 4)
+                | ((tcp.flags.urg as u8) << 5)
+                | ((tcp.flags.ece as u8) << 6)
+                | ((tcp.flags.cwr as u8) << 7);
+            meta.tcp_flags_seen |= flags_byte;
+            if tcp.flags.rst {
+                meta.rst_count = meta.rst_count.saturating_add(1);
+            }
+        }
 
         Some(id)
     }

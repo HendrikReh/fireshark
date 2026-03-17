@@ -2,8 +2,8 @@ use std::collections::BTreeSet;
 use std::net::Ipv4Addr;
 
 use fireshark_core::{
-    DecodeIssue, DecodedFrame, DnsLayer, EthernetLayer, Frame, Ipv4Layer, Layer, Packet, TcpFlags,
-    TcpLayer, UdpLayer,
+    DecodeIssue, DecodedFrame, DnsLayer, EthernetLayer, Frame, Ipv4Layer, Layer, Packet,
+    StreamTracker, TcpFlags, TcpLayer, UdpLayer,
 };
 use fireshark_mcp::analysis::AnalyzedCapture;
 use fireshark_mcp::audit::AuditEngine;
@@ -216,6 +216,72 @@ fn dns_query_packet(source: &str, query_name: &str, query_type: u16) -> DecodedF
     )
 }
 
+fn tcp_packet_with_flags(
+    source: &str,
+    destination: &str,
+    source_port: u16,
+    destination_port: u16,
+    flags: TcpFlags,
+) -> DecodedFrame {
+    DecodedFrame::new(
+        frame(),
+        Packet::new(
+            vec![
+                ethernet_layer(),
+                Layer::Ipv4(Ipv4Layer {
+                    source: source.parse::<Ipv4Addr>().unwrap(),
+                    destination: destination.parse::<Ipv4Addr>().unwrap(),
+                    protocol: 6,
+                    ttl: 64,
+                    identification: 0,
+                    dscp: 0,
+                    ecn: 0,
+                    dont_fragment: true,
+                    fragment_offset: 0,
+                    more_fragments: false,
+                    header_checksum: 0,
+                }),
+                Layer::Tcp(TcpLayer {
+                    source_port,
+                    destination_port,
+                    seq: 0,
+                    ack: 0,
+                    data_offset: 5,
+                    flags,
+                    window: 1024,
+                }),
+            ],
+            Vec::new(),
+        ),
+    )
+}
+
+fn default_flags() -> TcpFlags {
+    TcpFlags {
+        fin: false,
+        syn: false,
+        rst: false,
+        psh: false,
+        ack: false,
+        urg: false,
+        ece: false,
+        cwr: false,
+    }
+}
+
+/// Build an `AnalyzedCapture` with a properly populated `StreamTracker`.
+fn tracked_capture(packets: Vec<DecodedFrame>) -> AnalyzedCapture {
+    let mut tracker = StreamTracker::new();
+    let tracked_packets: Vec<DecodedFrame> = packets
+        .into_iter()
+        .map(|decoded| {
+            let stream_id = tracker.assign(&decoded);
+            decoded.with_stream_id(stream_id)
+        })
+        .collect();
+    AnalyzedCapture::from_packets_with_tracker(tracked_packets, tracker)
+}
+
 fn destination_for_packet(capture: &AnalyzedCapture, index: usize) -> String {
     capture.packets()[index]
         .packet()
@@ -312,5 +378,207 @@ fn audit_does_not_flag_normal_dns() {
     assert!(
         !findings.iter().any(|f| f.category == "dns_tunneling"),
         "Normal DNS queries should not trigger dns_tunneling"
+    );
+}
+
+#[test]
+fn audit_flags_incomplete_handshake() {
+    // SYN only, no SYN+ACK — incomplete handshake.
+    let packets = vec![
+        tcp_packet_with_flags(
+            "10.0.0.1",
+            "10.0.0.2",
+            50000,
+            80,
+            TcpFlags {
+                syn: true,
+                ..default_flags()
+            },
+        ),
+        tcp_packet_with_flags(
+            "10.0.0.1",
+            "10.0.0.2",
+            50000,
+            80,
+            TcpFlags {
+                syn: true,
+                ..default_flags()
+            },
+        ),
+    ];
+
+    let capture = tracked_capture(packets);
+    let findings = AuditEngine::audit(&capture);
+
+    let finding = findings
+        .iter()
+        .find(|f| f.category == "connection_anomaly" && f.id.starts_with("incomplete-handshake"))
+        .expect("incomplete handshake finding");
+    assert_eq!(finding.severity, "medium");
+    assert!(finding.title.contains("Incomplete TCP handshake"));
+}
+
+#[test]
+fn audit_flags_rst_storm() {
+    // 5 RST packets to the same stream — RST storm.
+    let packets: Vec<DecodedFrame> = (0..5)
+        .map(|_| {
+            tcp_packet_with_flags(
+                "10.0.0.1",
+                "10.0.0.2",
+                50000,
+                80,
+                TcpFlags {
+                    rst: true,
+                    ..default_flags()
+                },
+            )
+        })
+        .collect();
+
+    let capture = tracked_capture(packets);
+    let findings = AuditEngine::audit(&capture);
+
+    let finding = findings
+        .iter()
+        .find(|f| f.category == "connection_anomaly" && f.id.starts_with("rst-storm"))
+        .expect("rst storm finding");
+    assert_eq!(finding.severity, "medium");
+    assert!(finding.title.contains("RST storm"));
+    assert!(finding.title.contains("5 RST packets"));
+}
+
+#[test]
+fn audit_flags_half_open_connection() {
+    // SYN+ACK seen (handshake), then data packets, but no FIN/RST — half-open.
+    let mut packets = vec![
+        tcp_packet_with_flags(
+            "10.0.0.1",
+            "10.0.0.2",
+            50000,
+            80,
+            TcpFlags {
+                syn: true,
+                ..default_flags()
+            },
+        ),
+        tcp_packet_with_flags(
+            "10.0.0.2",
+            "10.0.0.1",
+            80,
+            50000,
+            TcpFlags {
+                syn: true,
+                ack: true,
+                ..default_flags()
+            },
+        ),
+        tcp_packet_with_flags(
+            "10.0.0.1",
+            "10.0.0.2",
+            50000,
+            80,
+            TcpFlags {
+                ack: true,
+                ..default_flags()
+            },
+        ),
+    ];
+    // Add data packets (ACK+PSH) to exceed the half-open threshold.
+    for _ in 0..12 {
+        packets.push(tcp_packet_with_flags(
+            "10.0.0.1",
+            "10.0.0.2",
+            50000,
+            80,
+            TcpFlags {
+                ack: true,
+                psh: true,
+                ..default_flags()
+            },
+        ));
+    }
+
+    let capture = tracked_capture(packets);
+    let findings = AuditEngine::audit(&capture);
+
+    let finding = findings
+        .iter()
+        .find(|f| f.category == "connection_anomaly" && f.id.starts_with("half-open"))
+        .expect("half-open finding");
+    assert_eq!(finding.severity, "low");
+    assert!(finding.title.contains("Half-open connection"));
+    assert!(finding.title.contains("no FIN/RST"));
+}
+
+#[test]
+fn audit_does_not_flag_normal_tcp_connection() {
+    // Normal TCP: SYN, SYN+ACK, ACK, data, FIN — no anomalies.
+    let packets = vec![
+        tcp_packet_with_flags(
+            "10.0.0.1",
+            "10.0.0.2",
+            50000,
+            80,
+            TcpFlags {
+                syn: true,
+                ..default_flags()
+            },
+        ),
+        tcp_packet_with_flags(
+            "10.0.0.2",
+            "10.0.0.1",
+            80,
+            50000,
+            TcpFlags {
+                syn: true,
+                ack: true,
+                ..default_flags()
+            },
+        ),
+        tcp_packet_with_flags(
+            "10.0.0.1",
+            "10.0.0.2",
+            50000,
+            80,
+            TcpFlags {
+                ack: true,
+                ..default_flags()
+            },
+        ),
+        tcp_packet_with_flags(
+            "10.0.0.1",
+            "10.0.0.2",
+            50000,
+            80,
+            TcpFlags {
+                ack: true,
+                psh: true,
+                ..default_flags()
+            },
+        ),
+        tcp_packet_with_flags(
+            "10.0.0.1",
+            "10.0.0.2",
+            50000,
+            80,
+            TcpFlags {
+                fin: true,
+                ack: true,
+                ..default_flags()
+            },
+        ),
+    ];
+
+    let capture = tracked_capture(packets);
+    let findings = AuditEngine::audit(&capture);
+
+    assert!(
+        !findings.iter().any(|f| f.category == "connection_anomaly"),
+        "Normal TCP connection should not trigger connection_anomaly findings, but got: {:?}",
+        findings
+            .iter()
+            .filter(|f| f.category == "connection_anomaly")
+            .collect::<Vec<_>>()
     );
 }
