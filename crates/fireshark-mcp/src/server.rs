@@ -79,7 +79,7 @@ impl FiresharkMcpServer {
             ));
         }
         self.tools
-            .open_capture(request.path.as_str())
+            .open_capture(request.path.as_str(), request.max_packets)
             .await
             .map(Json)
             .map_err(tool_error)
@@ -321,6 +321,8 @@ struct OpenCaptureRequest {
     path: String,
     /// Analysis backend: "native" (default) or "tshark".
     backend: Option<String>,
+    /// Maximum number of packets to load (default 100,000, capped at 1,000,000).
+    max_packets: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

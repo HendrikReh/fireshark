@@ -6,8 +6,8 @@ use colored::Colorize;
 use fireshark_mcp::analysis::AnalyzedCapture;
 use fireshark_mcp::audit::AuditEngine;
 
-pub fn run(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    let capture = AnalyzedCapture::open(path)?;
+pub fn run(path: &Path, max_packets: usize) -> Result<(), Box<dyn std::error::Error>> {
+    let capture = AnalyzedCapture::open_with_limit(path, max_packets)?;
     let findings = AuditEngine::audit(&capture);
 
     println!("Security Audit");

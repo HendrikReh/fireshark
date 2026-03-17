@@ -5,7 +5,7 @@ use tokio::sync::Mutex;
 
 use thiserror::Error;
 
-use crate::analysis::AnalyzedCapture;
+use crate::analysis::{AnalyzedCapture, DEFAULT_MAX_PACKETS};
 use crate::filter::matches_filter;
 use crate::model::{
     CaptureDescriptionView, CaptureSummaryView, CloseCaptureResponse, DecodeIssueEntryView,
@@ -79,7 +79,10 @@ impl ToolService {
     pub async fn open_capture(
         &self,
         path: impl AsRef<Path>,
+        max_packets: Option<usize>,
     ) -> Result<OpenCaptureResponse, ToolError> {
+        let limit = max_packets.unwrap_or(DEFAULT_MAX_PACKETS).min(1_000_000);
+
         // 1. Quick check: expire idle sessions first, then verify room.
         {
             let mut sessions = self.sessions.lock().await;
@@ -89,7 +92,7 @@ impl ToolService {
         // Lock released here.
 
         // 2. Expensive I/O — no lock held.
-        let capture = AnalyzedCapture::open(&path)
+        let capture = AnalyzedCapture::open_with_limit(&path, limit)
             .map_err(|e| ToolError::Session(SessionError::Analysis(e)))?;
 
         // 3. Re-acquire lock, expire again (time may have passed), and

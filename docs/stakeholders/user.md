@@ -501,7 +501,7 @@ Any MCP-compatible client can connect by spawning the binary as a subprocess ove
 
 | Tool | Parameters | Returns |
 |------|-----------|---------|
-| `open_capture` | `path` (string) | Session ID, packet count, protocol summary |
+| `open_capture` | `path` (string), optional `max_packets` (integer, default 100000, max 1000000) | Session ID, packet count, protocol summary |
 | `describe_capture` | `session_id` (string) | Capture metadata, protocol breakdown, top endpoints |
 | `close_capture` | `session_id` (string) | Confirmation |
 
@@ -565,9 +565,32 @@ Server: { status: "closed" }
 
 - Stdio transport only -- no HTTP or WebSocket
 - Offline captures only -- no live packet capture
-- Maximum 100,000 packets per capture
+- Default packet limit: 100,000 (configurable via `max_packets` parameter in `open_capture`, capped at 1,000,000)
 - Maximum 8 concurrent sessions
 - Sessions expire after 15 minutes of inactivity
+
+### Capture Size Limits
+
+| Surface | Packet limit | Behavior |
+|---------|-------------|----------|
+| `summary`, `detail`, `stats`, `issues`, `follow` | None -- streaming | Processes any capture size |
+| `audit` CLI command | 100,000 (configurable via `--max-packets`) | Rejects capture if exceeded |
+| MCP `open_capture` | 100,000 (configurable via `max_packets` parameter) | Rejects capture if exceeded |
+| tshark backend | None | Loads whatever tshark outputs |
+
+The streaming CLI commands (`summary`, `detail`, `stats`, `issues`, `follow`) iterate packets one at a time and have no memory limit. The `audit` command and MCP tools load all packets into memory for indexing and cross-referencing, so they enforce a configurable packet limit (default 100,000).
+
+To analyze larger captures:
+
+```bash
+# CLI: increase the limit for audit
+fireshark audit --max-packets 500000 large-capture.pcap
+```
+
+For MCP, pass `max_packets` when opening:
+```json
+{ "path": "/tmp/large.pcap", "max_packets": 500000 }
+```
 
 ## Examples
 

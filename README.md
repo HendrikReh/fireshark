@@ -84,6 +84,9 @@ cargo run -p fireshark-cli -- stats your-capture.pcap
 # Security audit
 cargo run -p fireshark-cli -- audit your-capture.pcap
 
+# Security audit with custom packet limit
+cargo run -p fireshark-cli -- audit --max-packets 500000 large-capture.pcap
+
 # Use tshark backend for broader protocol coverage
 cargo run -p fireshark-cli -- summary --backend tshark your-capture.pcap
 ```
@@ -185,7 +188,7 @@ cargo run -p fireshark-mcp
 | Capture overview | `summarize_capture` |
 | Audit | `audit_capture`, `list_findings`, `explain_finding` |
 
-Constraints: stdio transport, offline captures, 100k packet limit, 8 concurrent sessions, 15-minute idle timeout.
+Constraints: stdio transport, offline captures, configurable packet limit (default 100k), 8 concurrent sessions, 15-minute idle timeout.
 
 ### Connecting to Claude Code
 
@@ -252,6 +255,29 @@ A typical analysis session through MCP:
 5. **Filter** — `list_packets({ session_id, filter: "tls and tls.handshake.type == 1" })` → all TLS ClientHellos
 6. **Stream** — `get_stream({ session_id, stream_id: 5 })` → follow a conversation
 7. **Close** — `close_capture({ session_id })` → free resources
+
+### Capture Size Limits
+
+| Surface | Packet limit | Behavior |
+|---------|-------------|----------|
+| `summary`, `detail`, `stats`, `issues`, `follow` | None -- streaming | Processes any capture size |
+| `audit` | 100,000 (configurable via `--max-packets`) | Rejects capture if exceeded |
+| MCP tools | 100,000 (configurable via `max_packets` parameter in `open_capture`) | Rejects capture if exceeded |
+| tshark backend | None | Loads whatever tshark outputs |
+
+The streaming CLI commands (`summary`, `detail`, `stats`, `issues`, `follow`) iterate packets one at a time and have no memory limit. The `audit` command and MCP tools load all packets into memory for indexing and cross-referencing, so they enforce a configurable packet limit (default 100,000).
+
+To analyze larger captures:
+
+```bash
+# CLI: increase the limit for audit
+fireshark audit --max-packets 500000 large-capture.pcap
+```
+
+For MCP, pass `max_packets` when opening:
+```json
+{ "path": "/tmp/large.pcap", "max_packets": 500000 }
+```
 
 ## Development
 
