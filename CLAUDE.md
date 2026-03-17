@@ -78,3 +78,4 @@ Uses **bd** (beads) — see AGENTS.md for full workflow. Do not use markdown TOD
 - APIs support streaming/iteration, not full-file loading
 - Features are added in vertical slices, not speculative frameworks
 - MCP types stay in `fireshark-mcp` — no protocol leakage into core crates
+- Public features must be accessible both via MCP (for LLM-driven workflows) and via CLI (for direct human use)
