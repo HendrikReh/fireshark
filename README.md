@@ -7,6 +7,20 @@
 
 Packet analyzer built for LLMs and humans. Rust-native protocol dissection with an MCP server that lets an AI assistant perform security audits, and a color-coded CLI for direct analysis.
 
+## Table of Contents
+
+- [Elevator Pitch](#elevator-pitch)
+- [Why native dissectors when tshark exists?](#why-native-dissectors-when-tshark-exists)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Workspace Layout](#workspace-layout)
+- [MCP Server](#mcp-server)
+- [Development](#development)
+- [Phases](#phases)
+- [Design Rules](#design-rules)
+- [Documentation](#documentation)
+- [License](#license)
+
 ## Elevator Pitch
 
 Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wireshark — packet queries, protocol decoding, display filters, stream tracking, and security audit heuristics — through structured MCP tool calls. For humans, it's a fast, color-coded CLI that decodes 10 protocols, follows TCP/UDP conversations, and runs 7 automated security checks. Everything is library-first: one Rust workspace, 8 crates, 351 tests, zero unsafe code.
@@ -180,9 +194,9 @@ cargo fuzz run fuzz_capture_reader -- -max_total_time=60
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| **Crawl** | Offline capture parsing, dissection, CLI, MCP server, display filters, stream tracking | Active |
-| **Walk** | Live capture backends, TCP reassembly, streaming pipeline mode | Planned |
-| **Run** | Advanced statistics, extended filter language, application-layer dissectors, export | Planned |
+| **Crawl** | Offline capture parsing, dissection, CLI, MCP server, display filters, stream tracking | Complete |
+| **Walk** | tshark backend, capture comparison, live capture backends | Active |
+| **Run** | HTTP dissector, string filters, advanced statistics, export | Planned |
 
 ## Design Rules
 
@@ -191,6 +205,20 @@ cargo fuzz run fuzz_capture_reader -- -max_total_time=60
 - APIs support streaming/iteration instead of forcing full-file loading
 - Features are added in vertical slices, not as large speculative frameworks
 - MCP types stay in `fireshark-mcp` — no protocol leakage into core crates
+
+## Documentation
+
+Detailed documentation by audience:
+
+| Document | Audience |
+|----------|----------|
+| [Architect Guide](docs/stakeholders/architect.md) | System architecture, crate boundaries, design decisions, extension points |
+| [Developer Guide](docs/stakeholders/developer.md) | Getting started, adding protocols/filters/commands, code patterns |
+| [User Guide](docs/stakeholders/user.md) | CLI commands, display filter reference, MCP tool guide, backend selection |
+| [Tester Guide](docs/stakeholders/tester.md) | Test architecture, fixtures, coverage by crate, fuzz workflow |
+| [DevOps Guide](docs/stakeholders/devops.md) | CI pipeline, release checklist, dependency inventory |
+| [Ops Guide](docs/stakeholders/ops.md) | Deployment, MCP server operation, runtime requirements, troubleshooting |
+| [Roadmap](docs/ROADMAP.md) | Version history, planned features, current metrics |
 
 ## License
 
