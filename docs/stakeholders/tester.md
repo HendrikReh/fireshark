@@ -293,4 +293,4 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 ---
 
-**Version:** 0.4.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

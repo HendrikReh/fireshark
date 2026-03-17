@@ -342,7 +342,7 @@ checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
 name = "fireshark-cli"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -358,7 +358,7 @@ dependencies = [
 
 [[package]]
 name = "fireshark-core"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "fireshark-dissectors",
  "fireshark-file",
@@ -366,7 +366,7 @@ dependencies = [
 
 [[package]]
 name = "fireshark-dissectors"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "fireshark-core",
  "fireshark-file",
@@ -375,7 +375,7 @@ dependencies = [
 
 [[package]]
 name = "fireshark-file"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "fireshark-core",
  "pcap-file",
@@ -384,7 +384,7 @@ dependencies = [
 
 [[package]]
 name = "fireshark-filter"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "fireshark-core",
  "fireshark-dissectors",
@@ -393,7 +393,7 @@ dependencies = [
 
 [[package]]
 name = "fireshark-mcp"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "assert_cmd",
  "fireshark-core",

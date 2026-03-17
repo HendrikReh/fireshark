@@ -534,4 +534,4 @@ fireshark summary capture.pcap -f "tls.cipher_suite == 0x1301"
 
 ---
 
-**Version:** 0.4.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
