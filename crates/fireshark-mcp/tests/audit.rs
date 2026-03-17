@@ -2,7 +2,8 @@ use std::collections::BTreeSet;
 use std::net::Ipv4Addr;
 
 use fireshark_core::{
-    DecodeIssue, DecodedFrame, EthernetLayer, Frame, Ipv4Layer, Layer, Packet, TcpFlags, TcpLayer,
+    DecodeIssue, DecodedFrame, DnsLayer, EthernetLayer, Frame, Ipv4Layer, Layer, Packet, TcpFlags,
+    TcpLayer, UdpLayer,
 };
 use fireshark_mcp::analysis::AnalyzedCapture;
 use fireshark_mcp::audit::AuditEngine;
@@ -175,6 +176,45 @@ fn ethernet_layer() -> Layer {
     })
 }
 
+fn dns_query_packet(source: &str, query_name: &str, query_type: u16) -> DecodedFrame {
+    DecodedFrame::new(
+        frame(),
+        Packet::new(
+            vec![
+                ethernet_layer(),
+                Layer::Ipv4(Ipv4Layer {
+                    source: source.parse::<Ipv4Addr>().unwrap(),
+                    destination: "8.8.8.8".parse::<Ipv4Addr>().unwrap(),
+                    protocol: 17,
+                    ttl: 64,
+                    identification: 0,
+                    dscp: 0,
+                    ecn: 0,
+                    dont_fragment: true,
+                    fragment_offset: 0,
+                    more_fragments: false,
+                    header_checksum: 0,
+                }),
+                Layer::Udp(UdpLayer {
+                    source_port: 50_000,
+                    destination_port: 53,
+                    length: 40,
+                }),
+                Layer::Dns(DnsLayer {
+                    transaction_id: 0x1234,
+                    is_response: false,
+                    opcode: 0,
+                    question_count: 1,
+                    answer_count: 0,
+                    query_name: Some(query_name.to_string()),
+                    query_type: Some(query_type),
+                }),
+            ],
+            Vec::new(),
+        ),
+    )
+}
+
 fn destination_for_packet(capture: &AnalyzedCapture, index: usize) -> String {
     capture.packets()[index]
         .packet()
@@ -185,4 +225,91 @@ fn destination_for_packet(capture: &AnalyzedCapture, index: usize) -> String {
             _ => None,
         })
         .expect("IPv4 destination")
+}
+
+#[test]
+fn audit_flags_cleartext_ftp() {
+    let capture =
+        AnalyzedCapture::from_packets(vec![tcp_packet("10.0.0.1", "10.0.0.2", 21, Vec::new())]);
+
+    let findings = AuditEngine::audit(&capture);
+
+    let finding = findings
+        .iter()
+        .find(|f| f.category == "cleartext_credentials")
+        .expect("cleartext_credentials finding");
+    assert_eq!(finding.id, "cleartext-ftp");
+    assert_eq!(finding.severity, "high");
+    assert!(finding.title.contains("FTP"));
+}
+
+#[test]
+fn audit_flags_cleartext_telnet() {
+    let capture =
+        AnalyzedCapture::from_packets(vec![tcp_packet("10.0.0.1", "10.0.0.2", 23, Vec::new())]);
+
+    let findings = AuditEngine::audit(&capture);
+
+    let finding = findings
+        .iter()
+        .find(|f| f.category == "cleartext_credentials")
+        .expect("cleartext_credentials finding");
+    assert_eq!(finding.id, "cleartext-telnet");
+    assert_eq!(finding.severity, "high");
+    assert!(finding.title.contains("Telnet"));
+}
+
+#[test]
+fn audit_flags_dns_tunneling_long_labels() {
+    let long_label = "a".repeat(60);
+    let query_name = format!("{long_label}.example.com");
+
+    let capture = AnalyzedCapture::from_packets(vec![dns_query_packet(
+        "10.0.0.1",
+        &query_name,
+        1, // A record
+    )]);
+
+    let findings = AuditEngine::audit(&capture);
+
+    let finding = findings
+        .iter()
+        .find(|f| f.category == "dns_tunneling")
+        .expect("dns_tunneling finding");
+    assert_eq!(finding.id, "dns-tunneling-10.0.0.1");
+    assert_eq!(finding.severity, "high");
+    assert!(finding.summary.contains("labels longer than"));
+}
+
+#[test]
+fn audit_flags_dns_tunneling_high_unique_count() {
+    let packets: Vec<DecodedFrame> = (0..60)
+        .map(|i| dns_query_packet("10.0.0.1", &format!("host-{i}.example.com"), 1))
+        .collect();
+
+    let capture = AnalyzedCapture::from_packets(packets);
+    let findings = AuditEngine::audit(&capture);
+
+    let finding = findings
+        .iter()
+        .find(|f| f.category == "dns_tunneling")
+        .expect("dns_tunneling finding");
+    assert_eq!(finding.id, "dns-tunneling-10.0.0.1");
+    assert!(finding.summary.contains("unique query names"));
+}
+
+#[test]
+fn audit_does_not_flag_normal_dns() {
+    let capture = AnalyzedCapture::from_packets(vec![
+        dns_query_packet("10.0.0.1", "www.example.com", 1),
+        dns_query_packet("10.0.0.1", "mail.example.com", 1),
+        dns_query_packet("10.0.0.1", "api.example.com", 1),
+    ]);
+
+    let findings = AuditEngine::audit(&capture);
+
+    assert!(
+        !findings.iter().any(|f| f.category == "dns_tunneling"),
+        "Normal DNS queries should not trigger dns_tunneling"
+    );
 }

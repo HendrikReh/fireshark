@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use fireshark_core::Layer;
 
@@ -10,6 +10,18 @@ const UNKNOWN_RATIO_THRESHOLD: f64 = 0.5;
 const SCAN_FAN_OUT_THRESHOLD: usize = 5;
 const MAX_EVIDENCE_PACKETS: usize = 100;
 const SUSPICIOUS_PORTS: [u16; 5] = [23, 445, 2323, 3389, 5900];
+
+const CLEARTEXT_PORTS: [(u16, &str); 5] = [
+    (21, "FTP"),
+    (23, "Telnet"),
+    (80, "HTTP"),
+    (110, "POP3"),
+    (143, "IMAP"),
+];
+
+const DNS_TUNNEL_LONG_LABEL_LEN: usize = 50;
+const DNS_TUNNEL_UNIQUE_NAMES_THRESHOLD: usize = 50;
+const DNS_TUNNEL_TXT_QUERY_THRESHOLD: usize = 10;
 
 pub struct AuditEngine;
 
@@ -27,6 +39,8 @@ impl AuditEngine {
 
         findings.extend(audit_scan_activity(capture));
         findings.extend(audit_suspicious_ports(capture));
+        findings.extend(audit_cleartext_credentials(capture));
+        findings.extend(audit_dns_tunneling(capture));
 
         findings
     }
@@ -183,6 +197,147 @@ fn audit_suspicious_ports(capture: &AnalyzedCapture) -> Vec<FindingView> {
                 packet_indexes,
                 description: format!("Packets targeted destination port {port}."),
             }],
+        })
+        .collect()
+}
+
+fn audit_cleartext_credentials(capture: &AnalyzedCapture) -> Vec<FindingView> {
+    let cleartext_ports = BTreeMap::from(CLEARTEXT_PORTS);
+    let mut ports = BTreeMap::<u16, Vec<usize>>::new();
+
+    for (index, packet) in capture.packets().iter().enumerate() {
+        let Some((_, destination_port)) = packet.packet().transport_ports() else {
+            continue;
+        };
+
+        if cleartext_ports.contains_key(&destination_port) {
+            let indexes = ports.entry(destination_port).or_default();
+            if indexes.len() < MAX_EVIDENCE_PACKETS {
+                indexes.push(index);
+            }
+        }
+    }
+
+    ports
+        .into_iter()
+        .map(|(port, packet_indexes)| {
+            let name = cleartext_ports[&port];
+            let lower_name = name.to_lowercase();
+            FindingView {
+                id: format!("cleartext-{lower_name}"),
+                severity: String::from("high"),
+                category: String::from("cleartext_credentials"),
+                title: format!("{name} traffic on port {port} may expose credentials in cleartext"),
+                summary: format!(
+                    "{name} transmits data without encryption. Credentials, session tokens, \
+                     and other sensitive information sent over port {port} can be intercepted \
+                     by anyone with network access."
+                ),
+                evidence: vec![FindingEvidenceView {
+                    packet_indexes,
+                    description: format!("Packets targeted {name} destination port {port}."),
+                }],
+            }
+        })
+        .collect()
+}
+
+fn audit_dns_tunneling(capture: &AnalyzedCapture) -> Vec<FindingView> {
+    struct SourceStats {
+        unique_names: HashSet<String>,
+        long_label_count: usize,
+        txt_query_count: usize,
+        packet_indexes: Vec<usize>,
+    }
+
+    let mut sources: BTreeMap<String, SourceStats> = BTreeMap::new();
+
+    for (index, packet) in capture.packets().iter().enumerate() {
+        let has_dns = packet
+            .packet()
+            .layers()
+            .iter()
+            .any(|l| matches!(l, Layer::Dns(_)));
+        if !has_dns {
+            continue;
+        }
+
+        let Some(source) = source_host(packet.packet().layers()) else {
+            continue;
+        };
+
+        let stats = sources.entry(source).or_insert_with(|| SourceStats {
+            unique_names: HashSet::new(),
+            long_label_count: 0,
+            txt_query_count: 0,
+            packet_indexes: Vec::new(),
+        });
+
+        if stats.packet_indexes.len() < MAX_EVIDENCE_PACKETS {
+            stats.packet_indexes.push(index);
+        }
+
+        for layer in packet.packet().layers() {
+            if let Layer::Dns(dns) = layer {
+                if let Some(ref name) = dns.query_name {
+                    stats.unique_names.insert(name.clone());
+                    if name
+                        .split('.')
+                        .any(|segment| segment.len() > DNS_TUNNEL_LONG_LABEL_LEN)
+                    {
+                        stats.long_label_count += 1;
+                    }
+                }
+                if dns.query_type == Some(16) {
+                    stats.txt_query_count += 1;
+                }
+            }
+        }
+    }
+
+    sources
+        .into_iter()
+        .filter_map(|(source, stats)| {
+            let mut indicators = Vec::new();
+
+            if stats.unique_names.len() > DNS_TUNNEL_UNIQUE_NAMES_THRESHOLD {
+                indicators.push(format!(
+                    "{} unique query names (threshold: {})",
+                    stats.unique_names.len(),
+                    DNS_TUNNEL_UNIQUE_NAMES_THRESHOLD
+                ));
+            }
+            if stats.long_label_count > 0 {
+                indicators.push(format!(
+                    "{} queries with labels longer than {} characters",
+                    stats.long_label_count, DNS_TUNNEL_LONG_LABEL_LEN
+                ));
+            }
+            if stats.txt_query_count > DNS_TUNNEL_TXT_QUERY_THRESHOLD {
+                indicators.push(format!(
+                    "{} TXT queries (threshold: {})",
+                    stats.txt_query_count, DNS_TUNNEL_TXT_QUERY_THRESHOLD
+                ));
+            }
+
+            if indicators.is_empty() {
+                return None;
+            }
+
+            Some(FindingView {
+                id: format!("dns-tunneling-{source}"),
+                severity: String::from("high"),
+                category: String::from("dns_tunneling"),
+                title: format!("Possible DNS tunneling activity from {source}"),
+                summary: format!(
+                    "DNS traffic from {source} exhibits indicators of tunneling: {}.",
+                    indicators.join("; ")
+                ),
+                evidence: vec![FindingEvidenceView {
+                    packet_indexes: stats.packet_indexes,
+                    description: format!("DNS queries from {source} with tunneling indicators."),
+                }],
+            })
         })
         .collect()
 }
