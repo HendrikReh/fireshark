@@ -135,8 +135,8 @@ fn evaluate_bare_field(field: &str, decoded: &DecodedFrame) -> bool {
 
 fn resolve_field(field: &str, decoded: &DecodedFrame) -> Option<FieldValue> {
     match field {
-        "frame.len" => Some(FieldValue::Integer(decoded.frame().captured_len() as u64)),
-        "frame.cap_len" => Some(FieldValue::Integer(decoded.frame().original_len() as u64)),
+        "frame.len" => Some(FieldValue::Integer(decoded.frame().original_len() as u64)),
+        "frame.cap_len" => Some(FieldValue::Integer(decoded.frame().captured_len() as u64)),
         _ => resolve_layer_field(field, decoded),
     }
 }

@@ -111,6 +111,7 @@ fn audit_scan_activity(capture: &AnalyzedCapture) -> Vec<FindingView> {
             let packet_indexes = targets
                 .values()
                 .flat_map(|indexes| indexes.iter().copied())
+                .take(MAX_EVIDENCE_PACKETS)
                 .collect::<Vec<_>>();
 
             Some(FindingView {
