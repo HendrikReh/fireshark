@@ -1,0 +1,112 @@
+use std::time::Duration;
+
+use fireshark_core::{DecodedFrame, Frame, StreamTracker};
+use fireshark_dissectors::decode_packet;
+
+/// Helper: build a DecodedFrame from raw ethernet bytes.
+fn decoded_from_bytes(bytes: &[u8]) -> DecodedFrame {
+    let packet = decode_packet(bytes).unwrap();
+    let frame = Frame::builder().data(bytes.to_vec()).build();
+    DecodedFrame::new(frame, packet)
+}
+
+/// Helper: build a DecodedFrame from raw bytes with a timestamp.
+fn decoded_from_bytes_ts(bytes: &[u8], ts: Duration) -> DecodedFrame {
+    let packet = decode_packet(bytes).unwrap();
+    let frame = Frame::builder().data(bytes.to_vec()).timestamp(ts).build();
+    DecodedFrame::new(frame, packet)
+}
+
+fn fixture(name: &str) -> std::path::PathBuf {
+    let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut current = manifest_dir.to_path_buf();
+    loop {
+        if current.join("Cargo.toml").is_file()
+            && current.join("crates").is_dir()
+            && current.join("fixtures").is_dir()
+        {
+            return current.join("fixtures").join(name);
+        }
+        assert!(current.pop(), "workspace root should exist");
+    }
+}
+
+#[test]
+fn stream_tracker_assigns_same_id_for_both_directions() {
+    let tcp_bytes = std::fs::read(fixture("bytes/ethernet_ipv4_tcp.bin")).unwrap();
+    let decoded = decoded_from_bytes(&tcp_bytes);
+
+    let mut tracker = StreamTracker::new();
+    let id1 = tracker.assign(&decoded);
+    let id2 = tracker.assign(&decoded);
+
+    assert_eq!(id1, Some(0));
+    assert_eq!(id2, Some(0));
+    assert_eq!(tracker.stream_count(), 1);
+}
+
+#[test]
+fn stream_tracker_assigns_different_ids_for_different_streams() {
+    let tcp_bytes = std::fs::read(fixture("bytes/ethernet_ipv4_tcp.bin")).unwrap();
+    let udp_bytes = std::fs::read(fixture("bytes/ethernet_ipv4_udp.bin")).unwrap();
+
+    let tcp_decoded = decoded_from_bytes(&tcp_bytes);
+    let udp_decoded = decoded_from_bytes(&udp_bytes);
+
+    let mut tracker = StreamTracker::new();
+    let tcp_id = tracker.assign(&tcp_decoded);
+    let udp_id = tracker.assign(&udp_decoded);
+
+    assert_eq!(tcp_id, Some(0));
+    assert_eq!(udp_id, Some(1));
+    assert_eq!(tracker.stream_count(), 2);
+}
+
+#[test]
+fn stream_tracker_returns_none_for_non_transport_packets() {
+    let arp_bytes = std::fs::read(fixture("bytes/ethernet_arp.bin")).unwrap();
+    let decoded = decoded_from_bytes(&arp_bytes);
+
+    let mut tracker = StreamTracker::new();
+    let id = tracker.assign(&decoded);
+
+    assert_eq!(id, None);
+    assert_eq!(tracker.stream_count(), 0);
+}
+
+#[test]
+fn stream_metadata_tracks_packet_count_and_bytes() {
+    let tcp_bytes = std::fs::read(fixture("bytes/ethernet_ipv4_tcp.bin")).unwrap();
+    let decoded = decoded_from_bytes(&tcp_bytes);
+
+    let mut tracker = StreamTracker::new();
+    tracker.assign(&decoded);
+    tracker.assign(&decoded);
+    tracker.assign(&decoded);
+
+    let meta = tracker.get(0).unwrap();
+    assert_eq!(meta.packet_count, 3);
+    assert_eq!(meta.byte_count, tcp_bytes.len() * 3);
+}
+
+#[test]
+fn stream_metadata_tracks_timestamps() {
+    let tcp_bytes = std::fs::read(fixture("bytes/ethernet_ipv4_tcp.bin")).unwrap();
+
+    let ts1 = Duration::from_millis(1000);
+    let ts2 = Duration::from_millis(2000);
+    let ts3 = Duration::from_millis(3000);
+
+    let d1 = decoded_from_bytes_ts(&tcp_bytes, ts1);
+    let d2 = decoded_from_bytes_ts(&tcp_bytes, ts2);
+    let d3 = decoded_from_bytes_ts(&tcp_bytes, ts3);
+
+    let mut tracker = StreamTracker::new();
+    tracker.assign(&d1);
+    tracker.assign(&d2);
+    tracker.assign(&d3);
+
+    let meta = tracker.get(0).unwrap();
+    assert_eq!(meta.first_seen, Some(ts1));
+    assert_eq!(meta.last_seen, Some(ts3));
+}

@@ -3,6 +3,7 @@ mod issues;
 mod layer;
 mod packet;
 mod pipeline;
+mod stream;
 mod summary;
 
 pub use frame::{Frame, FrameBuilder};
@@ -12,5 +13,6 @@ pub use layer::{
     Ipv6Layer, Layer, TcpFlags, TcpLayer, TlsClientHelloLayer, TlsServerHelloLayer, UdpLayer,
 };
 pub use packet::{LayerSpan, Packet};
-pub use pipeline::{DecodedFrame, Pipeline, PipelineError};
+pub use pipeline::{DecodedFrame, Pipeline, PipelineError, TrackingPipeline};
+pub use stream::{StreamKey, StreamMetadata, StreamTracker};
 pub use summary::PacketSummary;
