@@ -662,7 +662,7 @@ pub(crate) struct NetworkPayload<'a> {
 }
 ```
 
-This allows `decode_packet()` to chain into transport-layer dispatch based on the `protocol` field. Transport-layer dissectors (TCP, UDP, ICMP) return `Layer` directly since there is no further chaining in the current crawl phase.
+This allows `decode_packet()` to chain into transport-layer dispatch based on the `protocol` field. Transport-layer dissectors (TCP, UDP, ICMP) return `Layer` directly. Application-layer dissectors (DNS, TLS) are dispatched from the transport layer via port-based or heuristic matching in `append_application_layer`.
 
 ### The Frame builder pattern
 

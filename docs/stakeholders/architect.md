@@ -8,11 +8,11 @@ Development follows a phased approach:
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| **Crawl** | Offline pcap/pcapng parsing, protocol dissection, CLI, display filters, MCP server, stream tracking | Active |
-| **Walk** | Live capture backends, TCP reassembly, streaming pipeline mode | Planned |
-| **Run** | Advanced statistics, extended filter language, application-layer dissectors, export | Planned |
+| **Crawl** | Offline pcap/pcapng parsing, protocol dissection, CLI, display filters, MCP server, stream tracking | Complete |
+| **Walk** | Live capture backends, tshark backend, TCP reassembly, capture comparison | Active |
+| **Run** | Advanced statistics, extended filter language, HTTP dissector, export | Planned |
 
-The crawl phase is deliberately complete before walk begins. Each phase delivers vertical slices of functionality, not speculative frameworks.
+The crawl phase is complete. Walk phase is active — stream tracking, display filters, and tshark backend are delivered. Live capture is the remaining walk milestone. Each phase delivers vertical slices of functionality, not speculative frameworks.
 
 ## 2. Architecture Diagram
 

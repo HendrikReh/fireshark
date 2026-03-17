@@ -3,7 +3,7 @@
 [![Version](https://img.shields.io/badge/version-0.5.1-blue)]()
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange?logo=rust)](https://www.rust-lang.org/)
 [![Tests](https://img.shields.io/badge/tests-351%20passing-brightgreen)]()
-[![Status](https://img.shields.io/badge/phase-crawl-blue)]()
+[![Status](https://img.shields.io/badge/phase-walk-blue)]()
 
 Packet analyzer built for LLMs and humans. Rust-native protocol dissection with an MCP server that lets an AI assistant perform security audits, and a color-coded CLI for direct analysis.
 
