@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::net::Ipv4Addr;
 
 use fireshark_core::{
@@ -59,6 +60,34 @@ fn audit_flags_scan_like_fan_out() {
             .iter()
             .any(|finding| finding.category == "scan_activity")
     );
+}
+
+#[test]
+fn scan_activity_evidence_preserves_destination_diversity_when_capped() {
+    let mut packets = (0..100)
+        .map(|_| tcp_packet("10.0.0.1", "10.0.0.2", 80, Vec::new()))
+        .collect::<Vec<_>>();
+    packets.extend([
+        tcp_packet("10.0.0.1", "10.0.0.3", 80, Vec::new()),
+        tcp_packet("10.0.0.1", "10.0.0.4", 80, Vec::new()),
+        tcp_packet("10.0.0.1", "10.0.0.5", 80, Vec::new()),
+        tcp_packet("10.0.0.1", "10.0.0.6", 80, Vec::new()),
+    ]);
+
+    let capture = AnalyzedCapture::from_packets(packets);
+    let findings = AuditEngine::audit(&capture);
+    let scan_finding = findings
+        .iter()
+        .find(|finding| finding.category == "scan_activity")
+        .expect("scan activity finding");
+
+    let evidence_destinations = scan_finding.evidence[0]
+        .packet_indexes
+        .iter()
+        .map(|index| destination_for_packet(&capture, *index))
+        .collect::<BTreeSet<_>>();
+
+    assert_eq!(evidence_destinations.len(), 5);
 }
 
 #[test]
@@ -144,4 +173,16 @@ fn ethernet_layer() -> Layer {
         source: [6, 7, 8, 9, 10, 11],
         ether_type: 0x0800,
     })
+}
+
+fn destination_for_packet(capture: &AnalyzedCapture, index: usize) -> String {
+    capture.packets()[index]
+        .packet()
+        .layers()
+        .iter()
+        .find_map(|layer| match layer {
+            Layer::Ipv4(layer) => Some(layer.destination.to_string()),
+            _ => None,
+        })
+        .expect("IPv4 destination")
 }

@@ -108,11 +108,7 @@ fn audit_scan_activity(capture: &AnalyzedCapture) -> Vec<FindingView> {
                 return None;
             }
 
-            let packet_indexes = targets
-                .values()
-                .flat_map(|indexes| indexes.iter().copied())
-                .take(MAX_EVIDENCE_PACKETS)
-                .collect::<Vec<_>>();
+            let packet_indexes = scan_activity_evidence(&targets);
 
             Some(FindingView {
                 id: format!("scan-activity-{source}"),
@@ -133,6 +129,27 @@ fn audit_scan_activity(capture: &AnalyzedCapture) -> Vec<FindingView> {
             })
         })
         .collect()
+}
+
+fn scan_activity_evidence(targets: &BTreeMap<String, Vec<usize>>) -> Vec<usize> {
+    let mut packet_indexes = targets
+        .values()
+        .filter_map(|indexes| indexes.first().copied())
+        .take(MAX_EVIDENCE_PACKETS)
+        .collect::<Vec<_>>();
+
+    if packet_indexes.len() == MAX_EVIDENCE_PACKETS {
+        return packet_indexes;
+    }
+
+    packet_indexes.extend(
+        targets
+            .values()
+            .flat_map(|indexes| indexes.iter().skip(1).copied())
+            .take(MAX_EVIDENCE_PACKETS - packet_indexes.len()),
+    );
+
+    packet_indexes
 }
 
 fn audit_suspicious_ports(capture: &AnalyzedCapture) -> Vec<FindingView> {
