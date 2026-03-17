@@ -53,6 +53,8 @@ Fireshark includes an optional tshark backend for broad protocol coverage, but t
 
 The native backend (default) has **zero external runtime dependencies** — no Wireshark, libpcap, or other system libraries required. All protocol dissection is pure Rust. A pre-built `fireshark` or `fireshark-mcp` binary is all you need.
 
+**Pre-built binaries** for macOS (Apple Silicon) are available on the [GitHub Releases](https://github.com/HendrikReh/fireshark/releases) page.
+
 | Dependency | Version | Required | Purpose |
 |-----------|---------|----------|---------|
 | [tshark](https://www.wireshark.org/) (Wireshark CLI) | 3.0.0+ | Optional | Broad protocol coverage via `--backend tshark` |
