@@ -1,8 +1,8 @@
 # Fireshark
 
-[![Version](https://img.shields.io/badge/version-0.5.0-blue)]()
+[![Version](https://img.shields.io/badge/version-0.5.1-blue)]()
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange?logo=rust)](https://www.rust-lang.org/)
-[![Tests](https://img.shields.io/badge/tests-306%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-312%20passing-brightgreen)]()
 [![Status](https://img.shields.io/badge/phase-crawl-blue)]()
 
 Wireshark-inspired packet analyzer written in Rust. Library-first, built in deliberate phases instead of as a "boil the ocean" clone.
@@ -175,4 +175,4 @@ Copyright 2026 Hendrik Reh <hendrik.reh@blacksmith-consulting.ai>. See [`COPYRIG
 
 ---
 
-**Version:** 0.5.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.1 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

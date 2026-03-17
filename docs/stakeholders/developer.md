@@ -91,7 +91,7 @@ cargo run -p fireshark-cli -- summary fixtures/smoke/fuzz-2006-06-26-2594.pcap -
 
 ```
 fireshark/
-  Cargo.toml              # Workspace root (version 0.5.0, edition 2024)
+  Cargo.toml              # Workspace root (version 0.5.1, edition 2024)
   Justfile                # Task runner recipes
   CLAUDE.md               # AI agent conventions
   crates/
@@ -767,4 +767,4 @@ Spans are searched in reverse order so the innermost (most specific) layer wins 
 
 ---
 
-**Version:** 0.5.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.1 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
