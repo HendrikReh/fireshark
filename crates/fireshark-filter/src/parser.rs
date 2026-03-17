@@ -174,6 +174,10 @@ fn parse_atom(cursor: &mut Cursor<'_>) -> Result<Expr, FilterError> {
             cursor.advance();
             Ok(Expr::HasProtocol(Protocol::Dns))
         }
+        Token::Tls => {
+            cursor.advance();
+            Ok(Expr::HasProtocol(Protocol::Tls))
+        }
 
         // Shorthand: port N
         Token::Port => {

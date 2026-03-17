@@ -114,6 +114,30 @@ pub struct DnsLayer {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TlsClientHelloLayer {
+    pub record_version: u16,
+    pub client_version: u16,
+    pub cipher_suites: Vec<u16>,
+    pub compression_methods: Vec<u8>,
+    pub sni: Option<String>,
+    pub alpn: Vec<String>,
+    pub supported_versions: Vec<u16>,
+    pub signature_algorithms: Vec<u16>,
+    pub key_share_groups: Vec<u16>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TlsServerHelloLayer {
+    pub record_version: u16,
+    pub server_version: u16,
+    pub cipher_suite: u16,
+    pub compression_method: u8,
+    pub selected_version: Option<u16>,
+    pub alpn: Option<String>,
+    pub key_share_group: Option<u16>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Layer {
     Unknown,
     Ethernet(EthernetLayer),
@@ -124,6 +148,8 @@ pub enum Layer {
     Udp(UdpLayer),
     Icmp(IcmpLayer),
     Dns(DnsLayer),
+    TlsClientHello(TlsClientHelloLayer),
+    TlsServerHello(TlsServerHelloLayer),
 }
 
 impl Layer {
@@ -138,6 +164,8 @@ impl Layer {
             Self::Udp(_) => "UDP",
             Self::Icmp(_) => "ICMP",
             Self::Dns(_) => "DNS",
+            Self::TlsClientHello(_) => "TLS",
+            Self::TlsServerHello(_) => "TLS",
         }
     }
 }

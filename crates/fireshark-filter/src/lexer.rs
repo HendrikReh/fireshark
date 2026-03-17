@@ -18,6 +18,7 @@ pub enum Token {
     Ipv6,
     Ethernet,
     Dns,
+    Tls,
     // Shorthand keywords
     Port,
     Src,
@@ -286,6 +287,7 @@ fn scan_identifier(input: &str, pos: &mut usize) -> Result<Token, FilterError> {
         "ipv6" => Token::Ipv6,
         "eth" | "ethernet" => Token::Ethernet,
         "dns" => Token::Dns,
+        "tls" => Token::Tls,
         "port" => Token::Port,
         "src" => Token::Src,
         "dst" => Token::Dst,

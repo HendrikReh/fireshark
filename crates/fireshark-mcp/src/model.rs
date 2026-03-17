@@ -1,4 +1,5 @@
 use fireshark_core::{DecodeIssue, DecodeIssueKind, DnsAnswerData, Layer};
+use fireshark_dissectors::tls;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -29,6 +30,24 @@ pub struct DnsAnswerView {
     pub record_type: u16,
     pub ttl: u32,
     pub data: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CipherSuiteView {
+    pub id: u16,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct SignatureAlgorithmView {
+    pub id: u16,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct NamedGroupView {
+    pub id: u16,
+    pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -217,6 +236,26 @@ pub enum LayerView {
         query_type: Option<u16>,
         answers: Vec<DnsAnswerView>,
     },
+    TlsClientHello {
+        record_version: u16,
+        client_version: u16,
+        cipher_suites: Vec<CipherSuiteView>,
+        compression_methods: Vec<u8>,
+        sni: Option<String>,
+        alpn: Vec<String>,
+        supported_versions: Vec<u16>,
+        signature_algorithms: Vec<SignatureAlgorithmView>,
+        key_share_groups: Vec<NamedGroupView>,
+    },
+    TlsServerHello {
+        record_version: u16,
+        server_version: u16,
+        cipher_suite: CipherSuiteView,
+        compression_method: u8,
+        selected_version: Option<u16>,
+        alpn: Option<String>,
+        key_share_group: Option<NamedGroupView>,
+    },
 }
 
 impl DecodeIssueView {
@@ -334,6 +373,53 @@ impl LayerView {
                         },
                     })
                     .collect(),
+            },
+            Layer::TlsClientHello(layer) => Self::TlsClientHello {
+                record_version: layer.record_version,
+                client_version: layer.client_version,
+                cipher_suites: layer
+                    .cipher_suites
+                    .iter()
+                    .map(|&id| CipherSuiteView {
+                        id,
+                        name: tls::cipher_suite_name(id).to_string(),
+                    })
+                    .collect(),
+                compression_methods: layer.compression_methods.clone(),
+                sni: layer.sni.clone(),
+                alpn: layer.alpn.clone(),
+                supported_versions: layer.supported_versions.clone(),
+                signature_algorithms: layer
+                    .signature_algorithms
+                    .iter()
+                    .map(|&id| SignatureAlgorithmView {
+                        id,
+                        name: tls::sig_alg_name(id).to_string(),
+                    })
+                    .collect(),
+                key_share_groups: layer
+                    .key_share_groups
+                    .iter()
+                    .map(|&id| NamedGroupView {
+                        id,
+                        name: tls::named_group_name(id).to_string(),
+                    })
+                    .collect(),
+            },
+            Layer::TlsServerHello(layer) => Self::TlsServerHello {
+                record_version: layer.record_version,
+                server_version: layer.server_version,
+                cipher_suite: CipherSuiteView {
+                    id: layer.cipher_suite,
+                    name: tls::cipher_suite_name(layer.cipher_suite).to_string(),
+                },
+                compression_method: layer.compression_method,
+                selected_version: layer.selected_version,
+                alpn: layer.alpn.clone(),
+                key_share_group: layer.key_share_group.map(|id| NamedGroupView {
+                    id,
+                    name: tls::named_group_name(id).to_string(),
+                }),
             },
         }
     }

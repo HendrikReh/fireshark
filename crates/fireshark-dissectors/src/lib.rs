@@ -13,6 +13,7 @@ mod icmp;
 mod ipv4;
 mod ipv6;
 mod tcp;
+pub mod tls;
 mod udp;
 
 pub use error::DecodeError;
@@ -187,45 +188,82 @@ fn append_network_layer(
             // Application-layer dispatch: attempt to decode protocols above transport.
             // Extract port info and span details before the mutable borrow.
             let app_dispatch_info = layers.last().and_then(|last_transport| {
-                let (src_port, dst_port, app_payload_len) = match last_transport {
+                let (src_port, dst_port, hdr_len, is_tcp) = match last_transport {
                     Layer::Udp(udp) => (
                         udp.source_port,
                         udp.destination_port,
-                        usize::from(udp.length).saturating_sub(udp::HEADER_LEN),
+                        udp::HEADER_LEN,
+                        false,
+                    ),
+                    Layer::Tcp(tcp) => (
+                        tcp.source_port,
+                        tcp.destination_port,
+                        usize::from(tcp.data_offset) * 4,
+                        true,
                     ),
                     _ => return None,
                 };
                 let last_span = spans.last()?;
                 let transport_end = last_span.offset + last_span.len;
                 let app_payload_start = transport_end.saturating_sub(payload_offset);
-                let app_payload_end = app_payload_start
-                    + app_payload_len.min(payload.len().saturating_sub(app_payload_start));
+                let app_payload_len = if is_tcp {
+                    payload.len().saturating_sub(app_payload_start)
+                } else {
+                    // For UDP, respect the declared length field
+                    let declared = match last_transport {
+                        Layer::Udp(udp) => usize::from(udp.length).saturating_sub(hdr_len),
+                        _ => 0,
+                    };
+                    declared.min(payload.len().saturating_sub(app_payload_start))
+                };
+                let app_payload_end = app_payload_start + app_payload_len;
                 if transport_end > payload_offset
                     && app_payload_start <= app_payload_end
                     && app_payload_end <= payload.len()
                 {
-                    Some((src_port, dst_port, transport_end, app_payload_end))
+                    Some((src_port, dst_port, transport_end, app_payload_end, is_tcp))
                 } else {
                     None
                 }
             });
-            if let Some((src_port, dst_port, transport_end, app_payload_end)) = app_dispatch_info {
+            if let Some((src_port, dst_port, transport_end, app_payload_end, is_tcp)) =
+                app_dispatch_info
+            {
                 let app_payload = &payload[transport_end - payload_offset..app_payload_end];
-                if !app_payload.is_empty()
-                    && (src_port == dns::UDP_PORT || dst_port == dns::UDP_PORT)
-                {
-                    let span = LayerSpan {
-                        offset: transport_end,
-                        len: app_payload.len(),
-                    };
-                    append_layer_with_span(
-                        dns::parse(app_payload, transport_end),
-                        transport_end,
-                        span,
-                        layers,
-                        spans,
-                        issues,
-                    );
+                if !app_payload.is_empty() {
+                    if !is_tcp && (src_port == dns::UDP_PORT || dst_port == dns::UDP_PORT) {
+                        let span = LayerSpan {
+                            offset: transport_end,
+                            len: app_payload.len(),
+                        };
+                        append_layer_with_span(
+                            dns::parse(app_payload, transport_end),
+                            transport_end,
+                            span,
+                            layers,
+                            spans,
+                            issues,
+                        );
+                    } else if is_tcp
+                        && app_payload.len() >= 6
+                        && app_payload[0] == 0x16
+                        && app_payload[1] == 0x03
+                        && app_payload[2] <= 0x03
+                        && (app_payload[5] == 0x01 || app_payload[5] == 0x02)
+                    {
+                        let span = LayerSpan {
+                            offset: transport_end,
+                            len: app_payload.len(),
+                        };
+                        append_layer_with_span(
+                            tls::parse(app_payload, transport_end),
+                            transport_end,
+                            span,
+                            layers,
+                            spans,
+                            issues,
+                        );
+                    }
                 }
             }
         }

@@ -40,6 +40,9 @@ fn has_protocol(protocol: &Protocol, decoded: &DecodedFrame) -> bool {
             Protocol::Ipv6 => matches!(layer, Layer::Ipv6(_)),
             Protocol::Ethernet => matches!(layer, Layer::Ethernet(_)),
             Protocol::Dns => matches!(layer, Layer::Dns(_)),
+            Protocol::Tls => {
+                matches!(layer, Layer::TlsClientHello(_) | Layer::TlsServerHello(_))
+            }
         })
 }
 
@@ -267,6 +270,33 @@ fn resolve_layer_field(field: &str, decoded: &DecodedFrame) -> Option<FieldValue
             }
             ("dns.answer", Layer::Dns(l)) => {
                 return Some(FieldValue::Bool(!l.answers.is_empty()));
+            }
+
+            // TLS ClientHello
+            ("tls.handshake.type", Layer::TlsClientHello(_)) => {
+                return Some(FieldValue::Integer(1));
+            }
+            ("tls.record_version", Layer::TlsClientHello(l)) => {
+                return Some(FieldValue::Integer(u64::from(l.record_version)));
+            }
+            ("tls.client_version", Layer::TlsClientHello(l)) => {
+                return Some(FieldValue::Integer(u64::from(l.client_version)));
+            }
+
+            // TLS ServerHello
+            ("tls.handshake.type", Layer::TlsServerHello(_)) => {
+                return Some(FieldValue::Integer(2));
+            }
+            ("tls.record_version", Layer::TlsServerHello(l)) => {
+                return Some(FieldValue::Integer(u64::from(l.record_version)));
+            }
+            ("tls.selected_version", Layer::TlsServerHello(l)) => {
+                return l
+                    .selected_version
+                    .map(|v| FieldValue::Integer(u64::from(v)));
+            }
+            ("tls.cipher_suite", Layer::TlsServerHello(l)) => {
+                return Some(FieldValue::Integer(u64::from(l.cipher_suite)));
             }
 
             _ => {}

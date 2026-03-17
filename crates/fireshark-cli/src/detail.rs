@@ -6,7 +6,8 @@ use std::path::Path;
 use colored::Colorize;
 use fireshark_core::{
     ArpLayer, DecodedFrame, DnsAnswerData, DnsLayer, EthernetLayer, IcmpDetail, IcmpLayer,
-    Ipv4Layer, Ipv6Layer, Layer, LayerSpan, Pipeline, TcpLayer, UdpLayer,
+    Ipv4Layer, Ipv6Layer, Layer, LayerSpan, Pipeline, TcpLayer, TlsClientHelloLayer,
+    TlsServerHelloLayer, UdpLayer,
 };
 use fireshark_dissectors::decode_packet;
 use fireshark_file::CaptureReader;
@@ -87,6 +88,8 @@ fn render_layer<W: Write>(w: &mut W, layer: &Layer) -> io::Result<()> {
         Layer::Udp(l) => render_udp(w, l),
         Layer::Icmp(l) => render_icmp(w, l),
         Layer::Dns(l) => render_dns(w, l),
+        Layer::TlsClientHello(l) => render_tls_client_hello(w, l),
+        Layer::TlsServerHello(l) => render_tls_server_hello(w, l),
     }
 }
 
@@ -300,6 +303,142 @@ fn render_dns<W: Write>(w: &mut W, l: &DnsLayer) -> io::Result<()> {
                 )?;
             }
         }
+    }
+    Ok(())
+}
+
+fn render_tls_client_hello<W: Write>(w: &mut W, l: &TlsClientHelloLayer) -> io::Result<()> {
+    writeln!(
+        w,
+        "{}",
+        "▸ TLS ClientHello".color(color::protocol_color("TLS"))
+    )?;
+    writeln!(
+        w,
+        "    Record Version: {} (0x{:04x})",
+        fireshark_dissectors::tls::tls_version_name(l.record_version),
+        l.record_version
+    )?;
+    writeln!(
+        w,
+        "    Client Version: {} (0x{:04x})",
+        fireshark_dissectors::tls::tls_version_name(l.client_version),
+        l.client_version
+    )?;
+    if let Some(sni) = &l.sni {
+        writeln!(w, "    SNI: {sni}")?;
+    }
+    writeln!(w, "    Cipher Suites ({}):", l.cipher_suites.len())?;
+    for cs in &l.cipher_suites {
+        writeln!(
+            w,
+            "      {} (0x{:04x})",
+            fireshark_dissectors::tls::cipher_suite_name(*cs),
+            cs
+        )?;
+    }
+    let compression = if l.compression_methods == [0x00] {
+        "null"
+    } else {
+        "other"
+    };
+    writeln!(w, "    Compression: {compression}")?;
+    if !l.alpn.is_empty() {
+        writeln!(w, "    ALPN: {}", l.alpn.join(", "))?;
+    }
+    if !l.supported_versions.is_empty() {
+        let versions: Vec<String> = l
+            .supported_versions
+            .iter()
+            .map(|v| {
+                format!(
+                    "{} (0x{:04x})",
+                    fireshark_dissectors::tls::tls_version_name(*v),
+                    v
+                )
+            })
+            .collect();
+        writeln!(w, "    Supported Versions: {}", versions.join(", "))?;
+    }
+    if !l.signature_algorithms.is_empty() {
+        let algs: Vec<String> = l
+            .signature_algorithms
+            .iter()
+            .map(|a| {
+                format!(
+                    "{} (0x{:04x})",
+                    fireshark_dissectors::tls::sig_alg_name(*a),
+                    a
+                )
+            })
+            .collect();
+        writeln!(w, "    Signature Algorithms: {}", algs.join(", "))?;
+    }
+    if !l.key_share_groups.is_empty() {
+        let groups: Vec<String> = l
+            .key_share_groups
+            .iter()
+            .map(|g| {
+                format!(
+                    "{} (0x{:04x})",
+                    fireshark_dissectors::tls::named_group_name(*g),
+                    g
+                )
+            })
+            .collect();
+        writeln!(w, "    Key Share Groups: {}", groups.join(", "))?;
+    }
+    Ok(())
+}
+
+fn render_tls_server_hello<W: Write>(w: &mut W, l: &TlsServerHelloLayer) -> io::Result<()> {
+    writeln!(
+        w,
+        "{}",
+        "▸ TLS ServerHello".color(color::protocol_color("TLS"))
+    )?;
+    writeln!(
+        w,
+        "    Record Version: {} (0x{:04x})",
+        fireshark_dissectors::tls::tls_version_name(l.record_version),
+        l.record_version
+    )?;
+    writeln!(
+        w,
+        "    Server Version: {} (0x{:04x})",
+        fireshark_dissectors::tls::tls_version_name(l.server_version),
+        l.server_version
+    )?;
+    writeln!(
+        w,
+        "    Cipher Suite: {} (0x{:04x})",
+        fireshark_dissectors::tls::cipher_suite_name(l.cipher_suite),
+        l.cipher_suite
+    )?;
+    let compression = if l.compression_method == 0x00 {
+        "null"
+    } else {
+        "other"
+    };
+    writeln!(w, "    Compression: {compression}")?;
+    if let Some(v) = l.selected_version {
+        writeln!(
+            w,
+            "    Selected Version: {} (0x{:04x})",
+            fireshark_dissectors::tls::tls_version_name(v),
+            v
+        )?;
+    }
+    if let Some(alpn) = &l.alpn {
+        writeln!(w, "    ALPN: {alpn}")?;
+    }
+    if let Some(g) = l.key_share_group {
+        writeln!(
+            w,
+            "    Key Share Group: {} (0x{:04x})",
+            fireshark_dissectors::tls::named_group_name(g),
+            g
+        )?;
     }
     Ok(())
 }
