@@ -102,6 +102,66 @@ pub struct EndpointCountView {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct StreamView {
+    pub id: u32,
+    pub protocol: String,
+    pub endpoint_a: String,
+    pub endpoint_b: String,
+    pub packet_count: usize,
+    pub byte_count: usize,
+    pub duration_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct StreamListResponse {
+    pub streams: Vec<StreamView>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct StreamPacketsResponse {
+    pub stream: StreamView,
+    pub packets: Vec<PacketSummaryView>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CaptureSummaryView {
+    pub packet_count: usize,
+    pub stream_count: usize,
+    pub first_timestamp: Option<String>,
+    pub last_timestamp: Option<String>,
+    pub duration_ms: Option<u64>,
+    pub protocols: Vec<ProtocolCountView>,
+    pub top_endpoints: Vec<EndpointCountView>,
+    pub finding_count: usize,
+}
+
+impl StreamView {
+    pub fn from_metadata(meta: &fireshark_core::StreamMetadata) -> Self {
+        let duration_ms = match (meta.first_seen, meta.last_seen) {
+            (Some(first), Some(last)) => Some(last.saturating_sub(first).as_millis() as u64),
+            _ => None,
+        };
+
+        Self {
+            id: meta.id,
+            protocol: meta.key.protocol_name().to_string(),
+            endpoint_a: format_stream_endpoint(meta.key.addr_lo, meta.key.port_lo),
+            endpoint_b: format_stream_endpoint(meta.key.addr_hi, meta.key.port_hi),
+            packet_count: meta.packet_count,
+            byte_count: meta.byte_count,
+            duration_ms,
+        }
+    }
+}
+
+fn format_stream_endpoint(addr: std::net::IpAddr, port: u16) -> String {
+    match addr {
+        std::net::IpAddr::V6(v6) => format!("[{v6}]:{port}"),
+        std::net::IpAddr::V4(v4) => format!("{v4}:{port}"),
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct FindingView {
     pub id: String,
     pub severity: String,

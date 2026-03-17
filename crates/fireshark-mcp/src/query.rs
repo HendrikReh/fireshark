@@ -5,7 +5,7 @@ use crate::analysis::AnalyzedCapture;
 use crate::filter::matches_filter;
 use crate::model::{
     DecodeIssueEntryView, DecodeIssueView, EndpointCountView, LayerView, PacketDetailView,
-    PacketSummaryView, ProtocolCountView, format_issue_kind,
+    PacketSummaryView, ProtocolCountView, StreamView, format_issue_kind,
 };
 
 pub const MAX_PAGE_SIZE: usize = 1_000;
@@ -119,6 +119,32 @@ pub fn top_endpoints(capture: &AnalyzedCapture, limit: usize) -> Vec<EndpointCou
     });
     endpoints.truncate(limit);
     endpoints
+}
+
+pub fn list_streams(capture: &AnalyzedCapture, offset: usize, limit: usize) -> Vec<StreamView> {
+    let limit = clamp_limit(limit);
+
+    capture
+        .streams()
+        .iter()
+        .skip(offset)
+        .take(limit)
+        .map(StreamView::from_metadata)
+        .collect()
+}
+
+pub fn get_stream(
+    capture: &AnalyzedCapture,
+    stream_id: u32,
+) -> Option<(StreamView, Vec<PacketSummaryView>)> {
+    let meta = capture.tracker().get(stream_id)?;
+    let stream_view = StreamView::from_metadata(meta);
+    let packets = capture
+        .stream_packets(stream_id)
+        .into_iter()
+        .map(|(index, pkt)| PacketSummaryView::from_frame(index, pkt))
+        .collect();
+    Some((stream_view, packets))
 }
 
 pub fn search_packets(
@@ -259,7 +285,7 @@ impl PacketDetailView {
     }
 }
 
-fn format_timestamp(duration: std::time::Duration) -> String {
+pub(crate) fn format_timestamp(duration: std::time::Duration) -> String {
     let total_secs = duration.as_secs();
     let millis = duration.subsec_millis();
     let day_secs = total_secs % 86_400;

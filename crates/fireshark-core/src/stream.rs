@@ -80,7 +80,6 @@ pub struct StreamMetadata {
 pub struct StreamTracker {
     streams: HashMap<StreamKey, u32>,
     metadata: Vec<StreamMetadata>,
-    next_id: u32,
 }
 
 impl StreamTracker {
@@ -89,7 +88,6 @@ impl StreamTracker {
         Self {
             streams: HashMap::new(),
             metadata: Vec::new(),
-            next_id: 0,
         }
     }
 
@@ -98,15 +96,14 @@ impl StreamTracker {
     /// Returns `None` if the packet has no IP + transport layer pair
     /// (e.g. ARP, ICMP-only, or Ethernet-only).
     pub fn assign(&mut self, decoded: &DecodedFrame) -> Option<u32> {
-        let (src_addr, dst_addr) = extract_addresses(decoded.packet().layers())?;
-        let (src_port, dst_port, protocol) = extract_transport(decoded.packet().layers())?;
+        let (src_addr, src_port, dst_addr, dst_port, protocol) =
+            extract_transport_tuple(decoded.packet().layers())?;
         let key = StreamKey::new(src_addr, src_port, dst_addr, dst_port, protocol);
 
         let id = if let Some(&id) = self.streams.get(&key) {
             id
         } else {
-            let id = self.next_id;
-            self.next_id += 1;
+            let id = self.metadata.len() as u32;
             self.streams.insert(key.clone(), id);
             self.metadata.push(StreamMetadata {
                 id,
@@ -153,28 +150,40 @@ impl Default for StreamTracker {
     }
 }
 
-/// Extract source and destination IP addresses from the packet layers.
-fn extract_addresses(layers: &[Layer]) -> Option<(IpAddr, IpAddr)> {
-    for layer in layers {
-        match layer {
-            Layer::Ipv4(l) => return Some((IpAddr::V4(l.source), IpAddr::V4(l.destination))),
-            Layer::Ipv6(l) => return Some((IpAddr::V6(l.source), IpAddr::V6(l.destination))),
-            _ => {}
-        }
-    }
-    None
-}
+/// Extract both IP addresses, transport ports, and protocol number from packet layers.
+///
+/// Returns `(src_addr, src_port, dst_addr, dst_port, protocol)`. The protocol
+/// number is read from the IP layer (`Ipv4Layer.protocol` or `Ipv6Layer.next_header`)
+/// rather than being inferred from the transport layer type.
+fn extract_transport_tuple(layers: &[Layer]) -> Option<(IpAddr, u16, IpAddr, u16, u8)> {
+    let mut addrs: Option<(IpAddr, IpAddr, u8)> = None;
+    let mut ports: Option<(u16, u16)> = None;
 
-/// Extract source port, destination port, and IP protocol number from the transport layer.
-fn extract_transport(layers: &[Layer]) -> Option<(u16, u16, u8)> {
     for layer in layers {
         match layer {
-            Layer::Tcp(l) => return Some((l.source_port, l.destination_port, 6)),
-            Layer::Udp(l) => return Some((l.source_port, l.destination_port, 17)),
+            Layer::Ipv4(l) => {
+                addrs = Some((IpAddr::V4(l.source), IpAddr::V4(l.destination), l.protocol));
+            }
+            Layer::Ipv6(l) => {
+                addrs = Some((
+                    IpAddr::V6(l.source),
+                    IpAddr::V6(l.destination),
+                    l.next_header,
+                ));
+            }
+            Layer::Tcp(l) => {
+                ports = Some((l.source_port, l.destination_port));
+            }
+            Layer::Udp(l) => {
+                ports = Some((l.source_port, l.destination_port));
+            }
             _ => {}
         }
     }
-    None
+
+    let (src_addr, dst_addr, protocol) = addrs?;
+    let (src_port, dst_port) = ports?;
+    Some((src_addr, src_port, dst_addr, dst_port, protocol))
 }
 
 #[cfg(test)]

@@ -36,7 +36,11 @@ pub fn run(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
         match severity_upper.as_str() {
             "HIGH" => high_count += 1,
             "MEDIUM" => medium_count += 1,
-            _ => low_count += 1,
+            "LOW" => low_count += 1,
+            other => {
+                eprintln!("warning: unrecognized severity {other:?}, counting as low");
+                low_count += 1;
+            }
         }
 
         println!("{severity_label} {}", finding.title);

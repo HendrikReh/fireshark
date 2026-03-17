@@ -1,7 +1,6 @@
 //! Follow a single stream by ID, showing its header and all matching packets.
 
 use std::path::Path;
-use std::process;
 
 use fireshark_core::TrackingPipeline;
 use fireshark_dissectors::decode_packet;
@@ -32,11 +31,11 @@ pub fn run(path: &Path, stream_id: u32) -> Result<(), Box<dyn std::error::Error>
     let meta = match tracker.get(stream_id) {
         Some(meta) => meta,
         None => {
-            eprintln!(
-                "error: stream {stream_id} not found (capture has {} streams)",
+            return Err(format!(
+                "stream {stream_id} not found (capture has {} streams)",
                 tracker.stream_count()
-            );
-            process::exit(1);
+            )
+            .into());
         }
     };
 

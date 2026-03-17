@@ -193,3 +193,36 @@ fn default_pipeline_yields_none_stream_id() {
         assert_eq!(decoded.stream_id(), None);
     }
 }
+
+#[test]
+fn tracking_pipeline_error_does_not_corrupt_tracker() {
+    let tcp_bytes =
+        std::fs::read(repo_root().join("fixtures/bytes/ethernet_ipv4_tcp.bin")).unwrap();
+
+    // Mix Ok and Err frames: Ok, Err, Ok — tracker should handle the
+    // successful packets without being affected by the intervening error.
+    let frames: Vec<Result<Frame, &str>> = vec![
+        Ok(frame_from_bytes(&tcp_bytes)),
+        Err("bad frame"),
+        Ok(frame_from_bytes(&tcp_bytes)),
+    ];
+
+    let mut pipeline = TrackingPipeline::new(frames.into_iter(), decode_packet);
+
+    let d0 = pipeline.next().unwrap();
+    assert!(d0.is_ok());
+    assert_eq!(d0.unwrap().stream_id(), Some(0));
+
+    let d1 = pipeline.next().unwrap();
+    assert!(d1.is_err()); // frame error
+
+    let d2 = pipeline.next().unwrap();
+    assert!(d2.is_ok());
+    assert_eq!(d2.unwrap().stream_id(), Some(0)); // same stream
+
+    assert!(pipeline.next().is_none());
+
+    let tracker = pipeline.into_tracker();
+    assert_eq!(tracker.stream_count(), 1);
+    assert_eq!(tracker.get(0).unwrap().packet_count, 2);
+}

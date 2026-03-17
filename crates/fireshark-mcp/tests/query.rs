@@ -5,7 +5,9 @@ use fireshark_core::{
 };
 use fireshark_mcp::analysis::AnalyzedCapture;
 use fireshark_mcp::model::LayerView;
-use fireshark_mcp::query::{MAX_PAGE_SIZE, get_packet, list_decode_issues, list_packets};
+use fireshark_mcp::query::{
+    MAX_PAGE_SIZE, get_packet, get_stream, list_decode_issues, list_packets, list_streams,
+};
 
 #[test]
 fn list_packets_returns_packet_summaries() {
@@ -151,4 +153,27 @@ fn ethernet_layer() -> Layer {
         source: [6, 7, 8, 9, 10, 11],
         ether_type: 0x0800,
     })
+}
+
+#[test]
+fn list_streams_returns_stream_metadata() {
+    let fixture = support::repo_root().join("fixtures/smoke/minimal.pcap");
+    let capture = AnalyzedCapture::open(&fixture).unwrap();
+
+    let streams = list_streams(&capture, 0, 100);
+
+    assert!(!streams.is_empty());
+    assert_eq!(streams[0].id, 0);
+    assert!(!streams[0].protocol.is_empty());
+}
+
+#[test]
+fn get_stream_returns_packets_for_stream() {
+    let fixture = support::repo_root().join("fixtures/smoke/minimal.pcap");
+    let capture = AnalyzedCapture::open(&fixture).unwrap();
+
+    let (stream, packets) = get_stream(&capture, 0).expect("stream 0 should exist");
+
+    assert_eq!(stream.id, 0);
+    assert!(!packets.is_empty());
 }

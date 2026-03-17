@@ -29,3 +29,58 @@ async fn list_packets_tool_returns_capture_packets() {
     assert!(packets[0].timestamp.is_some());
     assert!(packets[0].original_len > 0);
 }
+
+#[tokio::test]
+async fn list_streams_tool_returns_streams() {
+    let fixture = support::repo_root().join("fixtures/smoke/minimal.pcap");
+    let service = ToolService::new_default();
+    let response = service.open_capture(&fixture).await.unwrap();
+
+    let streams = service
+        .list_streams(&response.session_id, 0, 100)
+        .await
+        .unwrap();
+
+    assert!(!streams.is_empty());
+    assert_eq!(streams[0].id, 0);
+    assert!(!streams[0].protocol.is_empty());
+}
+
+#[tokio::test]
+async fn get_stream_tool_returns_stream_packets() {
+    let fixture = support::repo_root().join("fixtures/smoke/minimal.pcap");
+    let service = ToolService::new_default();
+    let response = service.open_capture(&fixture).await.unwrap();
+
+    let (stream, packets) = service.get_stream(&response.session_id, 0).await.unwrap();
+
+    assert_eq!(stream.id, 0);
+    assert!(!packets.is_empty());
+}
+
+#[tokio::test]
+async fn get_stream_tool_returns_error_for_invalid_id() {
+    let fixture = support::repo_root().join("fixtures/smoke/minimal.pcap");
+    let service = ToolService::new_default();
+    let response = service.open_capture(&fixture).await.unwrap();
+
+    let result = service.get_stream(&response.session_id, 99999).await;
+
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn summarize_capture_tool_returns_combined_summary() {
+    let fixture = support::repo_root().join("fixtures/smoke/minimal.pcap");
+    let service = ToolService::new_default();
+    let response = service.open_capture(&fixture).await.unwrap();
+
+    let summary = service
+        .summarize_capture(&response.session_id)
+        .await
+        .unwrap();
+
+    assert!(summary.packet_count > 0);
+    assert!(summary.stream_count > 0);
+    assert!(!summary.protocols.is_empty());
+}

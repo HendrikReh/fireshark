@@ -7,12 +7,13 @@ use thiserror::Error;
 
 use crate::filter::matches_filter;
 use crate::model::{
-    CaptureDescriptionView, CloseCaptureResponse, DecodeIssueEntryView, EndpointCountView,
-    FindingView, OpenCaptureResponse, PacketDetailView, PacketSummaryView, ProtocolCountView,
+    CaptureDescriptionView, CaptureSummaryView, CloseCaptureResponse, DecodeIssueEntryView,
+    EndpointCountView, FindingView, OpenCaptureResponse, PacketDetailView, PacketSummaryView,
+    ProtocolCountView, StreamView,
 };
 use crate::query::{
-    PacketSearch, get_packet, list_decode_issues, list_packets, search_packets,
-    summarize_protocols, top_endpoints,
+    PacketSearch, format_timestamp, get_packet, get_stream, list_decode_issues, list_packets,
+    list_streams, search_packets, summarize_protocols, top_endpoints,
 };
 use crate::session::{CaptureSession, SessionError, SessionManager};
 
@@ -31,6 +32,9 @@ pub enum ToolError {
         session_id: String,
         finding_id: String,
     },
+
+    #[error("stream {stream_id} was not found in session {session_id}")]
+    StreamNotFound { session_id: String, stream_id: u32 },
 }
 
 #[derive(Clone)]
@@ -229,6 +233,70 @@ impl ToolService {
                 session_id: session_id.to_string(),
                 finding_id: finding_id.to_string(),
             })
+    }
+
+    pub async fn list_streams(
+        &self,
+        session_id: &str,
+        offset: usize,
+        limit: usize,
+    ) -> Result<Vec<StreamView>, ToolError> {
+        let mut sessions = self.lock_sessions().await;
+        let session = require_session(&mut sessions, session_id)?;
+
+        Ok(list_streams(&session.capture, offset, limit))
+    }
+
+    pub async fn get_stream(
+        &self,
+        session_id: &str,
+        stream_id: u32,
+    ) -> Result<(StreamView, Vec<PacketSummaryView>), ToolError> {
+        let mut sessions = self.lock_sessions().await;
+        let session = require_session(&mut sessions, session_id)?;
+
+        get_stream(&session.capture, stream_id).ok_or_else(|| ToolError::StreamNotFound {
+            session_id: session_id.to_string(),
+            stream_id,
+        })
+    }
+
+    pub async fn summarize_capture(
+        &self,
+        session_id: &str,
+    ) -> Result<CaptureSummaryView, ToolError> {
+        let mut sessions = self.lock_sessions().await;
+        let session = require_session(&mut sessions, session_id)?;
+
+        let protocols = summarize_protocols(&session.capture);
+        let top_eps = top_endpoints(&session.capture, 10);
+
+        let (first_timestamp, last_timestamp) = session
+            .capture
+            .packets()
+            .iter()
+            .filter_map(|p| p.frame().timestamp())
+            .fold((None, None), |(first, _last), ts| {
+                (first.or(Some(ts)), Some(ts))
+            });
+
+        let duration_ms = match (first_timestamp, last_timestamp) {
+            (Some(first), Some(last)) => Some(last.saturating_sub(first).as_millis() as u64),
+            _ => None,
+        };
+
+        let finding_count = session.findings().len();
+
+        Ok(CaptureSummaryView {
+            packet_count: session.capture.packet_count(),
+            stream_count: session.capture.tracker().stream_count(),
+            first_timestamp: first_timestamp.map(format_timestamp),
+            last_timestamp: last_timestamp.map(format_timestamp),
+            duration_ms,
+            protocols,
+            top_endpoints: top_eps,
+            finding_count,
+        })
     }
 
     async fn lock_sessions(&self) -> MutexGuard<'_, SessionManager> {

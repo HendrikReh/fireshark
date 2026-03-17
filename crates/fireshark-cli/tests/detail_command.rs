@@ -128,3 +128,17 @@ fn detail_command_renders_truncated_decode_issue() {
         .stdout(contains("IPv4"))
         .stdout(contains("Truncated"));
 }
+
+#[test]
+fn detail_command_renders_dns_layer() {
+    let fixture = support::repo_root().join("fixtures/smoke/wireshark-dns.pcap");
+
+    // Packet 1 should be a DNS query — verify DNS layer fields are rendered
+    let mut cmd = Command::cargo_bin("fireshark").unwrap();
+    cmd.arg("detail").arg(&fixture).arg("1");
+    cmd.assert()
+        .success()
+        .stdout(contains("DNS"))
+        .stdout(contains("Transaction ID"))
+        .stdout(contains("Query"));
+}

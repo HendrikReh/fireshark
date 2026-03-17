@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use fireshark_core::{DecodedFrame, Pipeline, PipelineError};
+use fireshark_core::{DecodedFrame, PipelineError, StreamTracker, TrackingPipeline};
 use fireshark_dissectors::{DecodeError, decode_packet};
 use fireshark_file::{CaptureError, CaptureReader};
 use thiserror::Error;
@@ -27,6 +27,7 @@ pub struct AnalyzedCapture {
     packets: Vec<DecodedFrame>,
     protocol_counts: BTreeMap<String, usize>,
     endpoint_counts: BTreeMap<String, usize>,
+    tracker: StreamTracker,
 }
 
 impl AnalyzedCapture {
@@ -40,18 +41,24 @@ impl AnalyzedCapture {
     ) -> Result<Self, AnalysisError> {
         let reader = CaptureReader::open(path)?;
         let mut packets = Vec::new();
-        for result in Pipeline::new(reader, decode_packet) {
+        let mut pipeline = TrackingPipeline::new(reader, decode_packet);
+        for result in &mut pipeline {
             let frame = result.map_err(AnalysisError::from)?;
             packets.push(frame);
             if packets.len() > max_packets {
                 return Err(AnalysisError::TooLarge { max_packets });
             }
         }
+        let tracker = pipeline.into_tracker();
 
-        Ok(Self::from_packets(packets))
+        Ok(Self::from_packets_with_tracker(packets, tracker))
     }
 
     pub fn from_packets(packets: Vec<DecodedFrame>) -> Self {
+        Self::from_packets_with_tracker(packets, StreamTracker::default())
+    }
+
+    pub fn from_packets_with_tracker(packets: Vec<DecodedFrame>, tracker: StreamTracker) -> Self {
         let mut protocol_counts = BTreeMap::new();
         let mut endpoint_counts = BTreeMap::new();
 
@@ -72,6 +79,7 @@ impl AnalyzedCapture {
             packets,
             protocol_counts,
             endpoint_counts,
+            tracker,
         }
     }
 
@@ -89,5 +97,24 @@ impl AnalyzedCapture {
 
     pub fn endpoint_counts(&self) -> &BTreeMap<String, usize> {
         &self.endpoint_counts
+    }
+
+    /// All stream metadata in ID order.
+    pub fn streams(&self) -> &[fireshark_core::StreamMetadata] {
+        self.tracker.streams()
+    }
+
+    /// The underlying stream tracker.
+    pub fn tracker(&self) -> &StreamTracker {
+        &self.tracker
+    }
+
+    /// Return all packets belonging to a given stream, with their indices.
+    pub fn stream_packets(&self, stream_id: u32) -> Vec<(usize, &DecodedFrame)> {
+        self.packets
+            .iter()
+            .enumerate()
+            .filter(|(_, pkt)| pkt.stream_id() == Some(stream_id))
+            .collect()
     }
 }

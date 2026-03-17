@@ -371,10 +371,10 @@ fn compare_values(left: &FieldValue, op: &CmpOp, right: &Value) -> bool {
             match op {
                 CmpOp::Eq => s == *n || d == *n,
                 CmpOp::Neq => s != *n && d != *n,
-                CmpOp::Gt => s > *n && d > *n,
-                CmpOp::Lt => s < *n && d < *n,
-                CmpOp::Gte => s >= *n && d >= *n,
-                CmpOp::Lte => s <= *n && d <= *n,
+                CmpOp::Gt => s > *n || d > *n,
+                CmpOp::Lt => s < *n || d < *n,
+                CmpOp::Gte => s >= *n || d >= *n,
+                CmpOp::Lte => s <= *n || d <= *n,
             }
         }
         // Type mismatches
@@ -858,5 +858,145 @@ mod tests {
             None,
         );
         assert!(!run_filter("tcp.stream == 0", &decoded));
+    }
+
+    // --- TLS filter tests ---
+
+    #[test]
+    fn has_protocol_tls_on_client_hello() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp_tls_client_hello.bin"
+        ));
+        assert!(run_filter("tls", &decoded));
+    }
+
+    #[test]
+    fn tls_handshake_type_client_hello() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp_tls_client_hello.bin"
+        ));
+        assert!(run_filter("tls.handshake.type == 1", &decoded));
+    }
+
+    #[test]
+    fn tls_handshake_type_server_hello() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp_tls_server_hello.bin"
+        ));
+        assert!(run_filter("tls.handshake.type == 2", &decoded));
+    }
+
+    #[test]
+    fn tls_record_version_client_hello() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp_tls_client_hello.bin"
+        ));
+        // Record version is present and resolvable
+        let field = resolve_field("tls.record_version", &decoded);
+        assert!(field.is_some());
+    }
+
+    #[test]
+    fn tls_client_version_is_0x0303() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp_tls_client_hello.bin"
+        ));
+        // 0x0303 == 771 decimal
+        assert!(run_filter("tls.client_version == 771", &decoded));
+    }
+
+    #[test]
+    fn tls_cipher_suite_server_hello() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp_tls_server_hello.bin"
+        ));
+        // cipher_suite = 0x1301 = 4865
+        assert!(run_filter("tls.cipher_suite == 4865", &decoded));
+    }
+
+    // --- DNS filter tests ---
+
+    #[test]
+    fn dns_opcode_eq_zero() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        assert!(run_filter("dns.opcode == 0", &decoded));
+    }
+
+    #[test]
+    fn dns_qcount_eq_1() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        assert!(run_filter("dns.qcount == 1", &decoded));
+    }
+
+    #[test]
+    fn dns_acount_eq_0_for_query() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        assert!(run_filter("dns.acount == 0", &decoded));
+    }
+
+    #[test]
+    fn dns_answer_bare_field_false_for_query() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        // Query has no answers, so dns.answer evaluates to false
+        assert!(!run_filter("dns.answer", &decoded));
+    }
+
+    #[test]
+    fn dns_answer_bare_field_true_for_response() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns_response.bin"
+        ));
+        // Response has answers, so dns.answer evaluates to true
+        assert!(run_filter("dns.answer", &decoded));
+    }
+
+    // --- PortPair ordinal operator tests ---
+
+    #[test]
+    fn tcp_port_gt_1024_with_mixed_ports() {
+        // TCP fixture: src=51514, dst=443
+        // 51514 > 1024 is true, so the OR semantics should yield true
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp.bin"
+        ));
+        assert!(run_filter("tcp.port > 1024", &decoded));
+    }
+
+    #[test]
+    fn tcp_port_lt_1024_with_mixed_ports() {
+        // TCP fixture: src=51514, dst=443
+        // 443 < 1024 is true, so the OR semantics should yield true
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp.bin"
+        ));
+        assert!(run_filter("tcp.port < 1024", &decoded));
+    }
+
+    #[test]
+    fn tcp_port_gte_443() {
+        // TCP fixture: src=51514, dst=443
+        // Both >= 443, so true under both AND and OR
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp.bin"
+        ));
+        assert!(run_filter("tcp.port >= 443", &decoded));
+    }
+
+    #[test]
+    fn tcp_port_lte_443() {
+        // TCP fixture: src=51514, dst=443
+        // 443 <= 443 is true, so OR yields true
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp.bin"
+        ));
+        assert!(run_filter("tcp.port <= 443", &decoded));
     }
 }

@@ -47,13 +47,15 @@ impl AuditEngine {
 }
 
 fn audit_decode_issues(capture: &AnalyzedCapture) -> Option<FindingView> {
-    let packet_indexes = capture
+    let all_affected = capture
         .packets()
         .iter()
         .enumerate()
-        .filter_map(|(index, packet)| (!packet.packet().issues().is_empty()).then_some(index))
-        .take(MAX_EVIDENCE_PACKETS)
-        .collect::<Vec<_>>();
+        .filter_map(|(index, packet)| (!packet.packet().issues().is_empty()).then_some(index));
+
+    let affected_count = all_affected.clone().count();
+
+    let packet_indexes = all_affected.take(MAX_EVIDENCE_PACKETS).collect::<Vec<_>>();
 
     finding_for_ratio(
         RatioFindingSpec {
@@ -65,20 +67,23 @@ fn audit_decode_issues(capture: &AnalyzedCapture) -> Option<FindingView> {
             threshold: ISSUE_RATIO_THRESHOLD,
         },
         capture.packet_count(),
+        affected_count,
         packet_indexes,
     )
 }
 
 fn audit_unknown_traffic(capture: &AnalyzedCapture) -> Option<FindingView> {
-    let packet_indexes = capture
+    let all_affected = capture
         .packets()
         .iter()
         .enumerate()
         .filter_map(|(index, packet)| {
             (packet.summary().protocol.eq_ignore_ascii_case("unknown")).then_some(index)
-        })
-        .take(MAX_EVIDENCE_PACKETS)
-        .collect::<Vec<_>>();
+        });
+
+    let affected_count = all_affected.clone().count();
+
+    let packet_indexes = all_affected.take(MAX_EVIDENCE_PACKETS).collect::<Vec<_>>();
 
     finding_for_ratio(
         RatioFindingSpec {
@@ -90,6 +95,7 @@ fn audit_unknown_traffic(capture: &AnalyzedCapture) -> Option<FindingView> {
             threshold: UNKNOWN_RATIO_THRESHOLD,
         },
         capture.packet_count(),
+        affected_count,
         packet_indexes,
     )
 }
@@ -354,13 +360,14 @@ struct RatioFindingSpec {
 fn finding_for_ratio(
     spec: RatioFindingSpec,
     packet_count: usize,
+    affected_count: usize,
     packet_indexes: Vec<usize>,
 ) -> Option<FindingView> {
     if packet_count == 0 {
         return None;
     }
 
-    let ratio = packet_indexes.len() as f64 / packet_count as f64;
+    let ratio = affected_count as f64 / packet_count as f64;
     if ratio < spec.threshold {
         return None;
     }

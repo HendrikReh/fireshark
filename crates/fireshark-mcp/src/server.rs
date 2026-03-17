@@ -9,9 +9,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::model::{
-    CaptureDescriptionView, CloseCaptureResponse, DecodeIssueListResponse, EndpointListResponse,
-    FindingListResponse, OpenCaptureResponse, PacketDetailView, PacketListResponse,
-    ProtocolSummaryResponse,
+    CaptureDescriptionView, CaptureSummaryView, CloseCaptureResponse, DecodeIssueListResponse,
+    EndpointListResponse, FindingListResponse, OpenCaptureResponse, PacketDetailView,
+    PacketListResponse, ProtocolSummaryResponse, StreamListResponse, StreamPacketsResponse,
 };
 use crate::query::PacketSearch;
 use crate::tools::{ToolError, ToolService};
@@ -242,6 +242,48 @@ impl FiresharkMcpServer {
             .map(Json)
             .map_err(tool_error)
     }
+
+    #[tool(description = "List TCP/UDP conversation streams in a capture session")]
+    async fn list_streams(
+        &self,
+        Parameters(request): Parameters<ListStreamsRequest>,
+    ) -> McpResult<StreamListResponse> {
+        self.tools
+            .list_streams(
+                &request.session_id,
+                request.offset.unwrap_or(0),
+                request.limit.unwrap_or(100),
+            )
+            .await
+            .map(|streams| Json(StreamListResponse { streams }))
+            .map_err(tool_error)
+    }
+
+    #[tool(description = "Get a single stream with its packet summaries")]
+    async fn get_stream(
+        &self,
+        Parameters(request): Parameters<GetStreamRequest>,
+    ) -> McpResult<StreamPacketsResponse> {
+        self.tools
+            .get_stream(&request.session_id, request.stream_id)
+            .await
+            .map(|(stream, packets)| Json(StreamPacketsResponse { stream, packets }))
+            .map_err(tool_error)
+    }
+
+    #[tool(
+        description = "Get a one-shot summary of a capture: packets, streams, protocols, endpoints, findings"
+    )]
+    async fn summarize_capture(
+        &self,
+        Parameters(request): Parameters<SessionRequest>,
+    ) -> McpResult<CaptureSummaryView> {
+        self.tools
+            .summarize_capture(&request.session_id)
+            .await
+            .map(Json)
+            .map_err(tool_error)
+    }
 }
 
 pub async fn run_stdio() -> Result<(), Box<dyn std::error::Error>> {
@@ -254,7 +296,8 @@ fn tool_error(error: ToolError) -> ErrorData {
     match error {
         error @ ToolError::Session(crate::session::SessionError::NotFound(_))
         | error @ ToolError::PacketNotFound { .. }
-        | error @ ToolError::FindingNotFound { .. } => {
+        | error @ ToolError::FindingNotFound { .. }
+        | error @ ToolError::StreamNotFound { .. } => {
             ErrorData::resource_not_found(error.to_string(), None)
         }
         error @ ToolError::Session(crate::session::SessionError::LimitReached { .. })
@@ -329,4 +372,17 @@ struct ListFindingsRequest {
 struct ExplainFindingRequest {
     session_id: String,
     finding_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+struct ListStreamsRequest {
+    session_id: String,
+    offset: Option<usize>,
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+struct GetStreamRequest {
+    session_id: String,
+    stream_id: u32,
 }

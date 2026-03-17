@@ -90,6 +90,25 @@ fn stream_metadata_tracks_packet_count_and_bytes() {
 }
 
 #[test]
+fn stream_byte_count_uses_captured_len_not_original_len() {
+    let tcp_bytes = std::fs::read(fixture("bytes/ethernet_ipv4_tcp.bin")).unwrap();
+    let packet = decode_packet(&tcp_bytes).unwrap();
+    // Build a frame where original_len > captured_len (simulating snaplen truncation)
+    let frame = Frame::builder()
+        .data(tcp_bytes.clone())
+        .original_len(tcp_bytes.len() + 100)
+        .build();
+    let decoded = DecodedFrame::new(frame, packet);
+
+    let mut tracker = StreamTracker::new();
+    tracker.assign(&decoded);
+
+    let meta = tracker.get(0).unwrap();
+    // byte_count should use captured_len (tcp_bytes.len()), not original_len
+    assert_eq!(meta.byte_count, tcp_bytes.len());
+}
+
+#[test]
 fn stream_metadata_tracks_timestamps() {
     let tcp_bytes = std::fs::read(fixture("bytes/ethernet_ipv4_tcp.bin")).unwrap();
 

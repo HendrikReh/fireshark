@@ -31,9 +31,20 @@ pub fn parse(bytes: &[u8], offset: usize) -> Result<Layer, DecodeError> {
     let _authority_count = u16::from_be_bytes([bytes[8], bytes[9]]);
     let _additional_count = u16::from_be_bytes([bytes[10], bytes[11]]);
 
-    // Attempt to parse the first question entry
-    let (query_name, query_type, question_end) = if question_count > 0 {
-        parse_question(bytes)
+    // Parse question entries, advancing past each one so answer parsing
+    // knows where to start. Extract query_name/query_type from the first
+    // question only; remaining questions are skipped but consumed.
+    let max_questions = (question_count as usize).min(10);
+    let (query_name, query_type, question_end) = if max_questions > 0 {
+        let (name, qtype, mut end) = parse_question(bytes, HEADER_LEN);
+        for _ in 1..max_questions {
+            let (_, _, next_end) = parse_question(bytes, end);
+            if next_end == end {
+                break; // could not advance; avoid infinite loop
+            }
+            end = next_end;
+        }
+        (name, qtype, end)
     } else {
         (None, None, HEADER_LEN)
     };
@@ -56,15 +67,15 @@ pub fn parse(bytes: &[u8], offset: usize) -> Result<Layer, DecodeError> {
     }))
 }
 
-/// Parse the first question entry from the DNS message.
+/// Parse a question entry from the DNS message starting at `start`.
 /// Returns (query_name, query_type, end_offset) — the third element is the byte offset
-/// where the question section ends, so answer parsing knows where to start.
-fn parse_question(bytes: &[u8]) -> (Option<String>, Option<u16>, usize) {
-    let Some((name, consumed)) = parse_name(bytes, HEADER_LEN) else {
-        return (None, None, HEADER_LEN);
+/// where this question entry ends, so the next question (or answer parsing) knows where to start.
+fn parse_question(bytes: &[u8], start: usize) -> (Option<String>, Option<u16>, usize) {
+    let Some((name, consumed)) = parse_name(bytes, start) else {
+        return (None, None, start);
     };
 
-    let qtype_start = HEADER_LEN + consumed;
+    let qtype_start = start + consumed;
     let query_name = if name.is_empty() { None } else { Some(name) };
     // Need 4 bytes for qtype (2) + qclass (2)
     if qtype_start + 4 > bytes.len() {

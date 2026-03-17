@@ -104,10 +104,11 @@ fn parse_client_hello(bytes: &[u8], record_version: u16) -> TlsClientHelloLayer 
     if pos + 2 > bytes.len() {
         return layer;
     }
-    let _ext_len = u16::from_be_bytes([bytes[pos], bytes[pos + 1]]) as usize;
+    let ext_len = u16::from_be_bytes([bytes[pos], bytes[pos + 1]]) as usize;
     pos += 2;
+    let ext_end = (pos + ext_len).min(bytes.len());
 
-    parse_extensions_client(bytes, pos, &mut layer);
+    parse_extensions_client(bytes, pos, ext_end, &mut layer);
     layer
 }
 
@@ -154,23 +155,29 @@ fn parse_server_hello(bytes: &[u8], record_version: u16) -> TlsServerHelloLayer 
     if pos + 2 > bytes.len() {
         return layer;
     }
-    let _ext_len = u16::from_be_bytes([bytes[pos], bytes[pos + 1]]) as usize;
+    let ext_len = u16::from_be_bytes([bytes[pos], bytes[pos + 1]]) as usize;
     pos += 2;
+    let ext_end = (pos + ext_len).min(bytes.len());
 
-    parse_extensions_server(bytes, pos, &mut layer);
+    parse_extensions_server(bytes, pos, ext_end, &mut layer);
     layer
 }
 
-fn parse_extensions_client(bytes: &[u8], start: usize, layer: &mut TlsClientHelloLayer) {
+fn parse_extensions_client(
+    bytes: &[u8],
+    start: usize,
+    end: usize,
+    layer: &mut TlsClientHelloLayer,
+) {
     let mut pos = start;
     let mut count = 0;
 
-    while pos + 4 <= bytes.len() && count < MAX_EXTENSIONS {
+    while pos + 4 <= end && count < MAX_EXTENSIONS {
         let ext_type = u16::from_be_bytes([bytes[pos], bytes[pos + 1]]);
         let ext_len = u16::from_be_bytes([bytes[pos + 2], bytes[pos + 3]]) as usize;
         pos += 4;
         let ext_end = pos + ext_len;
-        if ext_end > bytes.len() {
+        if ext_end > end {
             break;
         }
 
@@ -203,16 +210,21 @@ fn parse_extensions_client(bytes: &[u8], start: usize, layer: &mut TlsClientHell
     }
 }
 
-fn parse_extensions_server(bytes: &[u8], start: usize, layer: &mut TlsServerHelloLayer) {
+fn parse_extensions_server(
+    bytes: &[u8],
+    start: usize,
+    end: usize,
+    layer: &mut TlsServerHelloLayer,
+) {
     let mut pos = start;
     let mut count = 0;
 
-    while pos + 4 <= bytes.len() && count < MAX_EXTENSIONS {
+    while pos + 4 <= end && count < MAX_EXTENSIONS {
         let ext_type = u16::from_be_bytes([bytes[pos], bytes[pos + 1]]);
         let ext_len = u16::from_be_bytes([bytes[pos + 2], bytes[pos + 3]]) as usize;
         pos += 4;
         let ext_end = pos + ext_len;
-        if ext_end > bytes.len() {
+        if ext_end > end {
             break;
         }
 
