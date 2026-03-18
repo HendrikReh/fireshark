@@ -25,14 +25,17 @@ impl Packet {
 
     /// Create a packet with layer byte spans.
     ///
-    /// `spans` must have the same length as `layers` — `spans[i]` describes
+    /// `spans` should have the same length as `layers` — `spans[i]` describes
     /// the byte range of `layers[i]` within the raw frame data. Pass an empty
-    /// `Vec` if spans are not available.
+    /// `Vec` if spans are not available. If `spans` has a different non-zero
+    /// length than `layers`, spans are silently dropped to avoid panicking on
+    /// untrusted dissector output.
     pub fn with_spans(layers: Vec<Layer>, issues: Vec<DecodeIssue>, spans: Vec<LayerSpan>) -> Self {
-        assert!(
-            spans.is_empty() || spans.len() == layers.len(),
-            "spans must be empty or match layers length"
-        );
+        let spans = if !spans.is_empty() && spans.len() != layers.len() {
+            Vec::new()
+        } else {
+            spans
+        };
         Self {
             layers,
             issues,
@@ -61,6 +64,11 @@ impl Packet {
     }
 
     /// Extract (source_port, destination_port) from the first transport layer.
+    ///
+    /// Assumes at most one transport layer per packet. If tunnel/encapsulation
+    /// support is added, this must be reconciled with `extract_transport_tuple`
+    /// in `stream.rs` (which takes the *last* match) and `format_endpoints` in
+    /// `summary.rs` (which also takes the first).
     pub fn transport_ports(&self) -> Option<(u16, u16)> {
         self.layers.iter().find_map(|layer| match layer {
             Layer::Tcp(layer) => Some((layer.source_port, layer.destination_port)),

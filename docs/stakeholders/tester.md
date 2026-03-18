@@ -233,15 +233,16 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 ## Test Coverage by Crate
 
-### fireshark-core (46 tests)
+### fireshark-core (50 tests)
 
 - Packet model construction and layer access
+- Graceful degradation when layer spans are mismatched
 - Frame summary generation (protocol, source, destination, length)
 - Pipeline iteration over frame sources
 - TrackingPipeline: stream ID assignment, metadata accumulation
 - StreamTracker: key normalization, direction symmetry, IPv4/IPv6, protocol separation
 - StreamKey: canonical 5-tuple ordering, protocol name
-- Summary rendering
+- Summary rendering: TCP, ARP, IPv6, HTTP, DNS, TLS protocol selection
 
 ### fireshark-dissectors (68 tests)
 
@@ -314,7 +315,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 480 |
+| Total tests | 484 |
 | Byte fixtures | 18 |
 | Smoke captures | 3 |
 | Total fixtures | 21 |

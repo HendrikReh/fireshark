@@ -86,3 +86,14 @@ fn layer_names_returns_ordered_names() {
     );
     assert_eq!(packet.layer_names(), vec!["Unknown", "UDP"]);
 }
+
+#[test]
+fn with_spans_drops_mismatched_spans() {
+    // 2 layers but 1 span — mismatch should silently drop spans
+    let packet = Packet::with_spans(
+        vec![Layer::Unknown, Layer::Unknown],
+        vec![],
+        vec![LayerSpan { offset: 0, len: 14 }],
+    );
+    assert!(packet.spans().is_empty());
+}

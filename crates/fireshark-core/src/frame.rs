@@ -18,6 +18,12 @@ pub enum FrameBuildError {
 }
 
 /// A single captured frame with its wire metadata and raw bytes.
+///
+/// The `protocol` field carries the link-layer protocol name from the capture
+/// file header (e.g., `"Ethernet"`). It is used as a fallback by
+/// `PacketSummary::from(&Frame)` when no decoded packet is available. In the
+/// normal path, `PacketSummary::from_packet()` determines the protocol from
+/// the decoded layers and ignores this field.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Frame {
     captured_len: usize,

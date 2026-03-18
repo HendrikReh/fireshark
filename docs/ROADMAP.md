@@ -141,7 +141,7 @@ JSON export, checksum validation, and capture comparison delivered. Certificate 
 | Metric | Value |
 |--------|-------|
 | Protocols | 11 (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello, HTTP) |
-| Tests | 480 |
+| Tests | 484 |
 | Source lines | ~9,500 |
 | Crates | 8 (fireshark-core, fireshark-file, fireshark-dissectors, fireshark-filter, fireshark-cli, fireshark-mcp, fireshark-backend, fireshark-tshark) |
 | MCP tools | 21 |

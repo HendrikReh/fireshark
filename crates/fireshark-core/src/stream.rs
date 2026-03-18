@@ -23,7 +23,9 @@ impl StreamKey {
     /// Create a normalized key from source/destination addresses and ports.
     ///
     /// The lower `(addr, port)` pair is placed first so that both directions
-    /// of the same conversation produce the same key.
+    /// of the same conversation produce the same key. The ordering compares
+    /// `IpAddr` values directly, which places all IPv4 before IPv6 by variant
+    /// discriminant. This is fine because real connections never mix IP versions.
     pub fn new(
         src_addr: IpAddr,
         src_port: u16,
@@ -109,7 +111,11 @@ impl StreamTracker {
         let id = if let Some(&id) = self.streams.get(&key) {
             id
         } else {
-            let id = self.metadata.len() as u32;
+            let id: u32 = self
+                .metadata
+                .len()
+                .try_into()
+                .expect("stream count exceeds u32::MAX");
             self.streams.insert(key.clone(), id);
             self.metadata.push(StreamMetadata {
                 id,
@@ -187,6 +193,12 @@ impl Default for StreamTracker {
 /// Returns `(src_addr, src_port, dst_addr, dst_port, protocol)`. The protocol
 /// number is read from the IP layer (`Ipv4Layer.protocol` or `Ipv6Layer.next_header`)
 /// rather than being inferred from the transport layer type.
+///
+/// Takes the *last* matching IP and transport layers. Today's dissector chain
+/// produces at most one of each, so first vs last is equivalent. If tunnel or
+/// encapsulation support is added, this convention must be reconciled with
+/// `Packet::transport_ports()` and `format_endpoints()` in `summary.rs`,
+/// which take the *first* match.
 fn extract_transport_tuple(layers: &[Layer]) -> Option<(IpAddr, u16, IpAddr, u16, u8)> {
     let mut addrs: Option<(IpAddr, IpAddr, u8)> = None;
     let mut ports: Option<(u16, u16)> = None;

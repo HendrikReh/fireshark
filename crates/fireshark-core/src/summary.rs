@@ -53,6 +53,11 @@ impl PacketSummary {
     }
 }
 
+/// Extract formatted source/destination strings from the first IP or ARP layer.
+///
+/// Uses `Packet::transport_ports()` (first transport match) for port info.
+/// Assumes at most one network and one transport layer per packet — see
+/// `extract_transport_tuple` in `stream.rs` for the reconciliation note.
 fn format_endpoints(packet: &Packet) -> (String, String) {
     let ports = packet.transport_ports();
     for layer in packet.layers() {
