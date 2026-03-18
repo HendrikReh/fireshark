@@ -31,12 +31,16 @@ pub enum Token {
     Lt,
     Gte,
     Lte,
+    // String operators
+    Contains,
+    Matches,
     // Literals
     Integer(u64),
     IpV4Addr(Ipv4Addr),
     IpV6Addr(Ipv6Addr),
     Cidr4(Ipv4Addr, u8),
     Bool(bool),
+    Str(String),
     // Structure
     Ident(String),
     LParen,
@@ -134,6 +138,13 @@ pub(crate) fn tokenize_spanned(input: &str) -> Result<Vec<SpannedToken>, FilterE
                 });
                 pos += 1;
             }
+            b'"' => {
+                let token = scan_string(input, &mut pos)?;
+                tokens.push(SpannedToken {
+                    token,
+                    position: start,
+                });
+            }
             b if b.is_ascii_digit() => {
                 let token = scan_number(input, &mut pos)?;
                 tokens.push(SpannedToken {
@@ -229,6 +240,47 @@ fn scan_number(input: &str, pos: &mut usize) -> Result<Token, FilterError> {
         .map_err(|_| FilterError::new(format!("invalid integer '{text}'"), start))
 }
 
+/// Scan a double-quoted string literal starting at `pos` (which points at the
+/// opening `"`). Supports `\"` for a literal quote and `\\` for a literal
+/// backslash. Advances `pos` past the closing `"`.
+fn scan_string(input: &str, pos: &mut usize) -> Result<Token, FilterError> {
+    let start = *pos;
+    let bytes = input.as_bytes();
+    debug_assert_eq!(bytes[*pos], b'"');
+    *pos += 1; // skip opening quote
+
+    let mut value = String::new();
+    while *pos < bytes.len() {
+        match bytes[*pos] {
+            b'\\' => {
+                *pos += 1;
+                if *pos >= bytes.len() {
+                    return Err(FilterError::new("unterminated string escape", start));
+                }
+                match bytes[*pos] {
+                    b'"' => value.push('"'),
+                    b'\\' => value.push('\\'),
+                    other => {
+                        // Pass through unknown escapes literally (e.g. \. for regex)
+                        value.push('\\');
+                        value.push(other as char);
+                    }
+                }
+                *pos += 1;
+            }
+            b'"' => {
+                *pos += 1; // skip closing quote
+                return Ok(Token::Str(value));
+            }
+            b => {
+                value.push(b as char);
+                *pos += 1;
+            }
+        }
+    }
+    Err(FilterError::new("unterminated string literal", start))
+}
+
 /// Scan an identifier starting at `pos`. Identifiers may contain letters,
 /// digits, dots, and underscores. After scanning, check if the identifier
 /// is a keyword and return the appropriate token.
@@ -290,6 +342,8 @@ fn scan_identifier(input: &str, pos: &mut usize) -> Result<Token, FilterError> {
         "src" => Token::Src,
         "dst" => Token::Dst,
         "host" => Token::Host,
+        "contains" => Token::Contains,
+        "matches" => Token::Matches,
         "true" => Token::Bool(true),
         "false" => Token::Bool(false),
         _ => Token::Ident(text.to_string()),
@@ -530,5 +584,54 @@ mod tests {
                 Token::Integer(0x1234),
             ]
         );
+    }
+
+    #[test]
+    fn tokenize_string_literal() {
+        let tokens = tokenize(r#""hello""#).unwrap();
+        assert_eq!(tokens, vec![Token::Str("hello".to_string())]);
+    }
+
+    #[test]
+    fn tokenize_contains_keyword() {
+        let tokens = tokenize("contains").unwrap();
+        assert_eq!(tokens, vec![Token::Contains]);
+    }
+
+    #[test]
+    fn tokenize_matches_keyword() {
+        let tokens = tokenize("matches").unwrap();
+        assert_eq!(tokens, vec![Token::Matches]);
+    }
+
+    #[test]
+    fn tokenize_escaped_string() {
+        let tokens = tokenize(r#""say \"hi\"""#).unwrap();
+        assert_eq!(tokens, vec![Token::Str("say \"hi\"".to_string())]);
+    }
+
+    #[test]
+    fn tokenize_escaped_backslash_in_string() {
+        let tokens = tokenize(r#""a\\b""#).unwrap();
+        assert_eq!(tokens, vec![Token::Str("a\\b".to_string())]);
+    }
+
+    #[test]
+    fn tokenize_contains_with_string() {
+        let tokens = tokenize(r#"dns.qname contains "example""#).unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Ident("dns.qname".to_string()),
+                Token::Contains,
+                Token::Str("example".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn tokenize_error_unterminated_string() {
+        let err = tokenize(r#""hello"#).unwrap_err();
+        assert!(err.message.contains("unterminated string"));
     }
 }

@@ -52,3 +52,28 @@ fn summary_filter_dns_shows_only_dns() {
     cmd.arg("summary").arg(&fixture).arg("-f").arg("dns");
     cmd.assert().success().stdout(contains("DNS"));
 }
+
+#[test]
+fn summary_filter_dns_qname_contains_string() {
+    let fixture = support::repo_root().join("fixtures/smoke/wireshark-dns.pcap");
+
+    let mut cmd = Command::cargo_bin("fireshark").unwrap();
+    cmd.arg("summary")
+        .arg(&fixture)
+        .arg("-f")
+        .arg(r#"dns.qname contains "google""#);
+    cmd.assert().success().stdout(contains("DNS"));
+}
+
+#[test]
+fn summary_filter_dns_qname_contains_no_match() {
+    let fixture = support::repo_root().join("fixtures/smoke/wireshark-dns.pcap");
+
+    let mut cmd = Command::cargo_bin("fireshark").unwrap();
+    cmd.arg("summary")
+        .arg(&fixture)
+        .arg("-f")
+        .arg(r#"dns.qname contains "nonexistent-domain-xyz""#);
+    // Should succeed but produce no DNS lines
+    cmd.assert().success().stdout(contains("DNS").not());
+}

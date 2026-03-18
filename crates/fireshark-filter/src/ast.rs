@@ -1,5 +1,22 @@
 use std::net::{Ipv4Addr, Ipv6Addr};
 
+/// A compiled regex pattern stored in the AST.
+///
+/// Wraps [`regex::Regex`] with manual `PartialEq` + `Eq` based on the
+/// original pattern string so that the `Value` enum can remain `PartialEq`.
+#[derive(Debug, Clone)]
+pub struct RegexPattern {
+    pub pattern: String,
+    pub compiled: regex::Regex,
+}
+
+impl PartialEq for RegexPattern {
+    fn eq(&self, other: &Self) -> bool {
+        self.pattern == other.pattern
+    }
+}
+impl Eq for RegexPattern {}
+
 /// A display filter expression AST node.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
@@ -39,6 +56,8 @@ pub enum CmpOp {
     Lt,
     Gte,
     Lte,
+    Contains,
+    Matches,
 }
 
 /// A literal value on the right-hand side of a comparison.
@@ -49,6 +68,8 @@ pub enum Value {
     IpV6(Ipv6Addr),
     Cidr4(Ipv4Addr, u8),
     Bool(bool),
+    Str(String),
+    Regex(RegexPattern),
 }
 
 /// Shorthand filter keywords.

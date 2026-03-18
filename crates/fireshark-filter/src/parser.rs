@@ -1,5 +1,5 @@
 use crate::FilterError;
-use crate::ast::{AddrValue, CmpOp, Expr, Protocol, ShorthandKind, Value};
+use crate::ast::{AddrValue, CmpOp, Expr, Protocol, RegexPattern, ShorthandKind, Value};
 use crate::lexer::{SpannedToken, Token, tokenize_spanned};
 
 /// Maximum nesting depth for parenthesized and unary expressions.
@@ -223,6 +223,24 @@ fn parse_atom(cursor: &mut Cursor<'_>) -> Result<Expr, FilterError> {
                 cursor.advance(); // consume the operator
                 let value = parse_value(cursor)?;
                 Ok(Expr::Compare(field, op, value))
+            } else if cursor.peek() == Some(&Token::Contains) {
+                cursor.advance();
+                let value = parse_string_value(cursor)?;
+                Ok(Expr::Compare(field, CmpOp::Contains, Value::Str(value)))
+            } else if cursor.peek() == Some(&Token::Matches) {
+                let matches_pos = cursor.current_position();
+                cursor.advance();
+                let pattern_str = parse_string_value(cursor)?;
+                let compiled = regex::Regex::new(&pattern_str)
+                    .map_err(|e| FilterError::new(format!("invalid regex: {e}"), matches_pos))?;
+                Ok(Expr::Compare(
+                    field,
+                    CmpOp::Matches,
+                    Value::Regex(RegexPattern {
+                        pattern: pattern_str,
+                        compiled,
+                    }),
+                ))
             } else {
                 Ok(Expr::BareField(field))
             }
@@ -288,8 +306,21 @@ fn parse_value(cursor: &mut Cursor<'_>) -> Result<Value, FilterError> {
         Token::IpV6Addr(addr) => Ok(Value::IpV6(*addr)),
         Token::Cidr4(addr, prefix) => Ok(Value::Cidr4(*addr, *prefix)),
         Token::Bool(b) => Ok(Value::Bool(*b)),
+        Token::Str(s) => Ok(Value::Str(s.clone())),
         _ => Err(FilterError::new(
             format!("expected value, got {:?}", token.token),
+            token.position,
+        )),
+    }
+}
+
+/// Parse a string value (expects a `Token::Str`).
+fn parse_string_value(cursor: &mut Cursor<'_>) -> Result<String, FilterError> {
+    let token = cursor.expect_advance("string value")?;
+    match &token.token {
+        Token::Str(s) => Ok(s.clone()),
+        _ => Err(FilterError::new(
+            format!("expected string, got {:?}", token.token),
             token.position,
         )),
     }
@@ -575,5 +606,70 @@ mod tests {
         let input = "not ".repeat(200) + "tcp";
         let err = parse(&input).unwrap_err();
         assert!(err.message.contains("nesting depth"));
+    }
+
+    // --- String filter tests ---
+
+    #[test]
+    fn parse_contains_string() {
+        let expr = parse(r#"dns.qname contains "example""#).unwrap();
+        assert_eq!(
+            expr,
+            Expr::Compare(
+                "dns.qname".to_string(),
+                CmpOp::Contains,
+                Value::Str("example".to_string()),
+            )
+        );
+    }
+
+    #[test]
+    fn parse_matches_regex() {
+        let expr = parse(r#"tls.sni matches "^evil""#).unwrap();
+        match expr {
+            Expr::Compare(field, CmpOp::Matches, Value::Regex(re)) => {
+                assert_eq!(field, "tls.sni");
+                assert_eq!(re.pattern, "^evil");
+            }
+            other => panic!("unexpected expr: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_string_eq() {
+        let expr = parse(r#"dns.qname == "example.com""#).unwrap();
+        assert_eq!(
+            expr,
+            Expr::Compare(
+                "dns.qname".to_string(),
+                CmpOp::Eq,
+                Value::Str("example.com".to_string()),
+            )
+        );
+    }
+
+    #[test]
+    fn parse_string_neq() {
+        let expr = parse(r#"dns.qname != "evil.com""#).unwrap();
+        assert_eq!(
+            expr,
+            Expr::Compare(
+                "dns.qname".to_string(),
+                CmpOp::Neq,
+                Value::Str("evil.com".to_string()),
+            )
+        );
+    }
+
+    #[test]
+    fn parse_error_invalid_regex() {
+        let err = parse(r#"dns.qname matches "[""#).unwrap_err();
+        assert!(err.message.contains("invalid regex"));
+    }
+
+    #[test]
+    fn parse_contains_expects_string() {
+        let err = parse("dns.qname contains 123").unwrap_err();
+        assert!(err.message.contains("expected string"));
     }
 }

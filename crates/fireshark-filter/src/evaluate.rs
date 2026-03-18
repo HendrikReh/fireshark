@@ -11,6 +11,7 @@ enum FieldValue {
     Address(IpAddr),
     Bool(bool),
     PortPair(u16, u16),
+    Str(String),
 }
 
 /// Evaluate a display filter expression against a decoded frame.
@@ -279,6 +280,11 @@ fn resolve_layer_field(field: &str, decoded: &DecodedFrame) -> Option<FieldValue
                 return Some(FieldValue::Integer(u64::from(l.ether_type)));
             }
 
+            // DNS — string fields
+            ("dns.qname", Layer::Dns(l)) => {
+                return l.query_name.as_ref().map(|n| FieldValue::Str(n.clone()));
+            }
+
             // DNS
             ("dns.id", Layer::Dns(l)) => {
                 return Some(FieldValue::Integer(u64::from(l.transaction_id)));
@@ -298,6 +304,11 @@ fn resolve_layer_field(field: &str, decoded: &DecodedFrame) -> Option<FieldValue
             }
             ("dns.answer", Layer::Dns(l)) => {
                 return Some(FieldValue::Bool(!l.answers.is_empty()));
+            }
+
+            // TLS — string fields
+            ("tls.sni", Layer::TlsClientHello(l)) => {
+                return l.sni.as_ref().map(|s| FieldValue::Str(s.clone()));
             }
 
             // TLS ClientHello
@@ -375,10 +386,45 @@ fn compare_values(left: &FieldValue, op: &CmpOp, right: &Value) -> bool {
                 CmpOp::Lt => s < *n || d < *n,
                 CmpOp::Gte => s >= *n || d >= *n,
                 CmpOp::Lte => s <= *n || d <= *n,
+                _ => false,
             }
+        }
+        // String exact equality/inequality
+        (FieldValue::Str(s), Value::Str(v)) => match op {
+            CmpOp::Eq => s == v,
+            CmpOp::Neq => s != v,
+            CmpOp::Contains => s.to_ascii_lowercase().contains(&v.to_ascii_lowercase()),
+            _ => false,
+        },
+        // String contains (case-insensitive) on Str field
+        (FieldValue::Str(s), Value::Regex(re)) => match op {
+            CmpOp::Matches => re.compiled.is_match(s),
+            _ => false,
+        },
+        // Fallback: convert any field value to string for contains/matches
+        (field_val, Value::Str(needle)) if *op == CmpOp::Contains => {
+            let s = field_value_to_string(field_val);
+            s.to_ascii_lowercase()
+                .contains(&needle.to_ascii_lowercase())
+        }
+        (field_val, Value::Regex(re)) if *op == CmpOp::Matches => {
+            let s = field_value_to_string(field_val);
+            re.compiled.is_match(&s)
         }
         // Type mismatches
         _ => false,
+    }
+}
+
+/// Convert any field value to its string representation for use with
+/// `contains` and `matches` operators on non-string fields.
+fn field_value_to_string(val: &FieldValue) -> String {
+    match val {
+        FieldValue::Integer(n) => n.to_string(),
+        FieldValue::Address(a) => a.to_string(),
+        FieldValue::Bool(b) => b.to_string(),
+        FieldValue::PortPair(s, d) => format!("{s},{d}"),
+        FieldValue::Str(s) => s.clone(),
     }
 }
 
@@ -390,6 +436,7 @@ fn compare_integers(left: u64, op: &CmpOp, right: u64) -> bool {
         CmpOp::Lt => left < right,
         CmpOp::Gte => left >= right,
         CmpOp::Lte => left <= right,
+        CmpOp::Contains | CmpOp::Matches => false,
     }
 }
 
@@ -998,5 +1045,131 @@ mod tests {
             "../../../fixtures/bytes/ethernet_ipv4_tcp.bin"
         ));
         assert!(run_filter("tcp.port <= 443", &decoded));
+    }
+
+    // --- String filter tests ---
+
+    #[test]
+    fn dns_qname_contains_match() {
+        // DNS fixture query_name = "example.com"
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        assert!(run_filter(r#"dns.qname contains "example""#, &decoded));
+    }
+
+    #[test]
+    fn dns_qname_contains_no_match() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        assert!(!run_filter(r#"dns.qname contains "evil""#, &decoded));
+    }
+
+    #[test]
+    fn dns_qname_contains_case_insensitive() {
+        // "example.com" contains "EXAMPLE" (case-insensitive)
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        assert!(run_filter(r#"dns.qname contains "EXAMPLE""#, &decoded));
+    }
+
+    #[test]
+    fn tls_sni_contains_match() {
+        // TLS ClientHello fixture sni = "example.com"
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp_tls_client_hello.bin"
+        ));
+        assert!(run_filter(r#"tls.sni contains "example""#, &decoded));
+    }
+
+    #[test]
+    fn tls_sni_contains_no_match() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp_tls_client_hello.bin"
+        ));
+        assert!(!run_filter(r#"tls.sni contains "evil""#, &decoded));
+    }
+
+    #[test]
+    fn dns_qname_matches_regex() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        assert!(run_filter(r#"dns.qname matches "\.com$""#, &decoded));
+    }
+
+    #[test]
+    fn dns_qname_matches_regex_no_match() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        assert!(!run_filter(r#"dns.qname matches "^evil""#, &decoded));
+    }
+
+    #[test]
+    fn dns_qname_eq_exact_string() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        assert!(run_filter(r#"dns.qname == "example.com""#, &decoded));
+    }
+
+    #[test]
+    fn dns_qname_eq_exact_string_no_match() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        assert!(!run_filter(r#"dns.qname == "google.com""#, &decoded));
+    }
+
+    #[test]
+    fn dns_qname_neq_string() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        assert!(run_filter(r#"dns.qname != "google.com""#, &decoded));
+    }
+
+    #[test]
+    fn ip_src_contains_address_substring() {
+        // IPv4 fixture src=192.0.2.10
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp.bin"
+        ));
+        assert!(run_filter(r#"ip.src contains "192""#, &decoded));
+    }
+
+    #[test]
+    fn ip_src_contains_no_match() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp.bin"
+        ));
+        assert!(!run_filter(r#"ip.src contains "10.0""#, &decoded));
+    }
+
+    #[test]
+    fn ip_src_matches_regex() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp.bin"
+        ));
+        assert!(run_filter(r#"ip.src matches "^192\.0\.2""#, &decoded));
+    }
+
+    #[test]
+    fn dns_qname_bare_field_is_truthy_when_present() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_udp_dns.bin"
+        ));
+        assert!(run_filter("dns.qname", &decoded));
+    }
+
+    #[test]
+    fn tls_sni_bare_field_is_truthy_when_present() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp_tls_client_hello.bin"
+        ));
+        assert!(run_filter("tls.sni", &decoded));
     }
 }

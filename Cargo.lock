@@ -403,6 +403,7 @@ version = "0.6.0"
 dependencies = [
  "fireshark-core",
  "fireshark-dissectors",
+ "regex",
  "thiserror 2.0.18",
 ]
 
