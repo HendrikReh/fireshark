@@ -96,6 +96,7 @@ fn tshark_backend_capabilities_are_limited() {
     assert!(!caps.supports_native_filter);
     assert!(!caps.supports_layer_spans);
     assert!(!caps.supports_audit);
+    assert!(caps.supports_reassembly);
 }
 
 #[test]
@@ -126,4 +127,5 @@ fn native_backend_capabilities_are_complete() {
     assert!(caps.supports_native_filter);
     assert!(caps.supports_layer_spans);
     assert!(caps.supports_audit);
+    assert!(!caps.supports_reassembly);
 }

@@ -1,11 +1,13 @@
 use std::path::Path;
 
-use fireshark_core::{PacketSummary, TrackingPipeline};
+use fireshark_core::{PacketSummary, PipelineError, TrackingPipeline};
 use fireshark_dissectors::decode_packet;
 use fireshark_file::CaptureReader;
 
 use crate::backend::{BackendCapabilities, BackendKind};
-use crate::capture::*;
+use crate::capture::{
+    BackendCapture, BackendError, BackendIssue, BackendLayer, BackendPacket, BackendSummary,
+};
 
 pub fn open(path: impl AsRef<Path>) -> Result<BackendCapture, BackendError> {
     let reader = CaptureReader::open(path).map_err(|e| BackendError::Open(e.to_string()))?;
@@ -16,7 +18,15 @@ pub fn open(path: impl AsRef<Path>) -> Result<BackendCapture, BackendError> {
     for (index, result) in pipeline.by_ref().enumerate() {
         let decoded = match result {
             Ok(d) => d,
-            Err(_) => continue,
+            // Frame-source errors (I/O, corrupt file) are fatal — propagate
+            // immediately rather than fabricating a packet the backend cannot
+            // truthfully describe.
+            Err(PipelineError::Frame(e)) => {
+                return Err(BackendError::Open(e.to_string()));
+            }
+            // Decode errors (Ethernet-level parse failures) are rare and the
+            // frame is unusable — skip it.
+            Err(PipelineError::Decode(_)) => continue,
         };
 
         let summary_data: PacketSummary = decoded.summary();
@@ -43,7 +53,7 @@ pub fn open(path: impl AsRef<Path>) -> Result<BackendCapture, BackendError> {
             .issues()
             .iter()
             .map(|i| BackendIssue {
-                kind: format!("{:?}", i.kind()),
+                kind: i.kind().to_string(),
                 offset: i.offset(),
             })
             .collect();
@@ -56,12 +66,12 @@ pub fn open(path: impl AsRef<Path>) -> Result<BackendCapture, BackendError> {
         });
     }
 
-    let (protocol_counts, endpoint_counts) = summarize_packets(&packets);
+    let (protocol_counts, endpoint_counts) = crate::capture::summarize_packets(&packets);
     let stream_count = pipeline.into_tracker().stream_count();
 
-    Ok(BackendCapture {
-        kind: BackendKind::Native,
-        capabilities: BackendCapabilities {
+    Ok(BackendCapture::new(
+        BackendKind::Native,
+        BackendCapabilities {
             supports_streams: true,
             supports_decode_issues: true,
             supports_native_filter: true,
@@ -73,6 +83,5 @@ pub fn open(path: impl AsRef<Path>) -> Result<BackendCapture, BackendError> {
         protocol_counts,
         endpoint_counts,
         stream_count,
-        path: None,
-    })
+    ))
 }

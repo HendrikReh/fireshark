@@ -11,5 +11,3 @@ fireshark-file = { path = "../fireshark-file" }
 fireshark-tshark = { path = "../fireshark-tshark" }
 thiserror = "2.0.17"
 
-[dev-dependencies]
-fireshark-tshark = { path = "../fireshark-tshark" }

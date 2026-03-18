@@ -1,7 +1,9 @@
 use std::path::Path;
 
 use crate::backend::{BackendCapabilities, BackendKind};
-use crate::capture::*;
+use crate::capture::{
+    BackendCapture, BackendError, BackendLayer, BackendPacket, BackendSummary, summarize_packets,
+};
 
 /// Open a capture file using the tshark backend.
 ///

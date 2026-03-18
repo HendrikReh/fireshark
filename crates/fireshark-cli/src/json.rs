@@ -63,7 +63,9 @@ pub struct DiffJson {
     pub new_hosts: Vec<HostDiffJson>,
     pub missing_hosts: Vec<HostDiffJson>,
     pub new_protocols: Vec<ProtocolDiffJson>,
+    pub missing_protocols: Vec<ProtocolDiffJson>,
     pub new_ports: Vec<PortDiffJson>,
+    pub missing_ports: Vec<PortDiffJson>,
 }
 
 #[derive(Serialize)]

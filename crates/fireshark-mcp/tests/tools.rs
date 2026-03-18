@@ -102,7 +102,9 @@ async fn compare_captures_identical_returns_no_differences() {
     assert!(comparison.new_hosts.is_empty());
     assert!(comparison.missing_hosts.is_empty());
     assert!(comparison.new_protocols.is_empty());
+    assert!(comparison.missing_protocols.is_empty());
     assert!(comparison.new_ports.is_empty());
+    assert!(comparison.missing_ports.is_empty());
 }
 
 #[tokio::test]

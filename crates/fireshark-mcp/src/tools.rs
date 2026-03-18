@@ -497,6 +497,15 @@ fn compare_analyzed_captures(a: &AnalyzedCapture, b: &AnalyzedCapture) -> Captur
         .collect();
     new_protocols.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.name.cmp(&b.name)));
 
+    let mut missing_protocols: Vec<ProtocolDiffView> = a_proto_set
+        .difference(&b_proto_set)
+        .map(|proto| ProtocolDiffView {
+            name: (*proto).to_string(),
+            count: a.protocol_counts()[*proto],
+        })
+        .collect();
+    missing_protocols.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.name.cmp(&b.name)));
+
     let a_ports = extract_ports_from_packets(a);
     let b_ports = extract_ports_from_packets(b);
 
@@ -512,6 +521,15 @@ fn compare_analyzed_captures(a: &AnalyzedCapture, b: &AnalyzedCapture) -> Captur
         .collect();
     new_ports.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.port.cmp(&b.port)));
 
+    let mut missing_ports: Vec<PortDiffView> = a_port_set
+        .difference(&b_port_set)
+        .map(|port| PortDiffView {
+            port: *port,
+            count: a_ports[port],
+        })
+        .collect();
+    missing_ports.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.port.cmp(&b.port)));
+
     CaptureComparisonView {
         a_packet_count: a.packet_count(),
         b_packet_count: b.packet_count(),
@@ -520,7 +538,9 @@ fn compare_analyzed_captures(a: &AnalyzedCapture, b: &AnalyzedCapture) -> Captur
         new_hosts,
         missing_hosts,
         new_protocols,
+        missing_protocols,
         new_ports,
+        missing_ports,
     }
 }
 

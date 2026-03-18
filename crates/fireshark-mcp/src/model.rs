@@ -524,7 +524,9 @@ pub struct CaptureComparisonView {
     pub new_hosts: Vec<HostDiffView>,
     pub missing_hosts: Vec<HostDiffView>,
     pub new_protocols: Vec<ProtocolDiffView>,
+    pub missing_protocols: Vec<ProtocolDiffView>,
     pub new_ports: Vec<PortDiffView>,
+    pub missing_ports: Vec<PortDiffView>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

@@ -1,5 +1,7 @@
 //! Decode issues reported during protocol dissection.
 
+use std::fmt;
+
 /// Classification of a decode issue.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DecodeIssueKind {
@@ -9,6 +11,16 @@ pub enum DecodeIssueKind {
     Malformed,
     /// A checksum field did not match the computed value.
     ChecksumMismatch,
+}
+
+impl fmt::Display for DecodeIssueKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Truncated => write!(f, "Truncated"),
+            Self::Malformed => write!(f, "Malformed"),
+            Self::ChecksumMismatch => write!(f, "ChecksumMismatch"),
+        }
+    }
 }
 
 /// A problem encountered while decoding a packet at a specific byte offset.

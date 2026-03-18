@@ -65,6 +65,22 @@ pub fn run(
                     count: *count,
                 })
                 .collect(),
+            missing_protocols: result
+                .missing_protocols
+                .iter()
+                .map(|(name, count)| ProtocolDiffJson {
+                    name: name.clone(),
+                    count: *count,
+                })
+                .collect(),
+            missing_ports: result
+                .missing_ports
+                .iter()
+                .map(|(port, count)| PortDiffJson {
+                    port: *port,
+                    count: *count,
+                })
+                .collect(),
         };
         println!("{}", serde_json::to_string(&diff).unwrap());
     } else {
@@ -118,10 +134,26 @@ pub fn run(
             }
         }
 
+        if !result.missing_protocols.is_empty() {
+            println!();
+            println!("  Missing protocols from A (not in B):");
+            for (name, count) in &result.missing_protocols {
+                println!("    {name:<16}{count} packets");
+            }
+        }
+
         if !result.new_ports.is_empty() {
             println!();
             println!("  New ports in B:");
             for (port, count) in &result.new_ports {
+                println!("    {port:<16}{count} packets");
+            }
+        }
+
+        if !result.missing_ports.is_empty() {
+            println!();
+            println!("  Missing ports from A (not in B):");
+            for (port, count) in &result.missing_ports {
                 println!("    {port:<16}{count} packets");
             }
         }

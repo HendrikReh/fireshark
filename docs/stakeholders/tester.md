@@ -294,13 +294,14 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 - Server help output and stdio smoke test
 - Session manager: creation, limits
 
-### fireshark-backend (19 tests)
+### fireshark-backend (30 tests)
 
 - BackendCapture: open with native and tshark backends
 - BackendKind: parsing from strings, default selection
-- BackendCapabilities: feature queries per backend
+- BackendCapabilities: feature queries per backend (all 6 flags asserted for both backends)
 - BackendPacket: summary, layers, issues normalization
 - Differential tests: native vs tshark output comparison for stable packet facts
+- Capture comparison: identical captures, different captures, asymmetry (new/missing swap when A and B are reversed)
 
 ### fireshark-tshark (10 tests)
 
@@ -313,7 +314,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 469 |
+| Total tests | 480 |
 | Byte fixtures | 18 |
 | Smoke captures | 3 |
 | Total fixtures | 21 |

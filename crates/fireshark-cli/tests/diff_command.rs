@@ -19,7 +19,9 @@ fn diff_identical_captures_shows_no_differences() {
     assert!(!stdout.contains("New hosts"));
     assert!(!stdout.contains("Missing hosts"));
     assert!(!stdout.contains("New protocols"));
+    assert!(!stdout.contains("Missing protocols"));
     assert!(!stdout.contains("New ports"));
+    assert!(!stdout.contains("Missing ports"));
 }
 
 #[test]
@@ -70,6 +72,14 @@ fn diff_json_outputs_valid_json() {
         value.get("new_ports").is_some(),
         "missing 'new_ports' field"
     );
+    assert!(
+        value.get("missing_protocols").is_some(),
+        "missing 'missing_protocols' field"
+    );
+    assert!(
+        value.get("missing_ports").is_some(),
+        "missing 'missing_ports' field"
+    );
 }
 
 #[test]
@@ -103,6 +113,16 @@ fn diff_json_identical_captures_empty_diffs() {
         value["new_ports"].as_array().unwrap().len(),
         0,
         "identical captures should have no new ports"
+    );
+    assert_eq!(
+        value["missing_protocols"].as_array().unwrap().len(),
+        0,
+        "identical captures should have no missing protocols"
+    );
+    assert_eq!(
+        value["missing_ports"].as_array().unwrap().len(),
+        0,
+        "identical captures should have no missing ports"
     );
 }
 

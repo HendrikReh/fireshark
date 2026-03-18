@@ -43,9 +43,6 @@ pub struct BackendPacket {
     pub issues: Vec<BackendIssue>,
 }
 
-pub(crate) type CountEntries = Vec<(String, usize)>;
-pub(crate) type PacketSummaryCounts = (CountEntries, CountEntries);
-
 pub struct BackendCapture {
     pub(crate) kind: BackendKind,
     pub(crate) capabilities: BackendCapabilities,
@@ -171,7 +168,9 @@ impl BackendCapture {
     }
 }
 
-pub(crate) fn summarize_packets(packets: &[BackendPacket]) -> PacketSummaryCounts {
+type CountVec = Vec<(String, usize)>;
+
+pub(crate) fn summarize_packets(packets: &[BackendPacket]) -> (CountVec, CountVec) {
     let mut protocol_map: BTreeMap<&str, usize> = BTreeMap::new();
     let mut endpoint_map: BTreeMap<&str, usize> = BTreeMap::new();
 

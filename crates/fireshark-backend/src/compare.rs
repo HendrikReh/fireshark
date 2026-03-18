@@ -20,8 +20,12 @@ pub struct CaptureComparison {
     pub missing_hosts: Vec<(String, usize)>,
     /// Protocols present in B but not A, with packet count from B.
     pub new_protocols: Vec<(String, usize)>,
+    /// Protocols present in A but not B, with packet count from A.
+    pub missing_protocols: Vec<(String, usize)>,
     /// Ports present in B but not A, with packet count from B.
     pub new_ports: Vec<(u16, usize)>,
+    /// Ports present in A but not B, with packet count from A.
+    pub missing_ports: Vec<(u16, usize)>,
 }
 
 /// Compare two captures and return a summary of differences.
@@ -56,6 +60,12 @@ pub fn compare(a: &BackendCapture, b: &BackendCapture) -> CaptureComparison {
         .collect();
     new_protocols.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
+    let mut missing_protocols: Vec<(String, usize)> = a_proto_set
+        .difference(&b_proto_set)
+        .map(|proto| ((*proto).to_string(), a_protocols[*proto]))
+        .collect();
+    missing_protocols.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+
     let a_ports = extract_ports(a);
     let b_ports = extract_ports(b);
 
@@ -68,6 +78,12 @@ pub fn compare(a: &BackendCapture, b: &BackendCapture) -> CaptureComparison {
         .collect();
     new_ports.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
+    let mut missing_ports: Vec<(u16, usize)> = a_port_set
+        .difference(&b_port_set)
+        .map(|port| (*port, a_ports[port]))
+        .collect();
+    missing_ports.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+
     CaptureComparison {
         a_packet_count: a.packet_count(),
         b_packet_count: b.packet_count(),
@@ -76,7 +92,9 @@ pub fn compare(a: &BackendCapture, b: &BackendCapture) -> CaptureComparison {
         new_hosts,
         missing_hosts,
         new_protocols,
+        missing_protocols,
         new_ports,
+        missing_ports,
     }
 }
 
