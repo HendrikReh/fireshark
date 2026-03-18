@@ -1,5 +1,17 @@
 # Fireshark Architecture
 
+## Table of Contents
+
+- [1. System Overview](#1-system-overview)
+- [2. Architecture Diagram](#2-architecture-diagram)
+- [3. Data Flow](#3-data-flow)
+- [4. Crate Boundaries](#4-crate-boundaries)
+- [5. Key Design Decisions](#5-key-design-decisions)
+- [6. Extension Points](#6-extension-points)
+- [7. Cross-Cutting Concerns](#7-cross-cutting-concerns)
+- [8. Constraints and Limitations](#8-constraints-and-limitations)
+- [9. Phase Roadmap](#9-phase-roadmap)
+
 ## 1. System Overview
 
 Fireshark is a Wireshark-inspired packet analyzer written in Rust. It is **library-first**: the CLI and MCP server are thin consumers of a shared library stack. There is no monolithic binary; all parsing, dissection, filtering, and analysis logic lives in reusable library crates.

@@ -2,6 +2,18 @@
 
 This guide covers everything a contributor needs to build, test, and extend Fireshark. After reading it you should be able to add a new protocol dissector end-to-end.
 
+## Table of Contents
+
+- [1. Getting Started](#1-getting-started)
+- [2. Code Conventions](#2-code-conventions)
+- [3. Project Structure](#3-project-structure)
+- [4. How to Add a New Protocol Dissector](#4-how-to-add-a-new-protocol-dissector)
+- [5. Native Dissector vs tshark: When to Use Which](#5-native-dissector-vs-tshark-when-to-use-which)
+- [6. How to Add a New Filter Field](#6-how-to-add-a-new-filter-field)
+- [7. How to Add a New CLI Command](#7-how-to-add-a-new-cli-command)
+- [8. Testing Guide](#8-testing-guide)
+- [9. Common Patterns](#9-common-patterns)
+
 ---
 
 ## 1. Getting Started

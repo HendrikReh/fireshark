@@ -2,6 +2,24 @@
 
 Complete reference for the fireshark MCP server — installation, configuration, and all 21 tools.
 
+## Table of Contents
+
+- [Installation](#installation)
+  - [Build](#build)
+  - [Claude Code](#claude-code)
+  - [Codex](#codex)
+  - [Generic MCP Clients](#generic-mcp-clients)
+- [Server Constraints](#server-constraints)
+- [Tools Reference (21 tools)](#tools-reference-21-tools)
+  - [Session Management](#session-management) — `open_capture`, `describe_capture`, `close_capture`
+  - [Packet Queries](#packet-queries) — `list_packets`, `get_packet`, `search_packets`, `list_decode_issues`, `summarize_protocols`, `top_endpoints`
+  - [Streams](#streams) — `list_streams`, `get_stream`
+  - [Capture Overview](#capture-overview) — `summarize_capture`
+  - [Security Audit](#security-audit) — `audit_capture`, `list_findings`, `explain_finding`, `escalate_finding`
+  - [Capture Comparison](#capture-comparison) — `compare_captures`
+  - [tshark-Backed Tools](#tshark-backed-tools) — `get_stream_payload`, `get_certificates`
+- [Example Workflow](#example-workflow)
+
 ## Installation
 
 ### Build

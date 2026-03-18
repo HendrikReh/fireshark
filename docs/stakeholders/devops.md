@@ -1,5 +1,15 @@
 # Fireshark DevOps / CI Guide
 
+## Table of Contents
+
+- [Build Pipeline](#build-pipeline)
+- [Verification Commands](#verification-commands)
+- [Fuzz Testing](#fuzz-testing)
+- [Release Checklist](#release-checklist)
+- [Dependencies](#dependencies)
+- [Tooling Requirements](#tooling-requirements)
+- [Workspace Structure](#workspace-structure)
+
 ## Build Pipeline
 
 The project uses [`just`](https://github.com/casey/just) as its task runner. The single gate command that must pass before any merge is:

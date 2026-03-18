@@ -1,5 +1,15 @@
 # Fireshark Operations Guide
 
+## Table of Contents
+
+- [Deployment](#deployment)
+- [Runtime Requirements](#runtime-requirements)
+- [CLI Operation](#cli-operation)
+- [MCP Server Operation](#mcp-server-operation)
+- [Resource Usage](#resource-usage)
+- [Limitations](#limitations)
+- [Troubleshooting](#troubleshooting)
+
 ## Deployment
 
 Fireshark is a statically-linked Rust binary with no runtime dependencies. Build and ship:

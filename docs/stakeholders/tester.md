@@ -1,5 +1,15 @@
 # Fireshark Testing Guide
 
+## Table of Contents
+
+- [Test Architecture](#test-architecture)
+- [Running Tests](#running-tests)
+- [Fixture Files](#fixture-files)
+- [Writing a New Test](#writing-a-new-test)
+- [Fuzz Testing](#fuzz-testing)
+- [Test Coverage by Crate](#test-coverage-by-crate)
+- [Current Metrics](#current-metrics)
+
 ## Test Architecture
 
 Fireshark uses three kinds of tests:

@@ -1,5 +1,15 @@
 # Fireshark User Guide
 
+## Table of Contents
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Display Filters](#display-filters)
+- [Color Coding](#color-coding)
+- [Packet Detail](#packet-detail)
+- [MCP Server](#mcp-server)
+- [Examples](#examples)
+
 ## Installation
 
 Fireshark is built from source using the Rust toolchain.
