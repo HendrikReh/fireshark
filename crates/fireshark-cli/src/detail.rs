@@ -69,6 +69,7 @@ fn render_layer_tree<W: Write>(w: &mut W, decoded: &DecodedFrame) -> io::Result<
         let kind = match issue.kind() {
             fireshark_core::DecodeIssueKind::Truncated => "Truncated",
             fireshark_core::DecodeIssueKind::Malformed => "Malformed",
+            fireshark_core::DecodeIssueKind::ChecksumMismatch => "Checksum mismatch",
         };
         writeln!(w, "{} {} at offset {}", "⚠".red(), kind, issue.offset())?;
     }

@@ -31,6 +31,7 @@ pub fn run(path: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
             let kind = match issue.kind() {
                 DecodeIssueKind::Truncated => "Truncated",
                 DecodeIssueKind::Malformed => "Malformed",
+                DecodeIssueKind::ChecksumMismatch => "Checksum mismatch",
             };
             issues.push((total_packets, kind.to_string(), issue.offset()));
         }
@@ -53,6 +54,7 @@ pub fn run(path: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
             let kind_colored = match kind.as_str() {
                 "Malformed" => kind.red().to_string(),
                 "Truncated" => kind.yellow().to_string(),
+                "Checksum mismatch" => kind.yellow().to_string(),
                 _ => kind.to_string(),
             };
             println!("  Packet {packet_num:<5} {kind_colored:<10} at offset {offset}");

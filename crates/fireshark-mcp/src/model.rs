@@ -490,6 +490,7 @@ pub fn format_issue_kind(kind: &DecodeIssueKind) -> String {
     match kind {
         DecodeIssueKind::Truncated => "truncated",
         DecodeIssueKind::Malformed => "malformed",
+        DecodeIssueKind::ChecksumMismatch => "checksum_mismatch",
     }
     .to_string()
 }

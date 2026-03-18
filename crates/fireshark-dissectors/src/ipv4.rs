@@ -7,6 +7,26 @@ use crate::{DecodeError, NetworkPayload};
 pub const ETHER_TYPE: u16 = 0x0800;
 const MIN_HEADER_LEN: usize = 20;
 
+/// Verify the IPv4 header checksum using the ones' complement algorithm.
+///
+/// Returns `true` when the checksum is valid (the ones' complement sum of all
+/// 16-bit words in the header folds to `0xFFFF`).
+fn verify_header_checksum(header: &[u8]) -> bool {
+    let mut sum: u32 = 0;
+    for i in (0..header.len()).step_by(2) {
+        let word = if i + 1 < header.len() {
+            u16::from_be_bytes([header[i], header[i + 1]])
+        } else {
+            u16::from_be_bytes([header[i], 0])
+        };
+        sum += word as u32;
+    }
+    while sum > 0xFFFF {
+        sum = (sum & 0xFFFF) + (sum >> 16);
+    }
+    sum == 0xFFFF
+}
+
 pub fn parse(bytes: &[u8], layer_offset: usize) -> Result<NetworkPayload<'_>, DecodeError> {
     if bytes.len() < MIN_HEADER_LEN {
         return Err(DecodeError::Truncated {
@@ -51,6 +71,12 @@ pub fn parse(bytes: &[u8], layer_offset: usize) -> Result<NetworkPayload<'_>, De
     let mut issues = Vec::new();
     if bytes.len() < total_len {
         issues.push(DecodeIssue::truncated(layer_offset + bytes.len()));
+    }
+
+    // Validate the IPv4 header checksum. Skip when the field is zero, which
+    // indicates the checksum was not computed (common with NIC offload).
+    if header_checksum != 0 && !verify_header_checksum(&bytes[..header_len]) {
+        issues.push(DecodeIssue::checksum_mismatch(layer_offset));
     }
 
     Ok(NetworkPayload {

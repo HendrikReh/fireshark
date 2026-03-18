@@ -7,6 +7,8 @@ pub enum DecodeIssueKind {
     Truncated,
     /// A field contained an invalid or unexpected value.
     Malformed,
+    /// A checksum field did not match the computed value.
+    ChecksumMismatch,
 }
 
 /// A problem encountered while decoding a packet at a specific byte offset.
@@ -29,6 +31,14 @@ impl DecodeIssue {
     pub fn malformed(offset: usize) -> Self {
         Self {
             kind: DecodeIssueKind::Malformed,
+            offset,
+        }
+    }
+
+    /// Create a checksum mismatch issue at `offset`.
+    pub fn checksum_mismatch(offset: usize) -> Self {
+        Self {
+            kind: DecodeIssueKind::ChecksumMismatch,
             offset,
         }
     }

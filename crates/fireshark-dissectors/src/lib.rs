@@ -18,7 +18,7 @@ mod udp;
 
 pub use error::DecodeError;
 
-use fireshark_core::{DecodeIssue, Layer, LayerSpan, Packet};
+use fireshark_core::{DecodeIssue, Ipv4Layer, Layer, LayerSpan, Packet};
 
 /// Internal result from network-layer dissectors (IPv4, IPv6).
 ///
@@ -129,6 +129,78 @@ fn transport_span(layer: &Layer, payload_offset: usize) -> LayerSpan {
     }
 }
 
+/// Validate TCP or UDP checksum using the IPv4 pseudo-header.
+///
+/// Only IPv4 is supported; IPv6 uses a different pseudo-header format and is
+/// skipped for now. The function reads the checksum from the raw transport
+/// bytes, builds the pseudo-header, and verifies the ones' complement sum.
+fn validate_transport_checksum(
+    ipv4: &Ipv4Layer,
+    transport_bytes: &[u8],
+    transport_offset: usize,
+    issues: &mut Vec<DecodeIssue>,
+) {
+    // Skip if transport data is too short for a checksum field.
+    if transport_bytes.len() < 8 {
+        return;
+    }
+
+    // Locate the checksum field within the transport header.
+    let checksum_offset = match ipv4.protocol {
+        6 => 16, // TCP checksum at bytes 16-17
+        17 => 6, // UDP checksum at bytes 6-7
+        _ => return,
+    };
+    if transport_bytes.len() < checksum_offset + 2 {
+        return;
+    }
+
+    let checksum = u16::from_be_bytes([
+        transport_bytes[checksum_offset],
+        transport_bytes[checksum_offset + 1],
+    ]);
+
+    // UDP checksum 0 means "not computed" — skip.
+    if ipv4.protocol == 17 && checksum == 0 {
+        return;
+    }
+    // TCP checksum should never be 0 in practice, but if it is, skip.
+    if checksum == 0 {
+        return;
+    }
+
+    // Build pseudo-header + transport data and verify.
+    let mut sum: u32 = 0;
+
+    // Pseudo-header: src IP (4) + dst IP (4) + zero + protocol (1) + length (2)
+    let src = ipv4.source.octets();
+    let dst = ipv4.destination.octets();
+    sum += u16::from_be_bytes([src[0], src[1]]) as u32;
+    sum += u16::from_be_bytes([src[2], src[3]]) as u32;
+    sum += u16::from_be_bytes([dst[0], dst[1]]) as u32;
+    sum += u16::from_be_bytes([dst[2], dst[3]]) as u32;
+    sum += ipv4.protocol as u32;
+    sum += transport_bytes.len() as u32;
+
+    // Sum transport header + payload.
+    for i in (0..transport_bytes.len()).step_by(2) {
+        let word = if i + 1 < transport_bytes.len() {
+            u16::from_be_bytes([transport_bytes[i], transport_bytes[i + 1]])
+        } else {
+            u16::from_be_bytes([transport_bytes[i], 0])
+        };
+        sum += word as u32;
+    }
+
+    while sum > 0xFFFF {
+        sum = (sum & 0xFFFF) + (sum >> 16);
+    }
+
+    if sum != 0xFFFF {
+        issues.push(DecodeIssue::checksum_mismatch(transport_offset));
+    }
+}
+
 fn append_network_layer(
     layer: Result<NetworkPayload<'_>, DecodeError>,
     layer_offset: usize,
@@ -151,6 +223,12 @@ fn append_network_layer(
             let transport_header_available = match &layer {
                 Layer::Ipv4(layer) => layer.fragment_offset == 0,
                 _ => true,
+            };
+            // Capture IPv4 layer data for transport checksum validation before
+            // the layer is moved into the layers vec.
+            let ipv4_for_checksum = match &layer {
+                Layer::Ipv4(ipv4) => Some(ipv4.clone()),
+                _ => None,
             };
             layers.push(layer);
             spans.push(network_span);
@@ -183,6 +261,13 @@ fn append_network_layer(
                     parse_transport(icmp::parse(payload, payload_offset), layers, spans, issues);
                 }
                 _ => {}
+            }
+
+            // Validate TCP/UDP checksum after successful transport decode.
+            if let Some(ref ipv4) = ipv4_for_checksum
+                && matches!(protocol, tcp::IP_PROTOCOL | udp::IP_PROTOCOL)
+            {
+                validate_transport_checksum(ipv4, payload, payload_offset, issues);
             }
 
             // Application-layer dispatch: attempt to decode protocols above transport.
