@@ -58,7 +58,7 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 
 | Tool | Description |
 |------|-------------|
-| `audit_capture` | Run heuristic security analysis (scan detection, suspicious ports, cleartext credential exposure, DNS tunneling detection) |
+| `audit_capture` | Run heuristic security analysis (scan detection, suspicious ports, cleartext credential exposure, DNS tunneling detection). Accepts optional `profile` parameter: `"security"`, `"dns"`, or `"quality"`. Default (no profile) runs all heuristics |
 | `list_findings` | List audit findings with severity and evidence |
 | `explain_finding` | Get detailed explanation of a specific finding |
 
@@ -86,4 +86,4 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 
 ---
 
-**Version:** 0.6.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

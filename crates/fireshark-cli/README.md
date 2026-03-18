@@ -61,7 +61,18 @@ Run heuristic security analysis: scan detection, suspicious ports, cleartext cre
 
 ```bash
 fireshark audit capture.pcap
+
+# Run only security-focused heuristics
+fireshark audit --profile security capture.pcap
+
+# Run only DNS-focused heuristics
+fireshark audit --profile dns capture.pcap
+
+# Run only quality-focused heuristics
+fireshark audit --profile quality capture.pcap
 ```
+
+Available profiles: `security`, `dns`, `quality`. Omitting `--profile` runs all heuristics.
 
 ### `diff`
 
@@ -99,4 +110,4 @@ fireshark audit capture.pcap --json
 
 ---
 
-**Version:** 0.6.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

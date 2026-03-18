@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Fireshark is a packet analyzer built for LLMs and humans, written in Rust. It is library-first and built in phases (crawl/walk/run). Currently in the **walk** phase: 10 protocol dissectors, display filter language, TCP/UDP stream tracking, checksum validation, 7 security audit heuristics, 18 MCP tools, 7 CLI commands, JSON export, capture comparison, and an optional tshark backend.
+Fireshark is a packet analyzer built for LLMs and humans, written in Rust. It is library-first and built in phases (crawl/walk/run). Currently in the **walk** phase: 10 protocol dissectors, display filter language with string operators (`contains`, `matches`), TCP/UDP stream tracking, checksum validation, 7 security audit heuristics with audit profiles (`--profile security|dns|quality`), 18 MCP tools, 7 CLI commands, JSON export, capture comparison, and an optional tshark backend.
 
 ## Workspace Layout
 
@@ -10,9 +10,9 @@ Fireshark is a packet analyzer built for LLMs and humans, written in Rust. It is
 |---|---|
 | `fireshark-core` | Domain types (`Layer`, `Packet`, `Frame`, `Pipeline`, `StreamTracker`, `TrackingPipeline`), summaries, decode issues |
 | `fireshark-dissectors` | Protocol decoders: Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello |
-| `fireshark-filter` | Display filter language: lexer, parser, evaluator (including `tcp.stream`/`udp.stream`) |
+| `fireshark-filter` | Display filter language: lexer, parser, evaluator (including `tcp.stream`/`udp.stream`, `contains`/`matches` string operators, `dns.qname`/`tls.sni` string-typed fields). Depends on `regex` crate |
 | `fireshark-file` | pcap and pcapng file ingestion |
-| `fireshark-cli` | Thin CLI binary (`fireshark`) with 7 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`, `diff`. Supports `--json` flag on `summary`, `stats`, `issues`, `audit` |
+| `fireshark-cli` | Thin CLI binary (`fireshark`) with 7 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`, `diff`. Supports `--json` flag on `summary`, `stats`, `issues`, `audit`. Audit supports `--profile security|dns|quality` |
 | `fireshark-backend` | Backend abstraction: native pipeline and tshark subprocess adapters |
 | `fireshark-tshark` | tshark subprocess discovery, execution, and output normalization |
 | `fireshark-mcp` | Offline MCP server (18 tools) for LLM-driven capture analysis, security audits, and capture comparison |

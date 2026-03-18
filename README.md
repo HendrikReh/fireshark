@@ -1,8 +1,8 @@
 # Fireshark
 
-[![Version](https://img.shields.io/badge/version-0.6.0-blue)]()
+[![Version](https://img.shields.io/badge/version-0.7.0-blue)]()
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange?logo=rust)](https://www.rust-lang.org/)
-[![Tests](https://img.shields.io/badge/tests-384%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-427%20passing-brightgreen)]()
 [![Status](https://img.shields.io/badge/phase-walk-blue)]()
 
 Packet analyzer built for LLMs and humans. Rust-native protocol dissection with an MCP server that lets an AI assistant perform security audits, and a color-coded CLI for direct analysis.
@@ -27,7 +27,7 @@ Packet analyzer built for LLMs and humans. Rust-native protocol dissection with 
 
 ## Elevator Pitch
 
-Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wireshark — packet queries, protocol decoding, display filters, stream tracking, and security audit heuristics — through structured MCP tool calls. For humans, it's a fast, color-coded CLI that decodes 10 protocols, follows TCP/UDP conversations, runs 7 automated security checks, validates checksums, and exports results as JSON. Everything is library-first: one Rust workspace, 8 crates, 384 tests, zero unsafe code.
+Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wireshark — packet queries, protocol decoding, display filters, stream tracking, and security audit heuristics — through structured MCP tool calls. For humans, it's a fast, color-coded CLI that decodes 10 protocols, follows TCP/UDP conversations, runs 7 automated security checks, validates checksums, and exports results as JSON. Everything is library-first: one Rust workspace, 8 crates, 427 tests, zero unsafe code.
 
 ## Why native dissectors when tshark exists?
 
@@ -98,7 +98,7 @@ tshark --version   # must be >= 3.0.0
 - **Color-coded CLI** — Wireshark-style protocol coloring in summary output
 - **Packet detail view** — decoded layer tree with color-coded hex dump (`fireshark detail`)
 - **Follow stream** — `fireshark follow` shows all packets in a conversation by stream ID
-- **Display filters** — Wireshark-style expression language (`-f "tcp and port 443"`, `tcp.stream == 0`)
+- **Display filters** — Wireshark-style expression language (`-f "tcp and port 443"`, `tcp.stream == 0`) with string operators (`contains`, `matches` for regex)
 - **JSON export** — `--json` flag on `summary`, `stats`, `issues`, `audit` for JSONL output (one JSON object per line, no color codes)
 - **Capture comparison** — `fireshark diff <file1> <file2>` shows new/missing hosts, protocols, and ports between two captures
 - **MCP server** — offline capture analysis for LLM-driven workflows and security audits, including stream, summary, and comparison tools
@@ -127,6 +127,9 @@ cargo run -p fireshark-cli -- stats your-capture.pcap
 
 # Security audit
 cargo run -p fireshark-cli -- audit your-capture.pcap
+
+# Security audit with a focused profile
+cargo run -p fireshark-cli -- audit --profile security your-capture.pcap
 
 # Security audit with custom packet limit
 cargo run -p fireshark-cli -- audit --max-packets 500000 large-capture.pcap
@@ -180,6 +183,12 @@ cargo run -p fireshark-cli -- summary capture.pcap -f "tls.cipher_suite == 0x130
 # Filter by stream ID (conversation)
 cargo run -p fireshark-cli -- summary capture.pcap -f "tcp.stream == 0"
 cargo run -p fireshark-cli -- summary capture.pcap -f "udp.stream == 1"
+
+# String filter: case-insensitive substring match
+cargo run -p fireshark-cli -- summary capture.pcap -f 'dns.qname contains "evil"'
+
+# String filter: regex match
+cargo run -p fireshark-cli -- summary capture.pcap -f 'tls.sni matches ".*\.example\.com"'
 ```
 
 ### Follow a Stream
@@ -213,7 +222,7 @@ Shows a decoded layer tree with field values and a color-coded hex dump where ea
 | `fireshark-core` | Domain types (`Frame`, `Packet`, `Layer`, `Pipeline`, `StreamTracker`, `TrackingPipeline`), summaries, decode issues |
 | `fireshark-file` | pcap and pcapng ingestion with timestamp/length extraction |
 | `fireshark-dissectors` | Protocol decoders (10 protocols) with full RFC field extraction |
-| `fireshark-filter` | Display filter language: lexer, parser, evaluator (including `tcp.stream`/`udp.stream`) |
+| `fireshark-filter` | Display filter language: lexer, parser, evaluator (including `tcp.stream`/`udp.stream`, `contains`/`matches` string operators) |
 | `fireshark-cli` | CLI with 7 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`, `diff` |
 | `fireshark-backend` | Backend abstraction: native pipeline and tshark subprocess adapters |
 | `fireshark-tshark` | tshark subprocess discovery, execution, and output normalization |
@@ -304,7 +313,7 @@ A typical analysis session through MCP:
 
 1. **Open** — `open_capture({ path: "/tmp/traffic.pcap" })` → session_id, packet count, protocol breakdown
 2. **Summarize** — `summarize_capture({ session_id })` → protocols, top endpoints, streams, findings count
-3. **Audit** — `audit_capture({ session_id })` → security findings with evidence
+3. **Audit** — `audit_capture({ session_id, profile: "security" })` → security findings with evidence
 4. **Drill down** — `get_packet({ session_id, packet_index: 42 })` → full layer decode for a suspicious packet
 5. **Filter** — `list_packets({ session_id, filter: "tls and tls.handshake.type == 1" })` → all TLS ClientHellos
 6. **Stream** — `get_stream({ session_id, stream_id: 5 })` → follow a conversation
@@ -359,7 +368,7 @@ cargo fuzz run fuzz_capture_reader -- -max_total_time=60
 |-------|-------|--------|
 | **Crawl** | Offline capture parsing, dissection, CLI, MCP server, display filters, stream tracking | Complete |
 | **Walk** | tshark backend, capture comparison, JSON export, checksum validation, live capture backends | Active |
-| **Run** | HTTP dissector, string filters, advanced statistics, certificate parsing | Planned |
+| **Run** | String filters (contains/matches), audit profiles, HTTP dissector, advanced statistics, certificate parsing | Active |
 
 ## Design Rules
 
@@ -390,4 +399,4 @@ Copyright 2026 Hendrik Reh <hendrik.reh@blacksmith-consulting.ai>. See [`COPYRIG
 
 ---
 
-**Version:** 0.6.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

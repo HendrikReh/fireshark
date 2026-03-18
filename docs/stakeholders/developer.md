@@ -91,7 +91,7 @@ cargo run -p fireshark-cli -- summary fixtures/smoke/fuzz-2006-06-26-2594.pcap -
 
 ```
 fireshark/
-  Cargo.toml              # Workspace root (version 0.6.0, edition 2024)
+  Cargo.toml              # Workspace root (version 0.7.0, edition 2024)
   Justfile                # Task runner recipes
   CLAUDE.md               # AI agent conventions
   crates/
@@ -441,6 +441,28 @@ Return types:
 - `FieldValue::Address(IpAddr)` -- for IP address fields (supports `==`, `!=`, CIDR matching)
 - `FieldValue::Bool(bool)` -- for boolean fields (supports bare-field truthiness, `== true`/`== false`)
 - `FieldValue::PortPair(u16, u16)` -- for dual-port fields like `tcp.port` (matches if either port matches)
+- `FieldValue::Str(String)` -- for string-typed fields (supports `contains` and `matches` operators)
+
+### String-typed fields
+
+v0.7 added string filter operators (`contains` for case-insensitive substring, `matches` for regex) and string-typed fields. When adding a new string-typed field:
+
+1. Return `FieldValue::Str(string_value)` from the match arm in `resolve_layer_field()`
+2. The `contains` and `matches` operators automatically work on any `FieldValue` type via string conversion, but returning `FieldValue::Str` gives the most natural behavior
+
+Current string-typed fields: `dns.qname`, `tls.sni`
+
+Example:
+```rust
+("dns.qname", Layer::Dns(l)) => {
+    return Some(FieldValue::Str(l.query_name.clone()));
+}
+("tls.sni", Layer::TlsClientHello(l)) => {
+    if let Some(sni) = &l.server_name {
+        return Some(FieldValue::Str(sni.clone()));
+    }
+}
+```
 
 ### Adding a new protocol to the filter system
 
@@ -800,4 +822,4 @@ Spans are searched in reverse order so the innermost (most specific) layer wins 
 
 ---
 
-**Version:** 0.6.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

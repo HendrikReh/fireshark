@@ -21,7 +21,7 @@ This runs three stages sequentially -- if any stage fails, the pipeline stops:
 | `just fmt` | `cargo fmt --all` | Auto-format before committing |
 | `just fmt-check` | `cargo fmt --all -- --check` | CI gate: fail if unformatted |
 | `just clippy` | `cargo clippy --workspace --all-targets -- -D warnings` | CI gate: all warnings are errors |
-| `just test` | `cargo test --workspace` | CI gate: run all 384 tests |
+| `just test` | `cargo test --workspace` | CI gate: run all 427 tests |
 | `just check` | All three above in sequence | Full CI gate |
 
 ### Raw Commands (Without `just`)
@@ -148,6 +148,7 @@ Fireshark follows a minimal-dependency philosophy. External crates are used only
 |-------|---------|---------|---------|
 | `thiserror` | 2.0.17 | dissectors, file, filter, mcp | Derive macros for error types |
 | `pcap-file` | 3.0.0-rc1 | fireshark-file | pcap and pcapng file parsing |
+| `regex` | 1 | fireshark-filter | Regular expression matching for `matches` string operator |
 | `clap` | 4.6.0 | fireshark-cli | CLI argument parsing with derive |
 | `colored` | 3 | fireshark-cli | Terminal color output |
 | `rmcp` | 0.16 | fireshark-mcp | MCP protocol implementation |
@@ -173,7 +174,7 @@ Fireshark follows a minimal-dependency philosophy. External crates are used only
 
 ### Zero-Dependency Crates
 
-`fireshark-core` and `fireshark-filter` have no external runtime dependencies (only workspace path dependencies).
+`fireshark-core` has no external runtime dependencies (only workspace path dependencies). `fireshark-filter` depends on `regex` (added in v0.7 for the `matches` string operator).
 
 ## Tooling Requirements
 
@@ -228,4 +229,4 @@ fireshark/
 
 ---
 
-**Version:** 0.6.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

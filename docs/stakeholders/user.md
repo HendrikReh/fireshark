@@ -254,7 +254,7 @@ Compare specific protocol fields against values:
 <field> <operator> <value>
 ```
 
-#### Operators
+#### Comparison Operators
 
 | Operator | Meaning |
 |----------|---------|
@@ -264,6 +264,26 @@ Compare specific protocol fields against values:
 | `<` | Less than |
 | `>=` | Greater than or equal |
 | `<=` | Less than or equal |
+
+#### String Operators
+
+| Operator | Meaning |
+|----------|---------|
+| `contains` | Case-insensitive substring match |
+| `matches` | Regular expression match (regex crate syntax) |
+
+String operators work on any field type. Non-string fields are converted to their string representation before matching.
+
+```bash
+# Find DNS queries for a specific domain (case-insensitive)
+fireshark summary capture.pcap -f 'dns.qname contains "evil.com"'
+
+# Find TLS connections to CDN hosts using regex
+fireshark summary capture.pcap -f 'tls.sni matches "^cdn\d+\.example\.com"'
+
+# Works on non-string fields too (via string conversion)
+fireshark summary capture.pcap -f 'ip.src contains "192.168"'
+```
 
 #### Supported Fields
 
@@ -355,6 +375,7 @@ Compare specific protocol fields against values:
 | `dns.qcount` | integer | Question count |
 | `dns.acount` | integer | Answer count |
 | `dns.qtype` | integer | Query type (1=A, 28=AAAA, etc.) |
+| `dns.qname` | string | Query name (e.g., "example.com") |
 
 **TLS fields:**
 
@@ -365,6 +386,7 @@ Compare specific protocol fields against values:
 | `tls.client_version` | integer | ClientHello version (ClientHello only) |
 | `tls.selected_version` | integer | Selected version from supported_versions extension (ServerHello only) |
 | `tls.cipher_suite` | integer | Selected cipher suite (ServerHello only) |
+| `tls.sni` | string | Server Name Indication (ClientHello only) |
 
 **ARP fields:**
 
@@ -575,7 +597,7 @@ Any MCP-compatible client can connect by spawning the binary as a subprocess ove
 
 | Tool | Parameters | Returns |
 |------|-----------|---------|
-| `audit_capture` | `session_id` | Heuristic security analysis results |
+| `audit_capture` | `session_id`, optional `profile` (`"security"`, `"dns"`, `"quality"`) | Heuristic security analysis results (filtered by profile if specified) |
 | `list_findings` | `session_id` | Audit findings with severity and evidence |
 | `explain_finding` | `session_id`, `finding_id` | Detailed explanation of a specific finding |
 
@@ -767,6 +789,35 @@ fireshark summary capture.pcap -f "udp.stream == 1"
 fireshark follow capture.pcap 0
 ```
 
+### String Filters
+
+```bash
+# Case-insensitive substring match on DNS query name
+fireshark summary capture.pcap -f 'dns.qname contains "evil"'
+
+# Regex match on TLS SNI
+fireshark summary capture.pcap -f 'tls.sni matches ".*\.example\.com"'
+
+# String conversion: works on any field
+fireshark summary capture.pcap -f 'ip.dst contains "10.0"'
+```
+
+### Audit Profiles
+
+```bash
+# Run all heuristics (default)
+fireshark audit capture.pcap
+
+# Security-focused audit only
+fireshark audit --profile security capture.pcap
+
+# DNS-focused audit only
+fireshark audit --profile dns capture.pcap
+
+# Quality-focused audit only
+fireshark audit --profile quality capture.pcap
+```
+
 ---
 
-**Version:** 0.6.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

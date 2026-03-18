@@ -10,7 +10,7 @@ Development follows a phased approach:
 |-------|-------|--------|
 | **Crawl** | Offline pcap/pcapng parsing, protocol dissection, CLI, display filters, MCP server, stream tracking | Complete |
 | **Walk** | Live capture backends, tshark backend, TCP reassembly, capture comparison, JSON export, checksum validation | Active |
-| **Run** | Advanced statistics, extended filter language, HTTP dissector, certificate parsing | Planned |
+| **Run** | String filters (contains/matches), audit profiles, HTTP dissector, certificate parsing | Active |
 
 The crawl phase is complete. Walk phase is active — stream tracking, display filters, tshark backend, JSON export, checksum validation, and capture comparison are delivered. Live capture is the remaining walk milestone. Each phase delivers vertical slices of functionality, not speculative frameworks.
 
@@ -45,12 +45,12 @@ The crawl phase is complete. Walk phase is active — stream tracking, display f
 fireshark-core       -> (none)
 fireshark-file       -> fireshark-core, pcap-file, thiserror
 fireshark-dissectors -> fireshark-core, thiserror
-fireshark-filter     -> fireshark-core, thiserror
+fireshark-filter     -> fireshark-core, thiserror, regex
 fireshark-cli        -> fireshark-core, fireshark-file, fireshark-dissectors, fireshark-filter, clap, colored
 fireshark-mcp        -> fireshark-core, fireshark-file, fireshark-dissectors, fireshark-filter, rmcp, schemars, serde, serde_json, thiserror, tokio
 ```
 
-Key observation: `fireshark-core` has **zero external dependencies**. It defines only domain types using `std`. The three middle crates (`-file`, `-dissectors`, `-filter`) depend only on `fireshark-core` and do not depend on each other. The two leaf crates (`-cli`, `-mcp`) compose the middle crates into user-facing applications.
+Key observation: `fireshark-core` has **zero external dependencies**. It defines only domain types using `std`. The three middle crates (`-file`, `-dissectors`, `-filter`) depend only on `fireshark-core` (plus minimal external deps) and do not depend on each other. `fireshark-filter` added a `regex` dependency in v0.7 for the `matches` string operator. The two leaf crates (`-cli`, `-mcp`) compose the middle crates into user-facing applications.
 
 ## 3. Data Flow
 
@@ -190,7 +190,7 @@ MCP client
 
 **Pipeline:** `input string -> lexer -> tokens -> parser -> Expr AST -> evaluator(DecodedFrame) -> bool`
 
-**Depends on:** `fireshark-core`, `thiserror`
+**Depends on:** `fireshark-core`, `thiserror`, `regex`
 
 **Source:** `crates/fireshark-filter/src/lib.rs`
 
@@ -470,7 +470,7 @@ All ANSI color output, protocol-to-color mapping, hex dump formatting, and times
 | **Ethernet-only link type** | `CaptureReader` rejects captures with non-Ethernet link types at open time. No support for raw IP, loopback, Wi-Fi radiotap, or other link layers. |
 | **No live capture** | File-only ingestion. No `libpcap`/`npcap` binding, no `AF_PACKET`, no BPF. Planned for walk phase. |
 | **No TCP/IP reassembly** | Each packet is decoded independently. Stream tracking identifies conversations by 5-tuple, but there is no TCP stream reassembly or IP fragment reassembly (non-initial fragments skip transport decoding). |
-| **No string/regex filters** | Filter language supports protocol presence, field comparisons, and address/port shorthands. No `contains`, `matches`, or regular expression operators. |
+| **String filter operators** | Filter language supports `contains` (case-insensitive substring) and `matches` (regex) operators on any field type via string conversion. String-typed fields: `dns.qname`, `tls.sni`. |
 | **No IPv6 CIDR filtering** | IPv4 CIDR (`ip.dst == 10.0.0.0/8`, `src 10.0.0.0/8`) is supported. IPv6 CIDR is not implemented -- only exact IPv6 address matching works. |
 | **No MAC address filtering** | `eth.type` is filterable as an integer, but there is no `eth.src` or `eth.dst` field for MAC address comparison. |
 | **Limited application-layer dissectors** | DNS over UDP port 53 and TLS ClientHello/ServerHello over any TCP port are supported. No HTTP or TCP-based DNS. |
@@ -508,15 +508,17 @@ Adds backend abstraction, comparison, export, and checksum validation:
 - Planned: TCP stream reassembly
 - Planned: BPF compile-time capture filters (distinct from display filters)
 
-### Run (Planned)
+### Run (Active -- v0.7)
 
 Enables analyst workflows:
 
-- Advanced statistics (IO graphs, flow analysis, RTT estimation)
-- Extended filter language (string contains, regex matching, MAC address fields, IPv6 CIDR)
-- Application-layer dissectors (HTTP, TCP-based DNS, full TLS record parsing beyond handshake)
-- Certificate parsing (X.509 subject, issuer, validity)
+- **Complete:** String filter operators (`contains` for case-insensitive substring, `matches` for regex) on any field type via string conversion
+- **Complete:** String-typed filter fields: `dns.qname`, `tls.sni`
+- **Complete:** Audit profiles (`--profile security|dns|quality` on CLI, `profile` parameter on MCP `audit_capture`)
+- Planned: Advanced statistics (IO graphs, flow analysis, RTT estimation)
+- Planned: Application-layer dissectors (HTTP, TCP-based DNS, full TLS record parsing beyond handshake)
+- Planned: Certificate parsing (X.509 subject, issuer, validity)
 
 ---
 
-**Version:** 0.6.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

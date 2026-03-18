@@ -14,9 +14,10 @@ Fireshark is an MCP-first packet analyzer. The LLM is the analyst — the MCP se
 2. **v0.4:** Application intelligence — what domains? what services?
 3. **v0.5:** Conversation intelligence — who talked to whom? how?
 4. **v0.6.0:** Backend abstraction — tshark as optional oracle, differential testing
-5. **v0.6 (current):** Security analyst platform — comparison, export, checksums, certificates
-6. **v0.7:** Content intelligence — string filters, HTTP, audit profiles
-7. **v1.0:** Real-time intelligence — live capture
+5. **v0.6:** Security analyst platform — comparison, export, checksums, certificates
+6. **v0.7 (current):** Content intelligence — string filters, audit profiles
+7. **v0.8:** Application intelligence — HTTP, certificate parsing
+8. **v1.0:** Real-time intelligence — live capture
 
 ---
 
@@ -78,14 +79,24 @@ JSON export, checksum validation, and capture comparison delivered. Certificate 
 | Checksum validation — IPv4 header, TCP, UDP checksums verified; `DecodeIssueKind::ChecksumMismatch`; zero checksums (NIC offload) skipped | **Done** |
 | Certificate parsing | **Deferred to v0.7** |
 
-## v0.7 — String filters + extended audit
+## v0.7 — String filters + audit profiles (COMPLETE)
+
+| Feature | Status |
+|---------|--------|
+| String filter operators: `contains` (case-insensitive substring) and `matches` (regex) | **Done** |
+| String-typed filter fields: `dns.qname`, `tls.sni` | **Done** |
+| `regex` dependency added to `fireshark-filter` | **Done** |
+| Works on any field type via string conversion | **Done** |
+| Audit profiles: `--profile security\|dns\|quality` on CLI `audit` command | **Done** |
+| MCP `audit_capture` accepts `profile` parameter | **Done** |
+| Default (no profile) runs all heuristics | **Done** |
+
+## v0.8 — Application intelligence
 
 | Feature | MCP impact | CLI impact |
 |---------|-----------|------------|
 | Certificate parsing | `get_packet` returns X.509 subject, issuer, validity. tshark backend can serve as reference implementation. | `detail` shows cert chain |
-| String/regex filter operators (issue #10) | `search_packets` with `dns.qname contains "evil.com"` | `-f 'dns.qname contains "phishing"'` |
 | HTTP basic dissector (requires stream tracking) | `get_packet` returns method, URI, Host, status | `detail` shows HTTP |
-| Audit profiles | `audit_capture(session_id, profile="security")` — security, performance, compliance | `--audit-profile` flag |
 | Finding escalation | `escalate_finding(finding_id, notes)` — builds investigation log | Investigation workflow |
 
 ## v1.0 — Walk phase: live capture
@@ -114,7 +125,7 @@ JSON export, checksum validation, and capture comparison delivered. Certificate 
 | Metric | Value |
 |--------|-------|
 | Protocols | 10 (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello) |
-| Tests | 384 |
+| Tests | 427 |
 | Source lines | ~9,500 |
 | Crates | 8 (fireshark-core, fireshark-file, fireshark-dissectors, fireshark-filter, fireshark-cli, fireshark-mcp, fireshark-backend, fireshark-tshark) |
 | MCP tools | 18 |
@@ -124,4 +135,4 @@ JSON export, checksum validation, and capture comparison delivered. Certificate 
 
 ---
 
-**Version:** 0.6.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

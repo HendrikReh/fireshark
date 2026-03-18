@@ -4,7 +4,7 @@ Wireshark-style display filter language for the fireshark packet analyzer.
 
 ## Overview
 
-Parses and evaluates filter expressions against decoded packets. Hand-written lexer and recursive descent parser with no external parser dependencies.
+Parses and evaluates filter expressions against decoded packets. Hand-written lexer and recursive descent parser. Supports string operators (`contains`, `matches`) via the `regex` crate.
 
 ## Usage
 
@@ -39,6 +39,18 @@ dns.id == 0x1234
 dns.qcount > 0
 ```
 
+### String operators
+
+```
+dns.qname contains "evil"         # case-insensitive substring match
+tls.sni contains "example.com"    # works on any string-typed field
+dns.qname matches ".*\.evil\.com" # regex match
+tls.sni matches "^cdn\d+"         # regex match
+ip.src contains "192.168"         # works on any field via string conversion
+```
+
+`contains` performs a case-insensitive substring search. `matches` evaluates a regular expression (powered by the `regex` crate). Both operators work on any field type -- non-string fields are converted to their string representation before matching.
+
 ### Shorthands
 
 ```
@@ -68,8 +80,8 @@ not arp
 | UDP | `udp.srcport`, `udp.dstport`, `udp.port`, `udp.length`, `udp.stream` |
 | ICMP | `icmp.type`, `icmp.code` |
 | ARP | `arp.opcode`, `arp.spa`, `arp.tpa` |
-| DNS | `dns.id`, `dns.qr`, `dns.opcode`, `dns.qcount`, `dns.acount`, `dns.qtype` |
-| TLS | `tls.handshake.type`, `tls.record_version`, `tls.client_version`, `tls.selected_version`, `tls.cipher_suite` |
+| DNS | `dns.id`, `dns.qr`, `dns.opcode`, `dns.qcount`, `dns.acount`, `dns.qtype`, `dns.qname` (string) |
+| TLS | `tls.handshake.type`, `tls.record_version`, `tls.client_version`, `tls.selected_version`, `tls.cipher_suite`, `tls.sni` (string) |
 | Ethernet | `eth.type` |
 
 ## Architecture
@@ -85,4 +97,4 @@ input string -> lexer -> tokens -> parser -> AST -> evaluator(packet) -> bool
 
 ---
 
-**Version:** 0.6.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
