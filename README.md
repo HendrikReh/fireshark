@@ -31,21 +31,46 @@ Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wir
 
 ## Why native dissectors when tshark exists?
 
-Fireshark includes an optional tshark backend for broad protocol coverage, but the native Rust dissectors are the core of the product — not redundant with tshark.
+Fireshark ships both because they solve different problems.
 
-| Capability | Native | tshark |
-|-----------|--------|--------|
-| Typed, structured layers (`TcpLayer.flags.syn`, `DnsLayer.query_name`) | Yes | No — flat string fields |
-| Security audit engine (7 heuristics: scan detection, DNS tunneling, etc.) | Yes | No — can't feed typed data into audit logic |
-| Stream tracking with `tcp.stream` filter and `follow` command | Yes | No — tshark's conversations are opaque |
-| Display filter evaluation (`tcp.flags.syn and ip.ttl > 64`) | Yes | No — separate filter engine, results can't feed fireshark pipeline |
-| Color-coded hex dump with per-layer byte spans | Yes | No — tshark doesn't expose byte offsets |
-| Zero external dependencies — works without Wireshark installed | Yes | No — requires tshark binary |
-| Broad protocol identification (3,000+ protocols) | 10 protocols | Yes |
-| Quick triage of unsupported protocols | No | Yes |
-| Correctness oracle for differential testing | Reference | Validation |
+`tshark` is the coverage engine: it gives Fireshark access to Wireshark's very broad protocol support, mature stream reassembly, and fast triage of captures that contain protocols Fireshark does not decode natively yet.
 
-**Use native** for deep analysis, audits, stream tracking, and filtering. **Use tshark** for broad protocol triage and as a correctness oracle. Both backends share the same CLI and MCP surfaces.
+The native Rust dissectors are the semantics engine: they give Fireshark stable, repo-owned packet types, in-process filtering, byte spans for the hex dump, stream identity, and direct inputs for audit logic. That is the part of the system Fireshark can reason about, test, fuzz, and expose through MCP without depending on an external binary's output format.
+
+| Dimension | Native Rust | tshark |
+|-----------|-------------|--------|
+| Protocol breadth | Narrower: 10 core protocols | Much broader: thousands of dissectors |
+| Internal data model | Repo-owned typed layers and fields | External decode output that Fireshark must normalize |
+| Display filters | Smaller feature set, but in-process and integrated with Fireshark packet objects | More complete Wireshark semantics, but separate from Fireshark's native pipeline |
+| Stream handling | Repo-owned stream IDs and per-stream metadata | Stronger reassembly and follow capabilities |
+| Hex dump / byte-level UX | Native layer spans drive Fireshark's color-coded detail view | Not exposed in the same byte-span form |
+| Audit inputs | Directly feeds Fireshark's audit engine | Requires an additional mapping layer and currently supports less |
+| Runtime dependencies | No Wireshark installation required | Requires the `tshark` binary |
+| Best use in Fireshark | Deterministic analysis, filtering, audits, MCP semantics | Broad protocol triage, reassembly, compatibility, validation |
+
+### Why the native 10 protocols still matter
+
+The native dissectors are not trying to out-Wireshark Wireshark. They cover the protocols that most of Fireshark's higher-level features actually depend on:
+
+- **Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP** provide the packet facts that drive summaries, endpoints, ports, TTL / hop limit checks, fragmentation state, stream IDs, and several audit heuristics.
+- **DNS** provides typed query names, query types, and response records, which directly support DNS-focused filtering and DNS-tunneling detection.
+- **TLS ClientHello / ServerHello** provides native access to handshake metadata such as SNI, ALPN, versions, cipher selection, and key-share groups, which are useful security pivots even without full TLS decryption.
+
+That gives Fireshark a stable core it can own end-to-end:
+
+- typed Rust fields instead of backend-specific string parsing
+- deterministic in-process filter evaluation
+- native stream tracking and packet-to-stream identity
+- byte spans for the color-coded hex dump
+- direct inputs for the audit engine
+- zero-runtime-dependency operation for the default workflow
+
+So the practical split is:
+
+- **Use native** when you want Fireshark-owned semantics: audits, filtering, stream identity, MCP queries, and byte-accurate packet inspection on the core protocol set.
+- **Use tshark** when you want breadth: unsupported protocols, richer reassembly, quick triage, and differential validation against Wireshark.
+
+Both backends matter. `tshark` gives Fireshark reach. The native dissectors give Fireshark its own product behavior.
 
 ## System Requirements
 
