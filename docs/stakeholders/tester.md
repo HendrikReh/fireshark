@@ -244,11 +244,11 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 - StreamKey: canonical 5-tuple ordering, protocol name
 - Summary rendering: TCP, ARP, IPv6, HTTP, DNS, TLS protocol selection
 
-### fireshark-dissectors (68 tests)
+### fireshark-dissectors (70 tests)
 
 - Full decode of Ethernet + ARP, IPv4, IPv6 packets
-- Transport protocol decoding: TCP (SYN, SYN-ACK, RST, options), UDP, ICMP (echo, dest unreachable)
-- Application-layer decoding: DNS (query, response, A/AAAA answers, truncated, malformed), TLS (ClientHello, ServerHello, SNI extraction, cipher suites, heuristic dispatch)
+- Transport protocol decoding: TCP (SYN, SYN-ACK, RST, options), UDP (including malformed length rejection), ICMP (echo, dest unreachable)
+- Application-layer decoding: DNS (query, response, A/AAAA answers, multiple questions, truncated body issue tracking), TLS (ClientHello, ServerHello, SNI extraction, cipher suites, heuristic dispatch, truncated handshake issue tracking)
 - Edge cases: truncated headers, malformed fields, zero-length payloads, TTL=0, fragments
 - IPv4 options handling, data offset validation
 
@@ -315,7 +315,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 484 |
+| Total tests | 486 |
 | Byte fixtures | 18 |
 | Smoke captures | 3 |
 | Total fixtures | 21 |

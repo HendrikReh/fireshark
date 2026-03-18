@@ -1,6 +1,6 @@
 use std::net::{Ipv4Addr, Ipv6Addr};
 
-use fireshark_core::{DnsAnswer, DnsAnswerData, DnsLayer, Layer};
+use fireshark_core::{DecodeIssue, DnsAnswer, DnsAnswerData, DnsLayer, Layer};
 
 use crate::DecodeError;
 
@@ -13,13 +13,15 @@ const MAX_LABELS: usize = 128;
 /// Maximum total name length per RFC 1035.
 const MAX_NAME_LEN: usize = 255;
 
-pub fn parse(bytes: &[u8], offset: usize) -> Result<Layer, DecodeError> {
+pub fn parse(bytes: &[u8], offset: usize) -> Result<(Layer, Vec<DecodeIssue>), DecodeError> {
     if bytes.len() < HEADER_LEN {
         return Err(DecodeError::Truncated {
             layer: "DNS",
             offset: offset + bytes.len(),
         });
     }
+
+    let mut issues = Vec::new();
 
     let transaction_id = u16::from_be_bytes([bytes[0], bytes[1]]);
     let flags = u16::from_be_bytes([bytes[2], bytes[3]]);
@@ -36,11 +38,16 @@ pub fn parse(bytes: &[u8], offset: usize) -> Result<Layer, DecodeError> {
     // knows where to start. Extract query_name/query_type from the first
     // question only; remaining questions are skipped but consumed.
     let max_questions = (question_count as usize).min(10);
+    let mut truncated_body = false;
     let (query_name, query_type, question_end) = if max_questions > 0 {
         let (name, qtype, mut end) = parse_question(bytes, HEADER_LEN);
+        if name.is_none() && question_count > 0 {
+            truncated_body = true;
+        }
         for _ in 1..max_questions {
             let (_, _, next_end) = parse_question(bytes, end);
             if next_end == end {
+                truncated_body = true;
                 break; // could not advance; avoid infinite loop
             }
             end = next_end;
@@ -51,22 +58,33 @@ pub fn parse(bytes: &[u8], offset: usize) -> Result<Layer, DecodeError> {
     };
 
     let answers = if is_response && answer_count > 0 {
-        parse_answers(bytes, question_end, answer_count)
+        let parsed = parse_answers(bytes, question_end, answer_count);
+        if (parsed.len() as u16) < answer_count.min(MAX_ANSWERS) {
+            truncated_body = true;
+        }
+        parsed
     } else {
         Vec::new()
     };
 
-    Ok(Layer::Dns(DnsLayer {
-        transaction_id,
-        is_response,
-        opcode,
-        rcode,
-        question_count,
-        answer_count,
-        query_name,
-        query_type,
-        answers,
-    }))
+    if truncated_body {
+        issues.push(DecodeIssue::truncated(offset + bytes.len()));
+    }
+
+    Ok((
+        Layer::Dns(DnsLayer {
+            transaction_id,
+            is_response,
+            opcode,
+            rcode,
+            question_count,
+            answer_count,
+            query_name,
+            query_type,
+            answers,
+        }),
+        issues,
+    ))
 }
 
 /// Parse a question entry from the DNS message starting at `start`.
@@ -165,6 +183,13 @@ fn parse_answers(bytes: &[u8], start: usize, count: u16) -> Vec<DnsAnswer> {
 /// Returns `Some((name, bytes_consumed))` on success, `None` on failure.
 /// `bytes_consumed` counts bytes from `start` through the terminating zero
 /// (or up to a compression pointer, which terminates parsing).
+///
+/// **Limitation:** Compression pointers (label byte with `0xC0` mask) are not
+/// followed. When a pointer is encountered, the parser returns whatever
+/// labels were accumulated before the pointer. This means DNS responses that
+/// compress the question name (common) may yield an incomplete or empty name.
+/// The audit engine works around this by using the query name from the request
+/// packet. Full pointer following is deferred to a future release.
 fn parse_name(bytes: &[u8], start: usize) -> Option<(String, usize)> {
     let mut labels: Vec<String> = Vec::new();
     let mut pos = start;
@@ -264,5 +289,64 @@ mod tests {
     fn parse_name_invalid_label_length() {
         let data = b"\x80invalid"; // 0x80 has top bit set but not both top bits
         assert!(parse_name(data, 0).is_none());
+    }
+
+    #[test]
+    fn parse_multiple_questions() {
+        // Build a DNS packet with 2 questions:
+        //   Q1: "a.example" type A (1) class IN (1)
+        //   Q2: "b.example" type AAAA (28) class IN (1)
+        let mut data = Vec::new();
+        // Header: txid=0x0001, flags=0x0000 (query), qdcount=2, ancount=0, nscount=0, arcount=0
+        data.extend_from_slice(&[
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ]);
+        // Q1 name: 01 "a" 07 "example" 00
+        data.extend_from_slice(b"\x01a\x07example\x00");
+        // Q1 qtype=1 (A), qclass=1 (IN)
+        data.extend_from_slice(&[0x00, 0x01, 0x00, 0x01]);
+        // Q2 name: 01 "b" 07 "example" 00
+        data.extend_from_slice(b"\x01b\x07example\x00");
+        // Q2 qtype=28 (AAAA), qclass=1 (IN)
+        data.extend_from_slice(&[0x00, 0x1c, 0x00, 0x01]);
+
+        let (layer, issues) = parse(&data, 0).unwrap();
+        match layer {
+            Layer::Dns(dns) => {
+                assert_eq!(dns.question_count, 2);
+                // First question's name and type are extracted
+                assert_eq!(dns.query_name.as_deref(), Some("a.example"));
+                assert_eq!(dns.query_type, Some(1));
+            }
+            other => panic!("expected DNS layer, got: {other:?}"),
+        }
+        assert!(issues.is_empty(), "complete packet should have no issues");
+    }
+
+    #[test]
+    fn truncated_question_reports_issue() {
+        // Header claims 1 question but body is truncated
+        let data: Vec<u8> = vec![
+            0x00, 0x01, // txid
+            0x00, 0x00, // flags (query)
+            0x00, 0x01, // qdcount=1
+            0x00, 0x00, // ancount=0
+            0x00, 0x00, // nscount=0
+            0x00, 0x00, // arcount=0
+            0x07, // label length=7 but only 2 bytes follow
+            b'e', b'x',
+        ];
+        let (layer, issues) = parse(&data, 42).unwrap();
+        match layer {
+            Layer::Dns(dns) => {
+                assert_eq!(dns.question_count, 1);
+                assert!(dns.query_name.is_none());
+            }
+            other => panic!("expected DNS layer, got: {other:?}"),
+        }
+        assert!(
+            !issues.is_empty(),
+            "truncated question should produce an issue"
+        );
     }
 }

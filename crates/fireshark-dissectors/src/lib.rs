@@ -9,7 +9,7 @@ mod arp;
 mod dns;
 mod error;
 mod ethernet;
-pub(crate) mod http;
+mod http;
 mod icmp;
 mod ipv4;
 mod ipv6;
@@ -19,7 +19,9 @@ mod udp;
 
 pub use error::DecodeError;
 
-use fireshark_core::{DecodeIssue, Ipv4Layer, Layer, LayerSpan, Packet};
+use std::net::Ipv4Addr;
+
+use fireshark_core::{DecodeIssue, Layer, LayerSpan, Packet};
 
 /// Internal result from network-layer dissectors (IPv4, IPv6).
 ///
@@ -122,7 +124,7 @@ fn transport_span(layer: &Layer, payload_offset: usize) -> LayerSpan {
                 4
             }
         }
-        _ => unreachable!("transport_span called with non-transport layer"),
+        _ => 0,
     };
     LayerSpan {
         offset: payload_offset,
@@ -132,11 +134,15 @@ fn transport_span(layer: &Layer, payload_offset: usize) -> LayerSpan {
 
 /// Validate TCP or UDP checksum using the IPv4 pseudo-header.
 ///
-/// Only IPv4 is supported; IPv6 uses a different pseudo-header format and is
-/// skipped for now. The function reads the checksum from the raw transport
-/// bytes, builds the pseudo-header, and verifies the ones' complement sum.
+/// Only IPv4 is supported. IPv6 uses a different pseudo-header format
+/// (128-bit addresses + 32-bit length + next-header) and is not yet
+/// implemented. Since IPv6 TCP/UDP checksums are mandatory (unlike IPv4
+/// UDP where checksum=0 means "not computed"), this means corrupted IPv6
+/// transport data will not be flagged as a `ChecksumMismatch` issue.
 fn validate_transport_checksum(
-    ipv4: &Ipv4Layer,
+    source: Ipv4Addr,
+    destination: Ipv4Addr,
+    protocol: u8,
     transport_bytes: &[u8],
     transport_offset: usize,
     issues: &mut Vec<DecodeIssue>,
@@ -147,7 +153,7 @@ fn validate_transport_checksum(
     }
 
     // Locate the checksum field within the transport header.
-    let checksum_offset = match ipv4.protocol {
+    let checksum_offset = match protocol {
         6 => 16, // TCP checksum at bytes 16-17
         17 => 6, // UDP checksum at bytes 6-7
         _ => return,
@@ -162,7 +168,7 @@ fn validate_transport_checksum(
     ]);
 
     // UDP checksum 0 means "not computed" — skip.
-    if ipv4.protocol == 17 && checksum == 0 {
+    if protocol == 17 && checksum == 0 {
         return;
     }
     // TCP checksum should never be 0 in practice, but if it is, skip.
@@ -174,13 +180,13 @@ fn validate_transport_checksum(
     let mut sum: u32 = 0;
 
     // Pseudo-header: src IP (4) + dst IP (4) + zero + protocol (1) + length (2)
-    let src = ipv4.source.octets();
-    let dst = ipv4.destination.octets();
+    let src = source.octets();
+    let dst = destination.octets();
     sum += u16::from_be_bytes([src[0], src[1]]) as u32;
     sum += u16::from_be_bytes([src[2], src[3]]) as u32;
     sum += u16::from_be_bytes([dst[0], dst[1]]) as u32;
     sum += u16::from_be_bytes([dst[2], dst[3]]) as u32;
-    sum += ipv4.protocol as u32;
+    sum += protocol as u32;
     sum += transport_bytes.len() as u32;
 
     // Sum transport header + payload.
@@ -225,10 +231,10 @@ fn append_network_layer(
                 Layer::Ipv4(layer) => layer.fragment_offset == 0,
                 _ => true,
             };
-            // Capture IPv4 layer data for transport checksum validation before
+            // Extract fields needed for transport checksum validation before
             // the layer is moved into the layers vec.
-            let ipv4_for_checksum = match &layer {
-                Layer::Ipv4(ipv4) => Some(ipv4.clone()),
+            let ipv4_addrs = match &layer {
+                Layer::Ipv4(ipv4) => Some((ipv4.source, ipv4.destination)),
                 _ => None,
             };
             layers.push(layer);
@@ -265,10 +271,10 @@ fn append_network_layer(
             }
 
             // Validate TCP/UDP checksum after successful transport decode.
-            if let Some(ref ipv4) = ipv4_for_checksum
+            if let Some((src, dst)) = ipv4_addrs
                 && matches!(protocol, tcp::IP_PROTOCOL | udp::IP_PROTOCOL)
             {
-                validate_transport_checksum(ipv4, payload, payload_offset, issues);
+                validate_transport_checksum(src, dst, protocol, payload, payload_offset, issues);
             }
 
             // Application-layer dispatch: attempt to decode protocols above transport.
@@ -317,19 +323,24 @@ fn append_network_layer(
             {
                 let app_payload = &payload[transport_end - payload_offset..app_payload_end];
                 if !app_payload.is_empty() {
+                    let app_span = LayerSpan {
+                        offset: transport_end,
+                        len: app_payload.len(),
+                    };
                     if !is_tcp && (src_port == dns::UDP_PORT || dst_port == dns::UDP_PORT) {
-                        let span = LayerSpan {
-                            offset: transport_end,
-                            len: app_payload.len(),
-                        };
-                        append_layer_with_span(
-                            dns::parse(app_payload, transport_end),
-                            transport_end,
-                            span,
-                            layers,
-                            spans,
-                            issues,
-                        );
+                        match dns::parse(app_payload, transport_end) {
+                            Ok((layer, app_issues)) => {
+                                layers.push(layer);
+                                spans.push(app_span);
+                                issues.extend(app_issues);
+                            }
+                            Err(DecodeError::Truncated { offset, .. }) => {
+                                issues.push(DecodeIssue::truncated(offset));
+                            }
+                            Err(DecodeError::Malformed(_)) => {
+                                issues.push(DecodeIssue::malformed(transport_end));
+                            }
+                        }
                     } else if is_tcp
                         && app_payload.len() >= 9
                         && app_payload[0] == 0x16
@@ -337,27 +348,24 @@ fn append_network_layer(
                         && app_payload[2] <= 0x03
                         && (app_payload[5] == 0x01 || app_payload[5] == 0x02)
                     {
-                        let span = LayerSpan {
-                            offset: transport_end,
-                            len: app_payload.len(),
-                        };
-                        append_layer_with_span(
-                            tls::parse(app_payload, transport_end),
-                            transport_end,
-                            span,
-                            layers,
-                            spans,
-                            issues,
-                        );
+                        match tls::parse(app_payload, transport_end) {
+                            Ok((layer, app_issues)) => {
+                                layers.push(layer);
+                                spans.push(app_span);
+                                issues.extend(app_issues);
+                            }
+                            Err(DecodeError::Truncated { offset, .. }) => {
+                                issues.push(DecodeIssue::truncated(offset));
+                            }
+                            Err(DecodeError::Malformed(_)) => {
+                                issues.push(DecodeIssue::malformed(transport_end));
+                            }
+                        }
                     } else if is_tcp && http::is_http_signature(app_payload) {
-                        let span = LayerSpan {
-                            offset: transport_end,
-                            len: app_payload.len(),
-                        };
                         append_layer_with_span(
                             http::parse(app_payload, transport_end),
                             transport_end,
-                            span,
+                            app_span,
                             layers,
                             spans,
                             issues,

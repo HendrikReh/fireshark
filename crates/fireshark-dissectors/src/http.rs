@@ -36,11 +36,11 @@ struct FirstLine {
     reason: Option<String>,
 }
 
-pub fn parse(bytes: &[u8], _offset: usize) -> Result<Layer, DecodeError> {
+pub fn parse(bytes: &[u8], offset: usize) -> Result<Layer, DecodeError> {
     if bytes.len() < MIN_PAYLOAD_LEN {
         return Err(DecodeError::Truncated {
             layer: "HTTP",
-            offset: _offset + bytes.len(),
+            offset: offset + bytes.len(),
         });
     }
 

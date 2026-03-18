@@ -1,9 +1,14 @@
-use fireshark_core::{Layer, TlsClientHelloLayer, TlsServerHelloLayer};
+use fireshark_core::{DecodeIssue, Layer, TlsClientHelloLayer, TlsServerHelloLayer};
 
 use crate::DecodeError;
 
 /// Minimum bytes needed: 5 (TLS record header) + 4 (handshake header) = 9.
 const MIN_RECORD_LEN: usize = 9;
+
+/// Minimum bytes for a complete ClientHello/ServerHello through cipher suites.
+/// Record header (5) + handshake header (4) + version (2) + random (32) +
+/// session_id_len (1) = 44. If we have fewer, the handshake is truncated.
+const MIN_HELLO_LEN: usize = 44;
 
 /// Maximum number of cipher suites to parse.
 const MAX_CIPHER_SUITES: usize = 200;
@@ -15,7 +20,11 @@ const MAX_EXTENSIONS: usize = 50;
 ///
 /// `bytes` is the application payload (starting at the TLS record header).
 /// `offset` is the absolute byte offset within the frame for error reporting.
-pub fn parse(bytes: &[u8], offset: usize) -> Result<Layer, DecodeError> {
+///
+/// Returns the layer plus any decode issues. A truncated handshake still
+/// produces a partial layer (with zeroed/empty fields beyond the truncation
+/// point) alongside a `DecodeIssue::Truncated`.
+pub fn parse(bytes: &[u8], offset: usize) -> Result<(Layer, Vec<DecodeIssue>), DecodeError> {
     if bytes.len() < MIN_RECORD_LEN {
         return Err(DecodeError::Truncated {
             layer: "TLS",
@@ -26,15 +35,28 @@ pub fn parse(bytes: &[u8], offset: usize) -> Result<Layer, DecodeError> {
     let record_version = u16::from_be_bytes([bytes[1], bytes[2]]);
     let handshake_type = bytes[5];
 
+    // Determine declared handshake length from the 3-byte length field at
+    // offset 6..9. Total expected = 5 (record header) + 4 (handshake header)
+    // + handshake_length.
+    let handshake_length =
+        ((bytes[6] as usize) << 16) | ((bytes[7] as usize) << 8) | (bytes[8] as usize);
+    let expected_len = 9 + handshake_length;
+    let truncated = bytes.len() < expected_len || bytes.len() < MIN_HELLO_LEN;
+
+    let mut issues = Vec::new();
+    if truncated {
+        issues.push(DecodeIssue::truncated(offset + bytes.len()));
+    }
+
     match handshake_type {
-        0x01 => Ok(Layer::TlsClientHello(parse_client_hello(
-            bytes,
-            record_version,
-        ))),
-        0x02 => Ok(Layer::TlsServerHello(parse_server_hello(
-            bytes,
-            record_version,
-        ))),
+        0x01 => Ok((
+            Layer::TlsClientHello(parse_client_hello(bytes, record_version)),
+            issues,
+        )),
+        0x02 => Ok((
+            Layer::TlsServerHello(parse_server_hello(bytes, record_version)),
+            issues,
+        )),
         _ => Err(DecodeError::Malformed("unsupported TLS handshake type")),
     }
 }

@@ -13,9 +13,14 @@ pub fn parse(bytes: &[u8], offset: usize) -> Result<Layer, DecodeError> {
         });
     }
 
+    let length = u16::from_be_bytes([bytes[4], bytes[5]]);
+    if (length as usize) < HEADER_LEN {
+        return Err(DecodeError::Malformed("UDP length field < 8"));
+    }
+
     Ok(Layer::Udp(UdpLayer {
         source_port: u16::from_be_bytes([bytes[0], bytes[1]]),
         destination_port: u16::from_be_bytes([bytes[2], bytes[3]]),
-        length: u16::from_be_bytes([bytes[4], bytes[5]]),
+        length,
     }))
 }
