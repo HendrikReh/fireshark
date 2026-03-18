@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::net::{IpAddr, Ipv4Addr};
 
 use fireshark_core::{DecodedFrame, Layer};
@@ -129,7 +130,7 @@ fn evaluate_bare_field(field: &str, decoded: &DecodedFrame) -> bool {
     }
 }
 
-fn compare_values(left: &FieldValue, op: &CmpOp, right: &Value) -> bool {
+fn compare_values(left: &FieldValue<'_>, op: &CmpOp, right: &Value) -> bool {
     match (left, right) {
         (FieldValue::Integer(l), Value::Integer(r)) => compare_integers(*l, op, *r),
         (FieldValue::Address(addr), Value::IpV4(r)) => {
@@ -203,13 +204,13 @@ fn compare_values(left: &FieldValue, op: &CmpOp, right: &Value) -> bool {
 
 /// Convert any field value to its string representation for use with
 /// `contains` and `matches` operators on non-string fields.
-fn field_value_to_string(val: &FieldValue) -> String {
+fn field_value_to_string<'a>(val: &'a FieldValue<'a>) -> Cow<'a, str> {
     match val {
-        FieldValue::Integer(n) => n.to_string(),
-        FieldValue::Address(a) => a.to_string(),
-        FieldValue::Bool(b) => b.to_string(),
-        FieldValue::PortPair(s, d) => format!("{s},{d}"),
-        FieldValue::Str(s) => s.clone(),
+        FieldValue::Integer(n) => Cow::Owned(n.to_string()),
+        FieldValue::Address(a) => Cow::Owned(a.to_string()),
+        FieldValue::Bool(b) => Cow::Owned(b.to_string()),
+        FieldValue::PortPair(s, d) => Cow::Owned(format!("{s},{d}")),
+        FieldValue::Str(s) => Cow::Borrowed(s),
     }
 }
 

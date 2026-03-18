@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::path::Path;
 
 use fireshark_core::{PacketSummary, TrackingPipeline};
@@ -13,8 +12,6 @@ pub fn open(path: impl AsRef<Path>) -> Result<BackendCapture, BackendError> {
     let mut pipeline = TrackingPipeline::new(reader, decode_packet);
 
     let mut packets = Vec::new();
-    let mut protocol_map: BTreeMap<String, usize> = BTreeMap::new();
-    let mut endpoint_map: BTreeMap<String, usize> = BTreeMap::new();
 
     for (index, result) in pipeline.by_ref().enumerate() {
         let decoded = match result {
@@ -23,18 +20,6 @@ pub fn open(path: impl AsRef<Path>) -> Result<BackendCapture, BackendError> {
         };
 
         let summary_data: PacketSummary = decoded.summary();
-        *protocol_map
-            .entry(summary_data.protocol.clone())
-            .or_default() += 1;
-        if !summary_data.source.is_empty() {
-            *endpoint_map.entry(summary_data.source.clone()).or_default() += 1;
-        }
-        if !summary_data.destination.is_empty() {
-            *endpoint_map
-                .entry(summary_data.destination.clone())
-                .or_default() += 1;
-        }
-
         let summary = BackendSummary {
             protocol: summary_data.protocol,
             source: summary_data.source,
@@ -71,10 +56,7 @@ pub fn open(path: impl AsRef<Path>) -> Result<BackendCapture, BackendError> {
         });
     }
 
-    let mut protocol_counts: Vec<_> = protocol_map.into_iter().collect();
-    protocol_counts.sort_by(|a, b| b.1.cmp(&a.1));
-    let mut endpoint_counts: Vec<_> = endpoint_map.into_iter().collect();
-    endpoint_counts.sort_by(|a, b| b.1.cmp(&a.1));
+    let (protocol_counts, endpoint_counts) = summarize_packets(&packets);
     let stream_count = pipeline.into_tracker().stream_count();
 
     Ok(BackendCapture {

@@ -4,12 +4,12 @@ use fireshark_core::{DecodedFrame, Layer};
 
 /// A resolved field value from a decoded frame.
 #[derive(Debug, Clone)]
-pub(crate) enum FieldValue {
+pub(crate) enum FieldValue<'a> {
     Integer(u64),
     Address(IpAddr),
     Bool(bool),
     PortPair(u16, u16),
-    Str(String),
+    Str(&'a str),
 }
 
 /// Resolve a named field to its value from a decoded frame.
@@ -17,7 +17,7 @@ pub(crate) enum FieldValue {
 /// Handles frame-level fields (`frame.len`, `frame.cap_len`), stream fields
 /// (`tcp.stream`, `udp.stream`), and delegates per-layer fields to
 /// [`resolve_layer_field`].
-pub(crate) fn resolve_field(field: &str, decoded: &DecodedFrame) -> Option<FieldValue> {
+pub(crate) fn resolve_field<'a>(field: &str, decoded: &'a DecodedFrame) -> Option<FieldValue<'a>> {
     match field {
         "frame.len" => Some(FieldValue::Integer(decoded.frame().original_len() as u64)),
         "frame.cap_len" => Some(FieldValue::Integer(decoded.frame().captured_len() as u64)),
@@ -53,7 +53,7 @@ pub(crate) fn resolve_field(field: &str, decoded: &DecodedFrame) -> Option<Field
     }
 }
 
-fn resolve_layer_field(field: &str, decoded: &DecodedFrame) -> Option<FieldValue> {
+fn resolve_layer_field<'a>(field: &str, decoded: &'a DecodedFrame) -> Option<FieldValue<'a>> {
     for layer in decoded.packet().layers() {
         match (field, layer) {
             // IPv4
@@ -162,7 +162,7 @@ fn resolve_layer_field(field: &str, decoded: &DecodedFrame) -> Option<FieldValue
 
             // DNS -- string fields
             ("dns.qname", Layer::Dns(l)) => {
-                return l.query_name.as_ref().map(|n| FieldValue::Str(n.clone()));
+                return l.query_name.as_deref().map(FieldValue::Str);
             }
 
             // DNS
@@ -191,7 +191,7 @@ fn resolve_layer_field(field: &str, decoded: &DecodedFrame) -> Option<FieldValue
 
             // TLS -- string fields
             ("tls.sni", Layer::TlsClientHello(l)) => {
-                return l.sni.as_ref().map(|s| FieldValue::Str(s.clone()));
+                return l.sni.as_deref().map(FieldValue::Str);
             }
 
             // TLS ClientHello
@@ -223,23 +223,61 @@ fn resolve_layer_field(field: &str, decoded: &DecodedFrame) -> Option<FieldValue
 
             // HTTP
             ("http.method", Layer::Http(l)) => {
-                return l.method.as_ref().map(|s| FieldValue::Str(s.clone()));
+                return l.method.as_deref().map(FieldValue::Str);
             }
             ("http.uri", Layer::Http(l)) => {
-                return l.uri.as_ref().map(|s| FieldValue::Str(s.clone()));
+                return l.uri.as_deref().map(FieldValue::Str);
             }
             ("http.host", Layer::Http(l)) => {
-                return l.host.as_ref().map(|s| FieldValue::Str(s.clone()));
+                return l.host.as_deref().map(FieldValue::Str);
             }
             ("http.status_code", Layer::Http(l)) => {
                 return l.status_code.map(|c| FieldValue::Integer(u64::from(c)));
             }
             ("http.content_type", Layer::Http(l)) => {
-                return l.content_type.as_ref().map(|s| FieldValue::Str(s.clone()));
+                return l.content_type.as_deref().map(FieldValue::Str);
             }
 
             _ => {}
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use fireshark_core::{Frame, Layer};
+    use fireshark_dissectors::decode_packet;
+
+    fn decoded_from_bytes(bytes: &[u8]) -> DecodedFrame {
+        let packet = decode_packet(bytes).unwrap();
+        let frame = Frame::builder().data(bytes.to_vec()).build().unwrap();
+        DecodedFrame::new(frame, packet)
+    }
+
+    #[test]
+    fn http_host_field_borrows_underlying_packet_string() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp_http_get.bin"
+        ));
+
+        let expected = decoded
+            .packet()
+            .layers()
+            .iter()
+            .find_map(|layer| match layer {
+                Layer::Http(http) => http.host.as_deref(),
+                _ => None,
+            })
+            .expect("http host should be present");
+
+        let resolved = match resolve_field("http.host", &decoded) {
+            Some(FieldValue::Str(value)) => value,
+            other => panic!("unexpected resolved field: {other:?}"),
+        };
+
+        assert_eq!(resolved, expected);
+        assert_eq!(resolved.as_ptr(), expected.as_ptr());
+    }
 }

@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -41,6 +42,9 @@ pub struct BackendPacket {
     pub layers: Vec<BackendLayer>,
     pub issues: Vec<BackendIssue>,
 }
+
+pub(crate) type CountEntries = Vec<(String, usize)>;
+pub(crate) type PacketSummaryCounts = (CountEntries, CountEntries);
 
 pub struct BackendCapture {
     pub(crate) kind: BackendKind,
@@ -164,5 +168,85 @@ impl BackendCapture {
             fireshark_tshark::discover().map_err(|e| BackendError::Open(e.to_string()))?;
         fireshark_tshark::certs::extract_certificates(&tshark_path, path)
             .map_err(|e| BackendError::Open(e.to_string()))
+    }
+}
+
+pub(crate) fn summarize_packets(packets: &[BackendPacket]) -> PacketSummaryCounts {
+    let mut protocol_map: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut endpoint_map: BTreeMap<&str, usize> = BTreeMap::new();
+
+    for packet in packets {
+        let summary = &packet.summary;
+
+        if !summary.protocol.is_empty() {
+            *protocol_map.entry(summary.protocol.as_str()).or_default() += 1;
+        }
+        if !summary.source.is_empty() {
+            *endpoint_map.entry(summary.source.as_str()).or_default() += 1;
+        }
+        if !summary.destination.is_empty() {
+            *endpoint_map
+                .entry(summary.destination.as_str())
+                .or_default() += 1;
+        }
+    }
+
+    let mut protocol_counts: Vec<_> = protocol_map
+        .into_iter()
+        .map(|(protocol, count)| (protocol.to_string(), count))
+        .collect();
+    protocol_counts.sort_by(|a, b| b.1.cmp(&a.1));
+
+    let mut endpoint_counts: Vec<_> = endpoint_map
+        .into_iter()
+        .map(|(endpoint, count)| (endpoint.to_string(), count))
+        .collect();
+    endpoint_counts.sort_by(|a, b| b.1.cmp(&a.1));
+
+    (protocol_counts, endpoint_counts)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn packet(protocol: &str, source: &str, destination: &str) -> BackendPacket {
+        BackendPacket {
+            index: 0,
+            summary: BackendSummary {
+                protocol: protocol.to_string(),
+                source: source.to_string(),
+                destination: destination.to_string(),
+                length: 64,
+                timestamp: None,
+            },
+            layers: Vec::new(),
+            issues: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn summarize_packets_counts_repeated_protocols_and_endpoints() {
+        let packets = vec![
+            packet("HTTP", "10.0.0.1:12345", "10.0.0.2:80"),
+            packet("HTTP", "10.0.0.1:12345", "10.0.0.2:80"),
+            packet("DNS", "10.0.0.3:5353", "10.0.0.4:53"),
+        ];
+
+        let (protocol_counts, endpoint_counts) = summarize_packets(&packets);
+
+        assert_eq!(
+            protocol_counts,
+            vec![("HTTP".to_string(), 2), ("DNS".to_string(), 1)]
+        );
+        assert_eq!(
+            endpoint_counts,
+            vec![
+                ("10.0.0.1:12345".to_string(), 2),
+                ("10.0.0.2:80".to_string(), 2),
+                ("10.0.0.3:5353".to_string(), 1),
+                ("10.0.0.4:53".to_string(), 1),
+            ]
+        );
     }
 }
