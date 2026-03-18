@@ -194,6 +194,30 @@ fn summary_json_with_tshark_backend() {
 }
 
 #[test]
+fn summary_json_with_tshark_backend_preserves_first_packet_index() {
+    if !has_tshark() {
+        eprintln!("skipping: tshark not available");
+        return;
+    }
+    let fixture = support::repo_root().join("fixtures/smoke/minimal.pcap");
+
+    let mut cmd = Command::cargo_bin("fireshark").unwrap();
+    cmd.arg("summary")
+        .arg("--json")
+        .arg("--backend")
+        .arg("tshark")
+        .arg(&fixture);
+    let output = cmd.output().unwrap();
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let first_line = stdout.lines().next().expect("expected first JSON line");
+    let value: serde_json::Value = serde_json::from_str(first_line).unwrap();
+
+    assert_eq!(value["index"], 1);
+}
+
+#[test]
 fn stats_json_no_human_text() {
     let fixture = support::repo_root().join("fixtures/smoke/minimal.pcap");
 

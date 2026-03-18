@@ -1,5 +1,5 @@
 use fireshark_core::DecodedFrame;
-use fireshark_filter::ast::Expr;
+use fireshark_filter::CompiledFilter;
 
 use crate::analysis::AnalyzedCapture;
 use crate::filter::matches_filter;
@@ -26,7 +26,7 @@ pub fn list_packets(
     limit: usize,
     protocol: Option<&str>,
     has_issues: Option<bool>,
-    filter: Option<&Expr>,
+    filter: Option<&CompiledFilter>,
 ) -> Vec<PacketSummaryView> {
     let search = PacketSearch {
         protocol,
@@ -152,7 +152,7 @@ pub fn search_packets(
     search: &PacketSearch<'_>,
     offset: usize,
     limit: usize,
-    filter: Option<&Expr>,
+    filter: Option<&CompiledFilter>,
 ) -> Vec<PacketSummaryView> {
     let limit = clamp_limit(limit);
 
@@ -166,7 +166,7 @@ pub fn search_packets(
 fn filtered_packets<'a>(
     capture: &'a AnalyzedCapture,
     search: &'a PacketSearch<'_>,
-    filter: Option<&'a Expr>,
+    filter: Option<&'a CompiledFilter>,
 ) -> impl Iterator<Item = (usize, &'a DecodedFrame)> + 'a {
     capture
         .packets()
@@ -177,7 +177,7 @@ fn filtered_packets<'a>(
                 return false;
             }
             if let Some(expr) = filter
-                && !fireshark_filter::evaluate(expr, packet)
+                && !fireshark_filter::matches(expr, packet)
             {
                 return false;
             }

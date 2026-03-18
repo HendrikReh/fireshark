@@ -3,7 +3,7 @@ mod support;
 use fireshark_core::{
     DecodeIssue, DecodedFrame, EthernetLayer, Frame, Ipv4Layer, Layer, Packet, TcpFlags, TcpLayer,
 };
-use fireshark_mcp::analysis::AnalyzedCapture;
+use fireshark_mcp::AnalyzedCapture;
 use fireshark_mcp::model::LayerView;
 use fireshark_mcp::query::{
     MAX_PAGE_SIZE, get_packet, get_stream, list_decode_issues, list_packets, list_streams,

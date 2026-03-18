@@ -10,13 +10,13 @@ use crate::capture::*;
 
 pub fn open(path: impl AsRef<Path>) -> Result<BackendCapture, BackendError> {
     let reader = CaptureReader::open(path).map_err(|e| BackendError::Open(e.to_string()))?;
-    let pipeline = TrackingPipeline::new(reader, decode_packet);
+    let mut pipeline = TrackingPipeline::new(reader, decode_packet);
 
     let mut packets = Vec::new();
     let mut protocol_map: BTreeMap<String, usize> = BTreeMap::new();
     let mut endpoint_map: BTreeMap<String, usize> = BTreeMap::new();
 
-    for (index, result) in pipeline.enumerate() {
+    for (index, result) in pipeline.by_ref().enumerate() {
         let decoded = match result {
             Ok(d) => d,
             Err(_) => continue,
@@ -75,6 +75,7 @@ pub fn open(path: impl AsRef<Path>) -> Result<BackendCapture, BackendError> {
     protocol_counts.sort_by(|a, b| b.1.cmp(&a.1));
     let mut endpoint_counts: Vec<_> = endpoint_map.into_iter().collect();
     endpoint_counts.sort_by(|a, b| b.1.cmp(&a.1));
+    let stream_count = pipeline.into_tracker().stream_count();
 
     Ok(BackendCapture {
         kind: BackendKind::Native,
@@ -89,6 +90,7 @@ pub fn open(path: impl AsRef<Path>) -> Result<BackendCapture, BackendError> {
         packets,
         protocol_counts,
         endpoint_counts,
+        stream_count,
         path: None,
     })
 }

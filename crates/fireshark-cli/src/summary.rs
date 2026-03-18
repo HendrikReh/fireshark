@@ -32,7 +32,7 @@ fn run_native(
     filter: Option<&str>,
     json: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let filter_expr = filter.map(fireshark_filter::parse).transpose()?;
+    let filter_expr = filter.map(fireshark_filter::compile).transpose()?;
 
     let reader = CaptureReader::open(path)?;
     for (index, decoded) in TrackingPipeline::new(reader, decode_packet).enumerate() {
@@ -45,7 +45,7 @@ fn run_native(
         };
 
         if let Some(ref expr) = filter_expr
-            && !fireshark_filter::evaluate(expr, &decoded)
+            && !fireshark_filter::matches(expr, &decoded)
         {
             continue;
         }

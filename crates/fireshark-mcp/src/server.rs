@@ -20,9 +20,9 @@ use crate::tools::{ToolError, ToolService};
 
 fn parse_filter_opt(
     filter: &Option<String>,
-) -> Result<Option<fireshark_filter::ast::Expr>, ErrorData> {
+) -> Result<Option<fireshark_filter::CompiledFilter>, ErrorData> {
     match filter {
-        Some(f) => fireshark_filter::parse(f)
+        Some(f) => fireshark_filter::compile(f)
             .map(Some)
             .map_err(|e| ErrorData::invalid_params(format!("invalid filter: {e}"), None)),
         None => Ok(None),

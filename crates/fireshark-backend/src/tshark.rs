@@ -37,7 +37,7 @@ pub fn open(path: impl AsRef<Path>) -> Result<BackendCapture, BackendError> {
             }
 
             BackendPacket {
-                index: pkt.frame_number,
+                index: pkt.frame_number.saturating_sub(1),
                 summary: BackendSummary {
                     protocol: pkt.protocol,
                     source: pkt.source,
@@ -69,5 +69,6 @@ pub fn open(path: impl AsRef<Path>) -> Result<BackendCapture, BackendError> {
         packets,
         protocol_counts,
         endpoint_counts,
+        0,
     ))
 }

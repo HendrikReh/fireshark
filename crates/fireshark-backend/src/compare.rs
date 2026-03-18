@@ -71,8 +71,8 @@ pub fn compare(a: &BackendCapture, b: &BackendCapture) -> CaptureComparison {
     CaptureComparison {
         a_packet_count: a.packet_count(),
         b_packet_count: b.packet_count(),
-        a_stream_count: 0,
-        b_stream_count: 0,
+        a_stream_count: a.stream_count(),
+        b_stream_count: b.stream_count(),
         new_hosts,
         missing_hosts,
         new_protocols,

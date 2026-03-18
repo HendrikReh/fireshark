@@ -1,6 +1,6 @@
 mod support;
 
-use fireshark_mcp::analysis::AnalyzedCapture;
+use fireshark_mcp::AnalyzedCapture;
 
 #[test]
 fn open_capture_decodes_minimal_fixture() {

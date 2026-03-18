@@ -12,20 +12,21 @@ use crate::json::IssueJson;
 pub fn run(path: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
     let reader = CaptureReader::open(path)?;
 
-    let mut total_packets: usize = 0;
+    let mut frame_index: usize = 0;
+    let mut decoded_packet_count: usize = 0;
     let mut issues: Vec<(usize, String, usize)> = Vec::new();
 
     for result in Pipeline::new(reader, decode_packet) {
+        frame_index += 1;
         let decoded = match result {
             Ok(d) => d,
             Err(e) => {
-                eprintln!("warning: packet {}: {e}", total_packets + 1);
-                total_packets += 1;
+                eprintln!("warning: packet {frame_index}: {e}");
                 continue;
             }
         };
 
-        total_packets += 1;
+        decoded_packet_count += 1;
 
         for issue in decoded.packet().issues() {
             let kind = match issue.kind() {
@@ -33,7 +34,7 @@ pub fn run(path: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
                 DecodeIssueKind::Malformed => "Malformed",
                 DecodeIssueKind::ChecksumMismatch => "Checksum mismatch",
             };
-            issues.push((total_packets, kind.to_string(), issue.offset()));
+            issues.push((frame_index, kind.to_string(), issue.offset()));
         }
     }
 
@@ -61,7 +62,7 @@ pub fn run(path: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
         }
 
         println!();
-        println!("{} issues in {total_packets} packets", issues.len());
+        println!("{} issues in {decoded_packet_count} packets", issues.len());
     }
 
     Ok(())

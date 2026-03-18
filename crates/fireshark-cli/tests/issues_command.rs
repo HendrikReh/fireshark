@@ -40,3 +40,15 @@ fn issues_command_rejects_tshark_backend() {
         .failure()
         .stderr(contains("does not support the 'issues' command"));
 }
+
+#[test]
+fn issues_command_excludes_undecodable_frames_from_packet_totals() {
+    let tmp = support::write_single_packet_pcap(&support::truncated_ethernet_packet());
+
+    let mut cmd = Command::cargo_bin("fireshark").unwrap();
+    cmd.arg("issues").arg(tmp.path());
+    cmd.assert()
+        .success()
+        .stdout(contains("0 issues in 0 packets"))
+        .stderr(contains("warning: packet 1: decode error"));
+}

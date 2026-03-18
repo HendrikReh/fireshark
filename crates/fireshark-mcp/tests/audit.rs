@@ -5,8 +5,7 @@ use fireshark_core::{
     DecodeIssue, DecodedFrame, DnsLayer, EthernetLayer, Frame, Ipv4Layer, Layer, Packet,
     StreamTracker, TcpFlags, TcpLayer, UdpLayer,
 };
-use fireshark_mcp::analysis::AnalyzedCapture;
-use fireshark_mcp::audit::{AuditEngine, VALID_PROFILES};
+use fireshark_mcp::{AnalyzedCapture, AuditEngine, VALID_PROFILES};
 
 #[test]
 fn audit_flags_decode_issue_heavy_capture() {

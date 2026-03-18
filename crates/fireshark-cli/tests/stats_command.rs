@@ -67,3 +67,16 @@ fn stats_command_with_tshark_backend() {
         .stdout(contains("Capture Statistics"))
         .stdout(contains("TCP"));
 }
+
+#[test]
+fn stats_command_excludes_undecodable_frames_from_packet_count() {
+    let tmp = support::write_single_packet_pcap(&support::truncated_ethernet_packet());
+
+    let mut cmd = Command::cargo_bin("fireshark").unwrap();
+    cmd.arg("stats").arg(tmp.path());
+    cmd.assert()
+        .success()
+        .stdout(contains("Packets:    0"))
+        .stdout(contains("Streams:    0"))
+        .stderr(contains("warning: packet 1: decode error"));
+}

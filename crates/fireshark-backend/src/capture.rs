@@ -35,6 +35,7 @@ pub struct BackendIssue {
 
 #[derive(Debug, Clone)]
 pub struct BackendPacket {
+    /// Zero-based frame index within the capture.
     pub index: usize,
     pub summary: BackendSummary,
     pub layers: Vec<BackendLayer>,
@@ -47,6 +48,7 @@ pub struct BackendCapture {
     pub(crate) packets: Vec<BackendPacket>,
     pub(crate) protocol_counts: Vec<(String, usize)>,
     pub(crate) endpoint_counts: Vec<(String, usize)>,
+    pub(crate) stream_count: usize,
     pub(crate) path: Option<PathBuf>,
 }
 
@@ -60,6 +62,7 @@ impl BackendCapture {
         packets: Vec<BackendPacket>,
         protocol_counts: Vec<(String, usize)>,
         endpoint_counts: Vec<(String, usize)>,
+        stream_count: usize,
     ) -> Self {
         Self {
             kind,
@@ -67,6 +70,7 @@ impl BackendCapture {
             packets,
             protocol_counts,
             endpoint_counts,
+            stream_count,
             path: None,
         }
     }
@@ -107,6 +111,10 @@ impl BackendCapture {
 
     pub fn endpoint_counts(&self) -> &[(String, usize)] {
         &self.endpoint_counts
+    }
+
+    pub fn stream_count(&self) -> usize {
+        self.stream_count
     }
 
     /// The capture file path, if available.

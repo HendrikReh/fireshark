@@ -126,3 +126,19 @@ fn diff_json_different_captures_shows_differences() {
     assert!(value["file_a"]["packet_count"].as_u64().unwrap() > 0);
     assert!(value["file_b"]["packet_count"].as_u64().unwrap() > 0);
 }
+
+#[test]
+fn diff_reports_native_stream_counts() {
+    let fixture = support::repo_root().join("fixtures/smoke/minimal.pcap");
+
+    let mut cmd = Command::cargo_bin("fireshark").unwrap();
+    cmd.arg("diff").arg("--json").arg(&fixture).arg(&fixture);
+    let output = cmd.output().unwrap();
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let value: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
+
+    assert_eq!(value["file_a"]["stream_count"], 1);
+    assert_eq!(value["file_b"]["stream_count"], 1);
+}

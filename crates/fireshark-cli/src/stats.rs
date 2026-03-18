@@ -26,6 +26,7 @@ pub fn run(path: &Path, backend: &str, json: bool) -> Result<(), Box<dyn std::er
 fn run_native(path: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
     let reader = CaptureReader::open(path)?;
 
+    let mut frame_count: usize = 0;
     let mut packet_count: usize = 0;
     let mut first_ts: Option<Duration> = None;
     let mut last_ts: Option<Duration> = None;
@@ -35,11 +36,11 @@ fn run_native(path: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>>
     let mut pipeline = TrackingPipeline::new(reader, decode_packet);
 
     for result in pipeline.by_ref() {
+        frame_count += 1;
         let decoded = match result {
             Ok(d) => d,
             Err(e) => {
-                eprintln!("warning: packet {}: {e}", packet_count + 1);
-                packet_count += 1;
+                eprintln!("warning: packet {frame_count}: {e}");
                 continue;
             }
         };

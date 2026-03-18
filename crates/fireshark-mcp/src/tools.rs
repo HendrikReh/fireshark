@@ -178,7 +178,7 @@ impl ToolService {
         limit: usize,
         protocol: Option<&str>,
         has_issues: Option<bool>,
-        filter: Option<&fireshark_filter::ast::Expr>,
+        filter: Option<&fireshark_filter::CompiledFilter>,
     ) -> Result<Vec<PacketSummaryView>, ToolError> {
         let capture = self.acquire_capture(session_id).await?;
 
@@ -237,7 +237,7 @@ impl ToolService {
         search: &PacketSearch<'_>,
         offset: usize,
         limit: usize,
-        filter: Option<&fireshark_filter::ast::Expr>,
+        filter: Option<&fireshark_filter::CompiledFilter>,
     ) -> Result<Vec<PacketSummaryView>, ToolError> {
         let capture = self.acquire_capture(session_id).await?;
 
