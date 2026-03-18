@@ -83,3 +83,29 @@ Uses **bd** (beads) — see AGENTS.md for full workflow. Do not use markdown TOD
 - Features are added in vertical slices, not speculative frameworks
 - MCP types stay in `fireshark-mcp` — no protocol leakage into core crates
 - Public features must be accessible both via MCP (for LLM-driven workflows) and via CLI (for direct human use)
+
+## Native/tshark Ownership Model
+
+Native dissectors own the packet facts fireshark reasons over. tshark owns breadth, reassembly, and deep long-tail protocol coverage.
+
+**Keep native** — the control plane:
+- Ethernet, ARP, IPv4 base header, IPv6 base header, TCP base header, UDP, ICMP common fields
+- Checksum validation (IPv4, TCP, UDP)
+- Layer byte spans for hex dump coloring
+- Typed fields that drive display filters (`tcp.flags.syn`, `dns.qname`, `tls.sni`)
+- Stream identity (`StreamKey` from IP+port, `StreamTracker` metadata)
+- Audit heuristic inputs (flag accumulation, endpoint counting, DNS query analysis)
+- DNS query name + basic A/AAAA answers (audit engine depends on `query_name`)
+- TLS ClientHello/ServerHello metadata (SNI, ALPN, cipher suites, versions)
+
+**Delegate to tshark** — the data plane:
+- TCP reassembly and stream payload extraction (`follow --payload`)
+- HTTP request/response parsing (`follow --http`)
+- TLS certificate extraction (`get_certificates`)
+- IPv6 extension header chains, fragmentation reassembly
+- TCP options parsing (MSS, window scale, SACK, timestamps)
+- DNS rich record decoding (CNAME chains, authority/additional sections, EDNS, DNSSEC)
+- TLS beyond handshake metadata (certificates, session tickets, encrypted extensions)
+- Broad protocol identification (3,000+ protocols)
+
+**The seam:** Native runs per-packet in tight loops during pipeline iteration. tshark runs per-stream or per-capture on demand. Native produces typed data structures. tshark produces normalized summaries or raw payloads. Both share the same CLI and MCP surfaces through the backend abstraction.

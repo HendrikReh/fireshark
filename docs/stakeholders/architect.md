@@ -341,6 +341,32 @@ The native dissectors produce a typed layer model (`TcpLayer.flags.syn`, `DnsLay
 
 **Design principle:** Fireshark owns the product API surface (the `Layer` enum, `Pipeline`, `StreamTracker`, filter evaluator, audit engine). tshark is an optional backend behind the `BackendCapture` abstraction. CLI and MCP commands work identically with either backend, but features that require typed layer access (audit, streams, filters, detail hex dump) are only available with the native backend.
 
+### Native/tshark Ownership Model
+
+Native dissectors own the packet facts fireshark reasons over. tshark owns breadth, reassembly, and deep long-tail protocol coverage. The boundary is: native runs per-packet in tight loops during pipeline iteration; tshark runs per-stream or per-capture on demand.
+
+**Protocol ownership matrix:**
+
+| Protocol | Native scope | tshark scope | Rationale |
+|----------|-------------|-------------|-----------|
+| Ethernet | Full (destination, source, EtherType, spans) | No gain | Tiny, stable, anchors framing and dispatch |
+| ARP | Full (operation, addresses) | No gain | Small parser, feeds endpoint identity |
+| IPv4 | Base header (addresses, TTL, flags, checksum) | Options, reassembly | Core fields drive filters/streams/audit; rare options delegate |
+| IPv6 | Base 40-byte header (addresses, hop limit, flow label) | Extension headers, fragmentation | Fixed header is simple; extension chains are complex and rare |
+| TCP | Base header (ports, flags, seq/ack, window, data_offset) | Options, reassembly, conversation details | Base fields are critical for streams/audit; reassembly is hard |
+| UDP | Full (ports, length) | No need | Tiny, feeds DNS/app dispatch |
+| ICMP | Common types (echo, destination unreachable) | Exotic type-specific payloads | Common cases serve diagnostics; long tail is niche |
+| DNS | Query name + basic A/AAAA answers | Full RR semantics, compression following, EDNS, DNSSEC | Audit engine needs `query_name`; rich records delegate |
+| TLS | ClientHello/ServerHello metadata (SNI, ALPN, versions, ciphers) | Certificates, session tickets, full record parsing | Hello metadata serves filters/triage; deep TLS delegates |
+| Checksums | IPv4/TCP/UDP validation | N/A | Must be native — operates on raw bytes |
+| Layer spans | Byte offset tracking for hex dump | N/A | Must be native — produced during dissection |
+
+**When to add a native dissector vs delegate to tshark:**
+
+- **Add native** when the protocol's fields feed filters, audit heuristics, stream tracking, or MCP tool results that need typed access.
+- **Delegate to tshark** when you need reassembly, deep payload inspection, or broad protocol identification that would require disproportionate parser investment.
+- **Split ownership** when a protocol has a simple base header (keep native) and complex extensions (delegate). DNS and TLS are examples of this pattern.
+
 ## 6. Extension Points
 
 ### Adding a New Protocol
