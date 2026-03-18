@@ -31,25 +31,47 @@ const FIN_FLAG: u8 = 0x01;
 const RST_FLAG: u8 = 0x04;
 const SYN_ACK_FLAGS: u8 = SYN_FLAG | ACK_FLAG;
 
+/// Valid profile names that can be passed to `audit_with_profile`.
+pub const VALID_PROFILES: &[&str] = &["security", "dns", "quality"];
+
 pub struct AuditEngine;
 
 impl AuditEngine {
     pub fn audit(capture: &AnalyzedCapture) -> Vec<FindingView> {
+        Self::audit_with_profile(capture, None)
+    }
+
+    pub fn audit_with_profile(
+        capture: &AnalyzedCapture,
+        profile: Option<&str>,
+    ) -> Vec<FindingView> {
         let mut findings = Vec::new();
 
-        if let Some(finding) = audit_decode_issues(capture) {
-            findings.push(finding);
+        let run_all = profile.is_none();
+        let p = profile.unwrap_or("");
+
+        // Quality profile: decode issues, unknown traffic
+        if run_all || p == "quality" {
+            if let Some(finding) = audit_decode_issues(capture) {
+                findings.push(finding);
+            }
+            if let Some(finding) = audit_unknown_traffic(capture) {
+                findings.push(finding);
+            }
         }
 
-        if let Some(finding) = audit_unknown_traffic(capture) {
-            findings.push(finding);
+        // Security profile: scan activity, suspicious ports, cleartext, connection anomalies
+        if run_all || p == "security" {
+            findings.extend(audit_scan_activity(capture));
+            findings.extend(audit_suspicious_ports(capture));
+            findings.extend(audit_cleartext_credentials(capture));
+            findings.extend(audit_connection_anomalies(capture));
         }
 
-        findings.extend(audit_scan_activity(capture));
-        findings.extend(audit_suspicious_ports(capture));
-        findings.extend(audit_cleartext_credentials(capture));
-        findings.extend(audit_dns_tunneling(capture));
-        findings.extend(audit_connection_anomalies(capture));
+        // DNS profile: DNS tunneling
+        if run_all || p == "dns" {
+            findings.extend(audit_dns_tunneling(capture));
+        }
 
         findings
     }

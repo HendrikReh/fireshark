@@ -6,6 +6,7 @@ use tokio::sync::Mutex;
 use thiserror::Error;
 
 use crate::analysis::{AnalyzedCapture, DEFAULT_MAX_PACKETS};
+use crate::audit::{AuditEngine, VALID_PROFILES};
 use crate::filter::matches_filter;
 use crate::model::{
     CaptureComparisonView, CaptureDescriptionView, CaptureSummaryView, CloseCaptureResponse,
@@ -37,6 +38,9 @@ pub enum ToolError {
 
     #[error("stream {stream_id} was not found in session {session_id}")]
     StreamNotFound { session_id: String, stream_id: u32 },
+
+    #[error("unknown audit profile '{profile}'; valid profiles: {valid}")]
+    InvalidProfile { profile: String, valid: String },
 }
 
 #[derive(Clone)]
@@ -237,11 +241,22 @@ impl ToolService {
 
     // ── findings tools (keep lock — mutate cached findings) ──────────
 
-    pub async fn audit_capture(&self, session_id: &str) -> Result<Vec<FindingView>, ToolError> {
-        let mut sessions = self.sessions.lock().await;
-        let session = require_session(&mut sessions, session_id)?;
+    pub async fn audit_capture(
+        &self,
+        session_id: &str,
+        profile: Option<&str>,
+    ) -> Result<Vec<FindingView>, ToolError> {
+        if let Some(p) = profile
+            && !VALID_PROFILES.contains(&p)
+        {
+            return Err(ToolError::InvalidProfile {
+                profile: p.to_string(),
+                valid: VALID_PROFILES.join(", "),
+            });
+        }
 
-        Ok(session.findings().to_vec())
+        let capture = self.acquire_capture(session_id).await?;
+        Ok(AuditEngine::audit_with_profile(&capture, profile))
     }
 
     pub async fn list_findings(

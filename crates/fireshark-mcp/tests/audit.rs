@@ -6,7 +6,7 @@ use fireshark_core::{
     StreamTracker, TcpFlags, TcpLayer, UdpLayer,
 };
 use fireshark_mcp::analysis::AnalyzedCapture;
-use fireshark_mcp::audit::AuditEngine;
+use fireshark_mcp::audit::{AuditEngine, VALID_PROFILES};
 
 #[test]
 fn audit_flags_decode_issue_heavy_capture() {
@@ -634,4 +634,155 @@ fn audit_incomplete_handshake_with_separate_ack_data() {
         );
     assert_eq!(finding.severity, "medium");
     assert!(finding.title.contains("Incomplete TCP handshake"));
+}
+
+// ── Profile tests ───────────────────────────────────────────────────────
+
+#[test]
+fn audit_with_no_profile_returns_same_as_audit() {
+    let capture = AnalyzedCapture::from_packets(vec![
+        unknown_packet(vec![DecodeIssue::truncated(14)]),
+        unknown_packet(vec![DecodeIssue::truncated(18)]),
+        unknown_packet(vec![DecodeIssue::malformed(14)]),
+        tcp_packet("10.0.0.1", "10.0.0.2", 23, Vec::new()),
+    ]);
+
+    let all_findings = AuditEngine::audit(&capture);
+    let profile_none_findings = AuditEngine::audit_with_profile(&capture, None);
+
+    assert_eq!(all_findings.len(), profile_none_findings.len());
+    for (a, b) in all_findings.iter().zip(profile_none_findings.iter()) {
+        assert_eq!(a.id, b.id);
+    }
+}
+
+#[test]
+fn audit_security_profile_returns_only_security_categories() {
+    // Build a capture with findings from multiple profiles.
+    let mut packets: Vec<DecodedFrame> = vec![
+        // Quality: decode issues
+        unknown_packet(vec![DecodeIssue::truncated(14)]),
+        unknown_packet(vec![DecodeIssue::truncated(18)]),
+        unknown_packet(vec![DecodeIssue::malformed(14)]),
+        // Security: suspicious port (telnet/23)
+        tcp_packet("10.0.0.1", "10.0.0.2", 23, Vec::new()),
+    ];
+    // Security: scan activity (fan-out to 5 hosts)
+    for i in 2..7 {
+        packets.push(tcp_packet(
+            "10.0.0.1",
+            &format!("10.0.0.{i}"),
+            80,
+            Vec::new(),
+        ));
+    }
+
+    let capture = AnalyzedCapture::from_packets(packets);
+    let findings = AuditEngine::audit_with_profile(&capture, Some("security"));
+
+    let security_categories = [
+        "scan_activity",
+        "suspicious_ports",
+        "cleartext_credentials",
+        "connection_anomaly",
+    ];
+
+    assert!(
+        !findings.is_empty(),
+        "security profile should produce findings"
+    );
+    for finding in &findings {
+        assert!(
+            security_categories.contains(&finding.category.as_str()),
+            "security profile returned unexpected category: {}",
+            finding.category
+        );
+    }
+}
+
+#[test]
+fn audit_quality_profile_returns_only_quality_categories() {
+    let capture = AnalyzedCapture::from_packets(vec![
+        unknown_packet(vec![DecodeIssue::truncated(14)]),
+        unknown_packet(vec![DecodeIssue::truncated(18)]),
+        unknown_packet(vec![DecodeIssue::malformed(14)]),
+        // This would trigger security findings but not quality
+        tcp_packet("10.0.0.1", "10.0.0.2", 23, Vec::new()),
+    ]);
+
+    let findings = AuditEngine::audit_with_profile(&capture, Some("quality"));
+
+    let quality_categories = ["decode_issues", "unknown_traffic"];
+
+    assert!(
+        !findings.is_empty(),
+        "quality profile should produce findings"
+    );
+    for finding in &findings {
+        assert!(
+            quality_categories.contains(&finding.category.as_str()),
+            "quality profile returned unexpected category: {}",
+            finding.category
+        );
+    }
+}
+
+#[test]
+fn audit_dns_profile_returns_only_dns_categories() {
+    let long_label = "a".repeat(60);
+    let query_name = format!("{long_label}.example.com");
+
+    let capture = AnalyzedCapture::from_packets(vec![
+        dns_query_packet("10.0.0.1", &query_name, 1),
+        // This would trigger security findings but not dns
+        tcp_packet("10.0.0.1", "10.0.0.2", 23, Vec::new()),
+    ]);
+
+    let findings = AuditEngine::audit_with_profile(&capture, Some("dns"));
+
+    for finding in &findings {
+        assert_eq!(
+            finding.category, "dns_tunneling",
+            "dns profile returned unexpected category: {}",
+            finding.category
+        );
+    }
+}
+
+#[test]
+fn audit_security_profile_excludes_quality_and_dns_findings() {
+    let long_label = "a".repeat(60);
+    let query_name = format!("{long_label}.example.com");
+
+    let capture = AnalyzedCapture::from_packets(vec![
+        // Quality: would trigger decode_issues
+        unknown_packet(vec![DecodeIssue::truncated(14)]),
+        unknown_packet(vec![DecodeIssue::truncated(18)]),
+        unknown_packet(vec![DecodeIssue::malformed(14)]),
+        // DNS: would trigger dns_tunneling
+        dns_query_packet("10.0.0.1", &query_name, 1),
+    ]);
+
+    let findings = AuditEngine::audit_with_profile(&capture, Some("security"));
+
+    assert!(
+        !findings.iter().any(|f| f.category == "decode_issues"),
+        "security profile should not include decode_issues"
+    );
+    assert!(
+        !findings.iter().any(|f| f.category == "unknown_traffic"),
+        "security profile should not include unknown_traffic"
+    );
+    assert!(
+        !findings.iter().any(|f| f.category == "dns_tunneling"),
+        "security profile should not include dns_tunneling"
+    );
+}
+
+#[test]
+fn valid_profiles_constant_matches_expected_values() {
+    assert!(VALID_PROFILES.contains(&"security"));
+    assert!(VALID_PROFILES.contains(&"dns"));
+    assert!(VALID_PROFILES.contains(&"quality"));
+    assert_eq!(VALID_PROFILES.len(), 3);
 }

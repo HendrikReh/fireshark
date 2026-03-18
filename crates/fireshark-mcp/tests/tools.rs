@@ -122,3 +122,63 @@ async fn compare_captures_returns_differences() {
     // The two captures are different, so we should see different packet counts
     assert_ne!(comparison.a_packet_count, comparison.b_packet_count);
 }
+
+#[tokio::test]
+async fn audit_capture_with_no_profile_returns_findings() {
+    let fixture = support::repo_root().join("fixtures/smoke/fuzz-2006-06-26-2594.pcap");
+    let service = ToolService::new_default();
+    let response = service.open_capture(&fixture, None).await.unwrap();
+
+    let findings = service
+        .audit_capture(&response.session_id, None)
+        .await
+        .unwrap();
+
+    // The fuzz fixture should produce at least one finding
+    assert!(!findings.is_empty());
+}
+
+#[tokio::test]
+async fn audit_capture_with_security_profile_filters_findings() {
+    let fixture = support::repo_root().join("fixtures/smoke/fuzz-2006-06-26-2594.pcap");
+    let service = ToolService::new_default();
+    let response = service.open_capture(&fixture, None).await.unwrap();
+
+    let findings = service
+        .audit_capture(&response.session_id, Some("security"))
+        .await
+        .unwrap();
+
+    let security_categories = [
+        "scan_activity",
+        "suspicious_ports",
+        "cleartext_credentials",
+        "connection_anomaly",
+    ];
+
+    for finding in &findings {
+        assert!(
+            security_categories.contains(&finding.category.as_str()),
+            "security profile returned unexpected category: {}",
+            finding.category
+        );
+    }
+}
+
+#[tokio::test]
+async fn audit_capture_with_invalid_profile_returns_error() {
+    let fixture = support::repo_root().join("fixtures/smoke/minimal.pcap");
+    let service = ToolService::new_default();
+    let response = service.open_capture(&fixture, None).await.unwrap();
+
+    let result = service
+        .audit_capture(&response.session_id, Some("bogus"))
+        .await;
+
+    assert!(result.is_err());
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("unknown audit profile"),
+        "error should mention unknown profile, got: {err_msg}"
+    );
+}

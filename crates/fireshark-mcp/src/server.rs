@@ -214,10 +214,10 @@ impl FiresharkMcpServer {
     #[tool(description = "Run the heuristic audit engine for a capture session")]
     async fn audit_capture(
         &self,
-        Parameters(request): Parameters<SessionRequest>,
+        Parameters(request): Parameters<AuditCaptureRequest>,
     ) -> McpResult<FindingListResponse> {
         self.tools
-            .audit_capture(&request.session_id)
+            .audit_capture(&request.session_id, request.profile.as_deref())
             .await
             .map(|findings| Json(FindingListResponse { findings }))
             .map_err(tool_error)
@@ -320,7 +320,8 @@ fn tool_error(error: ToolError) -> ErrorData {
         | error @ ToolError::StreamNotFound { .. } => {
             ErrorData::resource_not_found(error.to_string(), None)
         }
-        error @ ToolError::Session(crate::session::SessionError::LimitReached { .. }) => {
+        error @ ToolError::Session(crate::session::SessionError::LimitReached { .. })
+        | error @ ToolError::InvalidProfile { .. } => {
             ErrorData::invalid_params(error.to_string(), None)
         }
         error @ ToolError::Session(crate::session::SessionError::Analysis(_)) => {
@@ -341,6 +342,13 @@ struct OpenCaptureRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 struct SessionRequest {
     session_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+struct AuditCaptureRequest {
+    session_id: String,
+    /// Audit profile: "security", "dns", or "quality". Omit to run all heuristics.
+    profile: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

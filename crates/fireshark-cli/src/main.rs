@@ -87,6 +87,9 @@ enum Command {
         /// Output as JSONL (one JSON object per line)
         #[arg(long = "json")]
         json: bool,
+        /// Audit profile: security, dns, quality (default: all)
+        #[arg(long = "profile")]
+        profile: Option<String>,
     },
     /// Show all packets in a TCP/UDP conversation by stream ID
     Follow {
@@ -161,9 +164,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             backend,
             max_packets,
             json,
+            profile,
         } => {
             require_native_backend(&backend, "audit")?;
-            audit::run(&path, max_packets, json)?;
+            audit::run(&path, max_packets, json, profile.as_deref())?;
         }
         Command::Follow {
             path,

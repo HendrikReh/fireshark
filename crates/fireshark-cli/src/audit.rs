@@ -4,13 +4,28 @@ use std::path::Path;
 
 use colored::Colorize;
 use fireshark_mcp::analysis::AnalyzedCapture;
-use fireshark_mcp::audit::AuditEngine;
+use fireshark_mcp::audit::{AuditEngine, VALID_PROFILES};
 
 use crate::json::FindingJson;
 
-pub fn run(path: &Path, max_packets: usize, json: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(
+    path: &Path,
+    max_packets: usize,
+    json: bool,
+    profile: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(p) = profile
+        && !VALID_PROFILES.contains(&p)
+    {
+        return Err(format!(
+            "unknown audit profile '{p}'; valid profiles: {}",
+            VALID_PROFILES.join(", ")
+        )
+        .into());
+    }
+
     let capture = AnalyzedCapture::open_with_limit(path, max_packets)?;
-    let findings = AuditEngine::audit(&capture);
+    let findings = AuditEngine::audit_with_profile(&capture, profile);
 
     if json {
         for finding in &findings {
