@@ -18,7 +18,7 @@ impl fmt::Display for DecodeIssueKind {
         match self {
             Self::Truncated => write!(f, "Truncated"),
             Self::Malformed => write!(f, "Malformed"),
-            Self::ChecksumMismatch => write!(f, "ChecksumMismatch"),
+            Self::ChecksumMismatch => write!(f, "Checksum mismatch"),
         }
     }
 }

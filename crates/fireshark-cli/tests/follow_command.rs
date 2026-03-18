@@ -33,5 +33,5 @@ fn follow_command_rejects_tshark_backend() {
         .arg("0");
     cmd.assert()
         .failure()
-        .stderr(contains("does not support the 'follow' command"));
+        .stderr(contains("requires the native backend"));
 }

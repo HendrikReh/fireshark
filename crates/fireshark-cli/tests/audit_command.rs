@@ -32,7 +32,7 @@ fn audit_command_rejects_tshark_backend() {
         .arg(&fixture);
     cmd.assert()
         .failure()
-        .stderr(contains("does not support the 'audit' command"));
+        .stderr(contains("requires the native backend"));
 }
 
 #[test]

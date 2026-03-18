@@ -38,7 +38,7 @@ fn issues_command_rejects_tshark_backend() {
         .arg(&fixture);
     cmd.assert()
         .failure()
-        .stderr(contains("does not support the 'issues' command"));
+        .stderr(contains("requires the native backend"));
 }
 
 #[test]

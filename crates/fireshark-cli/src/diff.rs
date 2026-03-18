@@ -105,8 +105,8 @@ pub fn run(
         );
         println!();
 
-        let packet_delta = result.b_packet_count as isize - result.a_packet_count as isize;
-        let stream_delta = result.b_stream_count as isize - result.a_stream_count as isize;
+        let packet_delta = result.b_packet_count as i64 - result.a_packet_count as i64;
+        let stream_delta = result.b_stream_count as i64 - result.a_stream_count as i64;
         println!("  Packet delta:   {:+}", packet_delta);
         println!("  Stream delta:   {:+}", stream_delta);
 

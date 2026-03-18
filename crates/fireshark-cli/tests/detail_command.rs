@@ -155,5 +155,5 @@ fn detail_command_rejects_tshark_backend() {
         .arg("1");
     cmd.assert()
         .failure()
-        .stderr(contains("does not support the 'detail' command"));
+        .stderr(contains("requires the native backend"));
 }

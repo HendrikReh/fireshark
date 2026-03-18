@@ -1,15 +1,34 @@
 //! Packet summary listing with protocol coloring and optional display filter.
 
 use std::path::Path;
+use std::time::Duration;
 
 use fireshark_backend::{BackendCapture, BackendKind};
-use fireshark_core::TrackingPipeline;
+use fireshark_core::{TrackingPipeline, format_utc};
 use fireshark_dissectors::decode_packet;
 use fireshark_file::CaptureReader;
 
 use crate::color;
 use crate::json::PacketJson;
-use crate::timestamp;
+
+/// Format a single summary line with fixed column widths.
+pub fn format_line(
+    index: usize,
+    timestamp: Option<Duration>,
+    protocol: &str,
+    source: &str,
+    destination: &str,
+    length: usize,
+) -> String {
+    let ts = match timestamp {
+        Some(d) => format_utc(d),
+        None => String::from("-"),
+    };
+    format!(
+        "{:>4}  {:<24}  {:<5}  {:<22} -> {:<22} {:>4}",
+        index, ts, protocol, source, destination, length
+    )
+}
 
 pub fn run(
     path: &Path,
@@ -53,7 +72,7 @@ fn run_native(
         let summary = decoded.summary();
 
         if json {
-            let ts = summary.timestamp.map(timestamp::format_utc);
+            let ts = summary.timestamp.map(format_utc);
             let pkt = PacketJson {
                 index: index + 1,
                 timestamp: ts,
@@ -65,18 +84,13 @@ fn run_native(
             };
             println!("{}", serde_json::to_string(&pkt).unwrap());
         } else {
-            let ts = match summary.timestamp {
-                Some(duration) => timestamp::format_utc(duration),
-                None => String::from("-"),
-            };
-            let line = format!(
-                "{:>4}  {:<24}  {:<5}  {:<22} -> {:<22} {:>4}",
+            let line = format_line(
                 index + 1,
-                ts,
-                summary.protocol,
-                summary.source,
-                summary.destination,
-                summary.length
+                summary.timestamp,
+                &summary.protocol,
+                &summary.source,
+                &summary.destination,
+                summary.length,
             );
             println!("{}", color::colorize(&summary.protocol, &line));
         }
@@ -98,7 +112,7 @@ fn run_tshark(
 
     for packet in capture.packets() {
         if json {
-            let ts = packet.summary.timestamp.map(timestamp::format_utc);
+            let ts = packet.summary.timestamp.map(format_utc);
             let pkt = PacketJson {
                 index: packet.index + 1,
                 timestamp: ts,
@@ -110,18 +124,13 @@ fn run_tshark(
             };
             println!("{}", serde_json::to_string(&pkt).unwrap());
         } else {
-            let ts = match packet.summary.timestamp {
-                Some(duration) => timestamp::format_utc(duration),
-                None => String::from("-"),
-            };
-            let line = format!(
-                "{:>4}  {:<24}  {:<5}  {:<22} -> {:<22} {:>4}",
+            let line = format_line(
                 packet.index + 1,
-                ts,
-                packet.summary.protocol,
-                packet.summary.source,
-                packet.summary.destination,
-                packet.summary.length
+                packet.summary.timestamp,
+                &packet.summary.protocol,
+                &packet.summary.source,
+                &packet.summary.destination,
+                packet.summary.length,
             );
             println!("{}", color::colorize(&packet.summary.protocol, &line));
         }

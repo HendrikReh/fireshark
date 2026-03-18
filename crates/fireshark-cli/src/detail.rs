@@ -4,13 +4,12 @@ use std::io::{self, Write};
 use std::path::Path;
 
 use colored::Colorize;
-use fireshark_core::{DecodedFrame, LayerSpan, Pipeline};
+use fireshark_core::{DecodedFrame, LayerSpan, Pipeline, format_utc};
 use fireshark_dissectors::decode_packet;
 use fireshark_file::CaptureReader;
 
 use crate::hexdump;
 use crate::render;
-use crate::timestamp;
 
 pub fn run(path: &Path, packet_number: usize) -> Result<(), Box<dyn std::error::Error>> {
     if packet_number == 0 {
@@ -50,7 +49,7 @@ fn render_header<W: Write>(
 ) -> io::Result<()> {
     let len = decoded.frame().captured_len();
     let ts = match decoded.frame().timestamp() {
-        Some(d) => timestamp::format_utc(d),
+        Some(d) => format_utc(d),
         None => String::from("-"),
     };
     writeln!(w, "Packet {packet_number} · {len} bytes · {ts}")?;
@@ -62,12 +61,13 @@ fn render_layer_tree<W: Write>(w: &mut W, decoded: &DecodedFrame) -> io::Result<
         render::render_layer(w, layer)?;
     }
     for issue in decoded.packet().issues() {
-        let kind = match issue.kind() {
-            fireshark_core::DecodeIssueKind::Truncated => "Truncated",
-            fireshark_core::DecodeIssueKind::Malformed => "Malformed",
-            fireshark_core::DecodeIssueKind::ChecksumMismatch => "Checksum mismatch",
-        };
-        writeln!(w, "{} {} at offset {}", "⚠".red(), kind, issue.offset())?;
+        writeln!(
+            w,
+            "{} {} at offset {}",
+            "⚠".red(),
+            issue.kind(),
+            issue.offset()
+        )?;
     }
     Ok(())
 }

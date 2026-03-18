@@ -8,7 +8,6 @@ use fireshark_dissectors::decode_packet;
 use fireshark_file::CaptureReader;
 
 use crate::color;
-use crate::timestamp;
 
 pub fn run(path: &Path, stream_id: u32) -> Result<(), Box<dyn std::error::Error>> {
     let reader = CaptureReader::open(path)?;
@@ -73,13 +72,13 @@ pub fn run(path: &Path, stream_id: u32) -> Result<(), Box<dyn std::error::Error>
     // Print packets belonging to this stream.
     for (index, decoded) in &frames {
         let summary = decoded.summary();
-        let ts = match summary.timestamp {
-            Some(d) => timestamp::format_utc(d),
-            None => String::from("-"),
-        };
-        let line = format!(
-            "{:>4}  {:<24}  {:<5}  {:<22} -> {:<22} {:>4}",
-            index, ts, summary.protocol, summary.source, summary.destination, summary.length,
+        let line = crate::summary::format_line(
+            *index,
+            summary.timestamp,
+            &summary.protocol,
+            &summary.source,
+            &summary.destination,
+            summary.length,
         );
         println!("{}", color::colorize(&summary.protocol, &line));
     }

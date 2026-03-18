@@ -9,11 +9,11 @@ mod json;
 mod render;
 mod stats;
 mod summary;
-mod timestamp;
 
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
+use fireshark_backend::BackendKind;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -123,14 +123,19 @@ enum Command {
     },
 }
 
-fn require_native_backend(
-    backend: &str,
-    command_name: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if backend != "native" {
-        return Err(
-            format!("backend '{backend}' does not support the '{command_name}' command").into(),
-        );
+/// Parse a backend string into a [`BackendKind`], rejecting unknown values.
+fn parse_backend(backend: &str) -> Result<BackendKind, Box<dyn std::error::Error>> {
+    backend
+        .parse::<BackendKind>()
+        .map_err(|e| -> Box<dyn std::error::Error> { e.into() })
+}
+
+/// Parse and validate that the backend is native, rejecting both unknown
+/// values and the tshark backend for native-only commands.
+fn require_native(backend: &str, command_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let kind = parse_backend(backend)?;
+    if kind != BackendKind::Native {
+        return Err(format!("the '{command_name}' command requires the native backend").into());
     }
     Ok(())
 }
@@ -150,7 +155,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             packet,
             backend,
         } => {
-            require_native_backend(&backend, "detail")?;
+            require_native(&backend, "detail")?;
             detail::run(&path, packet)?;
         }
         Command::Stats {
@@ -163,7 +168,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             backend,
             json,
         } => {
-            require_native_backend(&backend, "issues")?;
+            require_native(&backend, "issues")?;
             issues::run(&path, json)?;
         }
         Command::Audit {
@@ -173,7 +178,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             json,
             profile,
         } => {
-            require_native_backend(&backend, "audit")?;
+            require_native(&backend, "audit")?;
             audit::run(&path, max_packets, json, profile.as_deref())?;
         }
         Command::Follow {
@@ -183,10 +188,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             payload,
             http,
         } => {
+            // Validate the backend string up front (reject unknown values).
+            let kind = match backend.as_deref() {
+                Some(b) => Some(parse_backend(b)?),
+                None => None,
+            };
+
             if payload || http {
                 // --payload and --http imply tshark. Error only if user
                 // explicitly chose native.
-                if backend.as_deref() == Some("native") {
+                if kind == Some(BackendKind::Native) {
                     let flag = if payload { "--payload" } else { "--http" };
                     return Err(format!(
                         "{flag} requires the tshark backend; use --backend tshark or omit --backend"
@@ -195,8 +206,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 follow::run_reassembly(&path, stream, payload, http)?;
             } else {
-                let backend_str = backend.as_deref().unwrap_or("native");
-                require_native_backend(backend_str, "follow")?;
+                if kind.is_some() && kind != Some(BackendKind::Native) {
+                    return Err("the 'follow' command requires the native backend".into());
+                }
                 follow::run(&path, stream)?;
             }
         }

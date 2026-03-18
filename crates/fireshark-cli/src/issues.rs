@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use colored::Colorize;
-use fireshark_core::{DecodeIssueKind, Pipeline};
+use fireshark_core::Pipeline;
 use fireshark_dissectors::decode_packet;
 use fireshark_file::CaptureReader;
 
@@ -29,12 +29,8 @@ pub fn run(path: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
         decoded_packet_count += 1;
 
         for issue in decoded.packet().issues() {
-            let kind = match issue.kind() {
-                DecodeIssueKind::Truncated => "Truncated",
-                DecodeIssueKind::Malformed => "Malformed",
-                DecodeIssueKind::ChecksumMismatch => "Checksum mismatch",
-            };
-            issues.push((frame_index, kind.to_string(), issue.offset()));
+            let kind = issue.kind().to_string();
+            issues.push((frame_index, kind, issue.offset()));
         }
     }
 
@@ -54,9 +50,7 @@ pub fn run(path: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
         for (packet_num, kind, offset) in &issues {
             let kind_colored = match kind.as_str() {
                 "Malformed" => kind.red().to_string(),
-                "Truncated" => kind.yellow().to_string(),
-                "Checksum mismatch" => kind.yellow().to_string(),
-                _ => kind.to_string(),
+                _ => kind.yellow().to_string(),
             };
             println!("  Packet {packet_num:<5} {kind_colored:<10} at offset {offset}");
         }
