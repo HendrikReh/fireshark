@@ -2,7 +2,9 @@
 
 Real-world packet captures from "Practical Packet Analysis, 3rd Edition" by Chris Sanders.
 
-These captures are NOT committed to git (110MB total). To obtain them, purchase the book or download the exercise files from the publisher's website.
+These captures are NOT committed to git (110MB total). Download them from:
+
+**https://nostarch.com/packetanalysis3/**
 
 ## Usage
 
