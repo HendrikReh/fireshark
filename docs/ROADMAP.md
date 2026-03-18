@@ -13,7 +13,7 @@ Fireshark is an MCP-first packet analyzer. The LLM is the analyst — the MCP se
 1. **v0.3:** Packet intelligence — protocols, fields, filters, audit heuristics
 2. **v0.4:** Application intelligence — what domains? what services?
 3. **v0.5:** Conversation intelligence — who talked to whom? how?
-4. **v0.5.2:** Backend abstraction — tshark as optional oracle, differential testing
+4. **v0.6.0:** Backend abstraction — tshark as optional oracle, differential testing
 5. **v0.6 (current):** Security analyst platform — comparison, export, checksums, certificates
 6. **v0.7:** Content intelligence — string filters, HTTP, audit profiles
 7. **v1.0:** Real-time intelligence — live capture
@@ -51,7 +51,7 @@ Delivered: 10 protocol dissectors (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP wit
 | `summarize_capture` MCP tool — single-call capture overview | **Done** |
 | Connection anomaly audit (incomplete handshake, RST storm, half-open) | **Done** |
 
-## v0.5.2 — tshark backend (COMPLETE)
+## v0.6.0 — tshark backend (COMPLETE)
 
 Optional `tshark` subprocess backend for offline capture analysis. The native Rust pipeline remains the default. tshark expands protocol coverage and provides a correctness oracle for differential testing.
 
@@ -124,4 +124,4 @@ JSON export, checksum validation, and capture comparison delivered. Certificate 
 
 ---
 
-**Version:** 0.5.2 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.6.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

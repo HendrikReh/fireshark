@@ -211,4 +211,4 @@ The file does not have a valid pcap or pcapng magic number. Ensure the file is n
 
 ---
 
-**Version:** 0.5.2 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.6.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

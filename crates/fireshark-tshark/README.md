@@ -34,4 +34,4 @@ No JSON dependency -- TSV parsing is simple and version-stable.
 
 ---
 
-**Version:** 0.5.2 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.6.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

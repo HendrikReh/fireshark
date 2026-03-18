@@ -496,11 +496,11 @@ Delivered the foundational offline analysis stack:
 - **Complete:** Security audit heuristics: decode issues, unknown traffic, scan detection, suspicious ports, cleartext credential exposure, DNS tunneling detection, connection anomalies
 - **Complete:** Fuzz testing infrastructure with two targets
 
-### Walk (Active -- v0.5.2 + v0.6)
+### Walk (Active -- v0.6.0 + v0.6)
 
 Adds backend abstraction, comparison, export, and checksum validation:
 
-- **Complete:** tshark subprocess backend with differential testing (v0.5.2)
+- **Complete:** tshark subprocess backend with differential testing (v0.6.0)
 - **Complete:** JSON export -- `--json` flag on `summary`, `stats`, `issues`, `audit` for JSONL output (v0.6)
 - **Complete:** Checksum validation -- IPv4 header, TCP, UDP checksums; `DecodeIssueKind::ChecksumMismatch`; zero checksums (NIC offload) skipped (v0.6)
 - **Complete:** Capture comparison -- `diff` CLI command + `compare_captures` MCP tool (v0.6)
@@ -519,4 +519,4 @@ Enables analyst workflows:
 
 ---
 
-**Version:** 0.5.2 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.6.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
