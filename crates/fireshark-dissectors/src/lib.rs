@@ -41,6 +41,10 @@ pub(crate) struct NetworkPayload<'a> {
     pub(crate) payload_offset: usize,
     /// Soft decode issues (e.g., declared length exceeds captured bytes).
     pub(crate) issues: Vec<DecodeIssue>,
+    /// True if this is a non-initial fragment (IPv4 fragment_offset > 0 or
+    /// IPv6 Fragment header with offset > 0). Transport decode should be
+    /// suppressed because the payload is fragment data, not a transport header.
+    pub(crate) is_non_initial_fragment: bool,
 }
 
 pub fn decode_packet(bytes: &[u8]) -> Result<Packet, DecodeError> {
@@ -138,9 +142,9 @@ enum ChecksumAddrs {
     V6(Ipv6Addr, Ipv6Addr),
 }
 
-/// Common checksum preamble: locate the checksum field, skip zero checksums.
-/// Returns `None` if validation should be skipped.
-fn read_transport_checksum(protocol: u8, transport_bytes: &[u8]) -> Option<u16> {
+/// Locate the transport checksum field and read it.
+/// Returns `None` if transport data is too short or protocol is unrecognized.
+fn locate_checksum(protocol: u8, transport_bytes: &[u8]) -> Option<u16> {
     if transport_bytes.len() < 8 {
         return None;
     }
@@ -152,17 +156,10 @@ fn read_transport_checksum(protocol: u8, transport_bytes: &[u8]) -> Option<u16> 
     if transport_bytes.len() < checksum_offset + 2 {
         return None;
     }
-    let checksum = u16::from_be_bytes([
+    Some(u16::from_be_bytes([
         transport_bytes[checksum_offset],
         transport_bytes[checksum_offset + 1],
-    ]);
-    // UDP checksum 0 means "not computed" (IPv4 only, but also skip for IPv6
-    // NIC offload). TCP checksum 0 is technically invalid but skip to avoid
-    // false positives from NIC offload.
-    if checksum == 0 {
-        return None;
-    }
-    Some(checksum)
+    ]))
 }
 
 /// Fold and verify a ones' complement checksum sum.
@@ -199,7 +196,13 @@ fn validate_transport_checksum_v4(
     transport_offset: usize,
     issues: &mut Vec<DecodeIssue>,
 ) {
-    if read_transport_checksum(protocol, transport_bytes).is_none() {
+    let Some(checksum) = locate_checksum(protocol, transport_bytes) else {
+        return;
+    };
+    // IPv4 UDP checksum 0 means "not computed" — skip (RFC 768).
+    // TCP checksum 0 is technically invalid but skip to avoid false
+    // positives from NIC offload.
+    if checksum == 0 {
         return;
     }
     let mut sum: u32 = 0;
@@ -217,6 +220,10 @@ fn validate_transport_checksum_v4(
 /// Validate TCP or UDP checksum using the IPv6 pseudo-header (RFC 8200 §8.1).
 ///
 /// Pseudo-header: src (16) + dst (16) + upper-layer length (4) + zeros (3) + next-header (1).
+///
+/// Unlike IPv4, IPv6 UDP checksum=0 is invalid (RFC 8200 §8.1: "IPv6 receivers
+/// MUST discard UDP packets containing a zero checksum"). We flag it as a
+/// checksum mismatch. TCP checksum=0 is also invalid but skipped for NIC offload.
 fn validate_transport_checksum_v6(
     source: Ipv6Addr,
     destination: Ipv6Addr,
@@ -225,7 +232,15 @@ fn validate_transport_checksum_v6(
     transport_offset: usize,
     issues: &mut Vec<DecodeIssue>,
 ) {
-    if read_transport_checksum(protocol, transport_bytes).is_none() {
+    let Some(checksum) = locate_checksum(protocol, transport_bytes) else {
+        return;
+    };
+    if checksum == 0 {
+        if protocol == 17 {
+            // IPv6 UDP checksum=0 is invalid (RFC 8200 §8.1).
+            issues.push(DecodeIssue::checksum_mismatch(transport_offset));
+        }
+        // TCP checksum=0: skip for NIC offload tolerance.
         return;
     }
     let mut sum: u32 = 0;
@@ -258,30 +273,29 @@ fn append_network_layer(
             payload,
             payload_offset,
             issues: network_issues,
+            is_non_initial_fragment,
         }) => {
             let network_span = LayerSpan {
                 offset: layer_offset,
                 len: payload_offset - layer_offset,
             };
-            let transport_header_available = match &layer {
-                Layer::Ipv4(layer) => layer.fragment_offset == 0,
-                _ => true,
-            };
             // Extract fields needed for transport checksum validation before
             // the layer is moved into the layers vec. Skip checksum validation
-            // on first fragments (MF set) because the transport segment is
-            // incomplete — the checksum covers the full reassembled segment.
+            // on fragments (MF set for IPv4, or any non-initial fragment)
+            // because the transport segment is incomplete.
             let checksum_addrs: Option<ChecksumAddrs> = match &layer {
-                Layer::Ipv4(ipv4) if !ipv4.more_fragments => {
+                Layer::Ipv4(ipv4) if !ipv4.more_fragments && !is_non_initial_fragment => {
                     Some(ChecksumAddrs::V4(ipv4.source, ipv4.destination))
                 }
-                Layer::Ipv6(ipv6) => Some(ChecksumAddrs::V6(ipv6.source, ipv6.destination)),
+                Layer::Ipv6(ipv6) if !is_non_initial_fragment => {
+                    Some(ChecksumAddrs::V6(ipv6.source, ipv6.destination))
+                }
                 _ => None,
             };
             layers.push(layer);
             spans.push(network_span);
             issues.extend(network_issues);
-            if payload.is_empty() || !transport_header_available {
+            if payload.is_empty() || is_non_initial_fragment {
                 return;
             }
             let parse_transport =

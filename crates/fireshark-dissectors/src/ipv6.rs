@@ -7,16 +7,19 @@ use crate::{DecodeError, NetworkPayload};
 pub const ETHER_TYPE: u16 = 0x86dd;
 const HEADER_LEN: usize = 40;
 
-/// IPv6 extension header next-header values that must be skipped to reach
-/// the transport layer (RFC 8200 §4).
-fn is_extension_header(next_header: u8) -> bool {
+/// IPv6 extension headers whose format allows skipping to the next header.
+///
+/// ESP (50) and AH (51) are NOT included:
+/// - ESP payload is encrypted; next_header is only in the encrypted trailer.
+/// - AH uses a different length formula: `(hdr_ext_len + 2) * 4`, not the
+///   standard `(hdr_ext_len + 1) * 8`. Since fireshark does not decode IPsec,
+///   encountering ESP or AH stops the extension header walk.
+fn is_skippable_extension(next_header: u8) -> bool {
     matches!(
         next_header,
         0  |  // Hop-by-Hop Options
         43 |  // Routing
         44 |  // Fragment
-        50 |  // Encapsulating Security Payload (ESP)
-        51 |  // Authentication Header (AH)
         60 // Destination Options
     )
 }
@@ -57,31 +60,45 @@ pub fn parse(bytes: &[u8], layer_offset: usize) -> Result<NetworkPayload<'_>, De
     }
 
     // Walk the extension header chain to find the real transport protocol.
-    // Each extension header has: next_header (1 byte) + hdr_ext_len (1 byte)
+    // Each generic extension header has: next_header (1 byte) + hdr_ext_len (1 byte)
     // where the total length is (hdr_ext_len + 1) * 8 bytes.
-    // Fragment headers are a special case: always 8 bytes, no hdr_ext_len scaling.
+    // Fragment headers are a special case: always 8 bytes.
     let mut ext_offset = HEADER_LEN;
+    let mut is_non_initial_fragment = false;
+
     for _ in 0..MAX_EXT_HEADERS {
-        if !is_extension_header(next_header) {
+        if !is_skippable_extension(next_header) {
             break;
         }
-        // Need at least 2 bytes for next_header + hdr_ext_len
+        // Need at least 2 bytes for next_header + hdr_ext_len (or fragment fields)
         if ext_offset + 2 > payload_end {
             break;
         }
         let ext_next = bytes[ext_offset];
-        let ext_len = if next_header == 44 {
+
+        if next_header == 44 {
             // Fragment header: fixed 8 bytes
-            8
+            // Byte layout: next_header(1) + reserved(1) + frag_offset_flags(2) + identification(4)
+            if ext_offset + 8 > payload_end {
+                break;
+            }
+            let frag_offset_flags =
+                u16::from_be_bytes([bytes[ext_offset + 2], bytes[ext_offset + 3]]);
+            let fragment_offset = frag_offset_flags >> 3;
+            if fragment_offset != 0 {
+                is_non_initial_fragment = true;
+            }
+            next_header = ext_next;
+            ext_offset += 8;
         } else {
-            // All other extension headers: (hdr_ext_len + 1) * 8
-            (usize::from(bytes[ext_offset + 1]) + 1) * 8
-        };
-        if ext_offset + ext_len > payload_end {
-            break;
+            // Generic extension header: (hdr_ext_len + 1) * 8
+            let ext_len = (usize::from(bytes[ext_offset + 1]) + 1) * 8;
+            if ext_offset + ext_len > payload_end {
+                break;
+            }
+            next_header = ext_next;
+            ext_offset += ext_len;
         }
-        next_header = ext_next;
-        ext_offset += ext_len;
     }
 
     Ok(NetworkPayload {
@@ -97,5 +114,6 @@ pub fn parse(bytes: &[u8], layer_offset: usize) -> Result<NetworkPayload<'_>, De
         payload: &bytes[ext_offset..payload_end],
         payload_offset: layer_offset + ext_offset,
         issues,
+        is_non_initial_fragment,
     })
 }

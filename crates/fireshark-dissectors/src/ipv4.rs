@@ -97,5 +97,6 @@ pub fn parse(bytes: &[u8], layer_offset: usize) -> Result<NetworkPayload<'_>, De
         payload: &bytes[header_len..payload_end],
         payload_offset: layer_offset + header_len,
         issues,
+        is_non_initial_fragment: fragment_offset != 0,
     })
 }
