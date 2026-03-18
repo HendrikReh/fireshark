@@ -116,7 +116,7 @@ fn extract_hosts(endpoint_counts: &[(String, usize)]) -> BTreeMap<String, usize>
 /// - `192.168.1.2:51514` -> `192.168.1.2`
 /// - `[::1]:443` -> `::1`
 /// - `192.168.1.2` -> `192.168.1.2` (no port)
-fn extract_host(endpoint: &str) -> String {
+pub fn extract_host(endpoint: &str) -> String {
     if let Some(rest) = endpoint.strip_prefix('[') {
         // Bracketed IPv6: [addr]:port
         if let Some(bracket_pos) = rest.find(']') {
@@ -169,7 +169,7 @@ fn extract_ports(capture: &BackendCapture) -> BTreeMap<u16, usize> {
 /// - `192.168.1.2:443` -> Some(443)
 /// - `[::1]:443` -> Some(443)
 /// - `192.168.1.2` -> None
-fn extract_port(addr: &str) -> Option<u16> {
+pub fn extract_port(addr: &str) -> Option<u16> {
     if let Some(rest) = addr.strip_prefix('[') {
         // Bracketed IPv6: [addr]:port
         if let Some(bracket_pos) = rest.find(']') {

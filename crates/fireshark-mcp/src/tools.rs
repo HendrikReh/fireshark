@@ -544,55 +544,15 @@ fn compare_analyzed_captures(a: &AnalyzedCapture, b: &AnalyzedCapture) -> Captur
     }
 }
 
-fn extract_host_from_endpoint(endpoint: &str) -> String {
-    if let Some(rest) = endpoint.strip_prefix('[')
-        && let Some(bracket_pos) = rest.find(']')
-    {
-        return rest[..bracket_pos].to_string();
-    }
-
-    if let Some(colon_pos) = endpoint.rfind(':') {
-        let maybe_port = &endpoint[colon_pos + 1..];
-        if maybe_port.parse::<u16>().is_ok() {
-            let before = &endpoint[..colon_pos];
-            if !before.contains(':') {
-                return before.to_string();
-            }
-        }
-    }
-
-    endpoint.to_string()
-}
-
 fn extract_hosts_from_btree(
     endpoint_counts: &std::collections::BTreeMap<String, usize>,
 ) -> std::collections::BTreeMap<String, usize> {
     let mut hosts = std::collections::BTreeMap::new();
     for (endpoint, count) in endpoint_counts {
-        let host = extract_host_from_endpoint(endpoint);
+        let host = fireshark_backend::compare::extract_host(endpoint);
         *hosts.entry(host).or_default() += count;
     }
     hosts
-}
-
-fn extract_port_from_addr(addr: &str) -> Option<u16> {
-    if let Some(rest) = addr.strip_prefix('[') {
-        if let Some(bracket_pos) = rest.find(']') {
-            let after = &rest[bracket_pos + 1..];
-            return after.strip_prefix(':').and_then(|s| s.parse().ok());
-        }
-        return None;
-    }
-
-    if let Some(colon_pos) = addr.rfind(':') {
-        let before = &addr[..colon_pos];
-        let port_str = &addr[colon_pos + 1..];
-        if !before.contains(':') {
-            return port_str.parse().ok();
-        }
-    }
-
-    None
 }
 
 fn extract_ports_from_packets(capture: &AnalyzedCapture) -> std::collections::BTreeMap<u16, usize> {
@@ -600,7 +560,7 @@ fn extract_ports_from_packets(capture: &AnalyzedCapture) -> std::collections::BT
     for packet in capture.packets() {
         let summary = packet.summary();
         for addr in [&summary.source, &summary.destination] {
-            if let Some(port) = extract_port_from_addr(addr) {
+            if let Some(port) = fireshark_backend::compare::extract_port(addr) {
                 *ports.entry(port).or_default() += 1;
             }
         }

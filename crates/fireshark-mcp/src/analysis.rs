@@ -49,7 +49,7 @@ impl AnalyzedCapture {
                 Err(PipelineError::Frame(e)) => return Err(AnalysisError::Capture(e)),
             };
             packets.push(frame);
-            if packets.len() > max_packets {
+            if packets.len() >= max_packets {
                 return Err(AnalysisError::TooLarge { max_packets });
             }
         }

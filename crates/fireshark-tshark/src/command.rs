@@ -26,6 +26,12 @@ pub const FIELD_NAMES: &[&str] = &[
 /// Run tshark with `-T fields` output on the given capture file.
 ///
 /// Returns the raw TSV stdout (header line + one data line per packet).
+///
+/// # Safety
+///
+/// `capture_path` is passed to `Command::arg`, which hands it directly to
+/// `execve` without shell interpretation. This is safe from command injection
+/// even if the path contains spaces, semicolons, or other shell metacharacters.
 pub fn run_fields(tshark_path: &Path, capture_path: &Path) -> Result<String, TsharkError> {
     let mut cmd = Command::new(tshark_path);
     cmd.arg("-r").arg(capture_path);

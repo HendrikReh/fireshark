@@ -11,6 +11,8 @@ use crate::TsharkError;
 ///
 /// Runs tshark with a display filter for TLS Certificate handshake messages
 /// and extracts subject/SAN fields via `-T fields`.
+///
+/// Paths are passed via `Command::arg` (no shell), so injection is not possible.
 pub fn extract_certificates(
     tshark_path: &Path,
     capture_path: &Path,

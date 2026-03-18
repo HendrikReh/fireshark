@@ -142,7 +142,7 @@ impl SessionManager {
             });
         }
 
-        let id = format!("session-{}", self.next_id);
+        let id = generate_session_id(self.next_id);
         self.next_id += 1;
 
         let capture_path = path.as_ref().to_path_buf();
@@ -169,7 +169,9 @@ impl SessionManager {
     /// [`check_limit`] before performing the expensive I/O that produced
     /// `capture`.
     pub fn insert(&mut self, capture: AnalyzedCapture) -> String {
-        let id = format!("session-{}", self.next_id);
+        self.expire_idle();
+
+        let id = generate_session_id(self.next_id);
         self.next_id += 1;
 
         let session = CaptureSession::new(id.clone(), capture);
@@ -180,7 +182,9 @@ impl SessionManager {
 
     /// Insert a pre-built `AnalyzedCapture` with a known file path.
     pub fn insert_with_path(&mut self, capture: AnalyzedCapture, path: PathBuf) -> String {
-        let id = format!("session-{}", self.next_id);
+        self.expire_idle();
+
+        let id = generate_session_id(self.next_id);
         self.next_id += 1;
 
         let session = CaptureSession::with_path(id.clone(), capture, path);
@@ -209,6 +213,21 @@ impl SessionManager {
         self.sessions
             .retain(|_, session| session.last_accessed.elapsed() < idle_timeout);
     }
+}
+
+/// Generate a session ID that is hard to guess.
+///
+/// Combines a monotonic counter with the current timestamp to produce a
+/// hex string like `s-1-660abc12`. Not cryptographically random, but
+/// unpredictable enough to prevent casual session-ID guessing over stdio.
+fn generate_session_id(counter: u64) -> String {
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0);
+    // Mix counter and timestamp into a single value
+    let mixed = counter.wrapping_mul(6364136223846793005).wrapping_add(ts);
+    format!("s-{counter}-{mixed:08x}")
 }
 
 /// Format the current wall-clock time as a simple epoch-seconds string.

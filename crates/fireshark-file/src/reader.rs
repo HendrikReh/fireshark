@@ -62,27 +62,33 @@ fn read_magic_prefix<R: Read>(reader: &mut R) -> Result<[u8; 4], CaptureError> {
     }
 }
 
+fn build_frame(
+    captured_len: usize,
+    original_len: usize,
+    timestamp: Option<std::time::Duration>,
+) -> Result<fireshark_core::FrameBuilder, CaptureError> {
+    let mut builder = Frame::builder()
+        .captured_len(captured_len)
+        .original_len(original_len)
+        .protocol("UNKNOWN");
+    if let Some(ts) = timestamp {
+        builder = builder.timestamp(ts);
+    }
+    Ok(builder)
+}
+
 impl Iterator for CaptureReader {
     type Item = Result<Frame, CaptureError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.inner {
             ReaderKind::Pcap(reader) => reader.next_packet().map(|packet| {
-                packet
-                    .map(|packet| {
-                        let captured_len = packet.data.len();
-                        let original_len = (packet.orig_len as usize).max(captured_len);
-                        Frame::builder()
-                            .captured_len(captured_len)
-                            .original_len(original_len)
-                            .timestamp(packet.timestamp)
-                            .data(packet.data.into_owned())
-                            .protocol("UNKNOWN")
-                            .build()
-                            // Safety: captured_len == data.len() by construction and
-                            // original_len >= captured_len via .max() above.
-                            .expect("pcap reader builds consistent frames")
-                    })
+                let packet = packet?;
+                let captured_len = packet.data.len();
+                let original_len = (packet.orig_len as usize).max(captured_len);
+                build_frame(captured_len, original_len, Some(packet.timestamp))?
+                    .data(packet.data.into_owned())
+                    .build()
                     .map_err(CaptureError::from)
             }),
             ReaderKind::PcapNg(reader) => loop {
@@ -91,29 +97,23 @@ impl Iterator for CaptureReader {
                     Ok(Block::EnhancedPacket(packet)) => {
                         let captured_len = packet.data.len();
                         let original_len = (packet.original_len as usize).max(captured_len);
-                        return Some(Ok(Frame::builder()
-                            .captured_len(captured_len)
-                            .original_len(original_len)
-                            .timestamp(packet.timestamp)
-                            .data(packet.data.into_owned())
-                            .protocol("UNKNOWN")
-                            .build()
-                            // Safety: captured_len == data.len() by construction and
-                            // original_len >= captured_len via .max() above.
-                            .expect("pcapng reader builds consistent frames")));
+                        return Some(
+                            build_frame(captured_len, original_len, Some(packet.timestamp))
+                                .and_then(|b| {
+                                    b.data(packet.data.into_owned())
+                                        .build()
+                                        .map_err(CaptureError::from)
+                                }),
+                        );
                     }
                     Ok(Block::SimplePacket(packet)) => {
                         let captured_len = packet.data.len();
                         let original_len = (packet.original_len as usize).max(captured_len);
-                        return Some(Ok(Frame::builder()
-                            .captured_len(captured_len)
-                            .original_len(original_len)
-                            .data(packet.data.into_owned())
-                            .protocol("UNKNOWN")
-                            .build()
-                            // Safety: captured_len == data.len() by construction and
-                            // original_len >= captured_len via .max() above.
-                            .expect("pcapng reader builds consistent frames")));
+                        return Some(build_frame(captured_len, original_len, None).and_then(|b| {
+                            b.data(packet.data.into_owned())
+                                .build()
+                                .map_err(CaptureError::from)
+                        }));
                     }
                     Ok(_) => continue,
                     Err(error) => return Some(Err(CaptureError::from(error))),

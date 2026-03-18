@@ -11,6 +11,9 @@ pub enum CaptureError {
     #[error("failed to parse capture file")]
     Parse(#[from] pcap_file::PcapError),
 
+    #[error("inconsistent frame metadata: {0}")]
+    FrameBuild(#[from] fireshark_core::FrameBuildError),
+
     #[error("unsupported capture file format")]
     UnsupportedFormat,
 

@@ -14,6 +14,8 @@ use crate::TsharkError;
 ///
 /// For [`FollowMode::Http`], runs `tshark -z follow,http,ascii,<stream_id> -q`
 /// and collects ASCII payload lines.
+///
+/// Paths are passed via `Command::arg` (no shell), so injection is not possible.
 pub fn follow_stream(
     tshark_path: &Path,
     capture_path: &Path,
