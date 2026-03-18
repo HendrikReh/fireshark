@@ -486,6 +486,36 @@ impl LayerView {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CaptureComparisonView {
+    pub a_packet_count: usize,
+    pub b_packet_count: usize,
+    pub a_stream_count: usize,
+    pub b_stream_count: usize,
+    pub new_hosts: Vec<HostDiffView>,
+    pub missing_hosts: Vec<HostDiffView>,
+    pub new_protocols: Vec<ProtocolDiffView>,
+    pub new_ports: Vec<PortDiffView>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct HostDiffView {
+    pub host: String,
+    pub count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ProtocolDiffView {
+    pub name: String,
+    pub count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct PortDiffView {
+    pub port: u16,
+    pub count: usize,
+}
+
 pub fn format_issue_kind(kind: &DecodeIssueKind) -> String {
     match kind {
         DecodeIssueKind::Truncated => "truncated",

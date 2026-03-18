@@ -52,3 +52,38 @@ pub struct FindingJson {
     pub title: String,
     pub evidence_count: usize,
 }
+
+#[derive(Serialize)]
+pub struct DiffJson {
+    pub file_a: DiffFileJson,
+    pub file_b: DiffFileJson,
+    pub new_hosts: Vec<HostDiffJson>,
+    pub missing_hosts: Vec<HostDiffJson>,
+    pub new_protocols: Vec<ProtocolDiffJson>,
+    pub new_ports: Vec<PortDiffJson>,
+}
+
+#[derive(Serialize)]
+pub struct DiffFileJson {
+    pub path: String,
+    pub packet_count: usize,
+    pub stream_count: usize,
+}
+
+#[derive(Serialize)]
+pub struct HostDiffJson {
+    pub host: String,
+    pub count: usize,
+}
+
+#[derive(Serialize)]
+pub struct ProtocolDiffJson {
+    pub name: String,
+    pub count: usize,
+}
+
+#[derive(Serialize)]
+pub struct PortDiffJson {
+    pub port: u16,
+    pub count: usize,
+}

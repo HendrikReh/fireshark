@@ -9,9 +9,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::model::{
-    CaptureDescriptionView, CaptureSummaryView, CloseCaptureResponse, DecodeIssueListResponse,
-    EndpointListResponse, FindingListResponse, OpenCaptureResponse, PacketDetailView,
-    PacketListResponse, ProtocolSummaryResponse, StreamListResponse, StreamPacketsResponse,
+    CaptureComparisonView, CaptureDescriptionView, CaptureSummaryView, CloseCaptureResponse,
+    DecodeIssueListResponse, EndpointListResponse, FindingListResponse, OpenCaptureResponse,
+    PacketDetailView, PacketListResponse, ProtocolSummaryResponse, StreamListResponse,
+    StreamPacketsResponse,
 };
 use crate::query::PacketSearch;
 use crate::tools::{ToolError, ToolService};
@@ -291,6 +292,18 @@ impl FiresharkMcpServer {
             .map(Json)
             .map_err(tool_error)
     }
+
+    #[tool(description = "Compare two capture sessions and identify differences")]
+    async fn compare_captures(
+        &self,
+        Parameters(request): Parameters<CompareCapturesRequest>,
+    ) -> McpResult<CaptureComparisonView> {
+        self.tools
+            .compare_captures(&request.session_id_a, &request.session_id_b)
+            .await
+            .map(Json)
+            .map_err(tool_error)
+    }
 }
 
 pub async fn run_stdio() -> Result<(), Box<dyn std::error::Error>> {
@@ -398,4 +411,10 @@ struct ListStreamsRequest {
 struct GetStreamRequest {
     session_id: String,
     stream_id: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+struct CompareCapturesRequest {
+    session_id_a: String,
+    session_id_b: String,
 }

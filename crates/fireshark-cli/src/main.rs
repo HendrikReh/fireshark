@@ -1,6 +1,7 @@
 mod audit;
 mod color;
 mod detail;
+mod diff;
 mod follow;
 mod hexdump;
 mod issues;
@@ -97,6 +98,19 @@ enum Command {
         #[arg(long = "backend", default_value = "native")]
         backend: String,
     },
+    /// Compare two capture files and show differences
+    Diff {
+        /// First capture file (baseline)
+        path_a: PathBuf,
+        /// Second capture file (to compare)
+        path_b: PathBuf,
+        /// Analysis backend: native (default) or tshark
+        #[arg(long = "backend", default_value = "native")]
+        backend: String,
+        /// Output as JSON
+        #[arg(long = "json")]
+        json: bool,
+    },
 }
 
 fn require_native_backend(
@@ -159,6 +173,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             require_native_backend(&backend, "follow")?;
             follow::run(&path, stream)?;
         }
+        Command::Diff {
+            path_a,
+            path_b,
+            backend,
+            json,
+        } => diff::run(&path_a, &path_b, &backend, json)?,
     }
 
     Ok(())

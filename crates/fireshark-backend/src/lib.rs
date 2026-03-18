@@ -5,6 +5,7 @@
 
 mod backend;
 mod capture;
+pub mod compare;
 mod native;
 mod tshark;
 
@@ -12,3 +13,4 @@ pub use backend::{BackendCapabilities, BackendKind};
 pub use capture::{
     BackendCapture, BackendError, BackendIssue, BackendLayer, BackendPacket, BackendSummary,
 };
+pub use compare::{CaptureComparison, compare};
