@@ -22,6 +22,8 @@ const CLEARTEXT_PORTS: [(u16, &str); 5] = [
 const DNS_TUNNEL_LONG_LABEL_LEN: usize = 50;
 const DNS_TUNNEL_UNIQUE_NAMES_THRESHOLD: usize = 50;
 const DNS_TUNNEL_TXT_QUERY_THRESHOLD: usize = 10;
+const NXDOMAIN_RCODE: u8 = 3;
+const NXDOMAIN_THRESHOLD: usize = 20;
 
 const RST_STORM_THRESHOLD: u16 = 3;
 const HALF_OPEN_PACKET_THRESHOLD: usize = 10;
@@ -68,9 +70,12 @@ impl AuditEngine {
             findings.extend(audit_connection_anomalies(capture));
         }
 
-        // DNS profile: DNS tunneling
+        // DNS profile: DNS tunneling, NXDOMAIN storms
         if run_all || p == "dns" {
             findings.extend(audit_dns_tunneling(capture));
+            if let Some(finding) = audit_nxdomain_storm(capture) {
+                findings.push(finding);
+            }
         }
 
         findings
@@ -377,6 +382,52 @@ fn audit_dns_tunneling(capture: &AnalyzedCapture) -> Vec<FindingView> {
             })
         })
         .collect()
+}
+
+fn audit_nxdomain_storm(capture: &AnalyzedCapture) -> Option<FindingView> {
+    let mut nxdomain_count = 0usize;
+    let packet_indexes: Vec<usize> = capture
+        .packets()
+        .iter()
+        .enumerate()
+        .filter_map(|(index, packet)| {
+            let dns = packet.packet().layers().iter().find_map(|l| match l {
+                Layer::Dns(d) => Some(d),
+                _ => None,
+            })?;
+            if dns.is_response && dns.rcode == NXDOMAIN_RCODE {
+                nxdomain_count += 1;
+                Some(index)
+            } else {
+                None
+            }
+        })
+        .take(MAX_EVIDENCE_PACKETS)
+        .collect();
+
+    if nxdomain_count < NXDOMAIN_THRESHOLD {
+        return None;
+    }
+
+    Some(FindingView {
+        id: String::from("nxdomain-storm"),
+        severity: String::from("high"),
+        category: String::from("dns_anomaly"),
+        title: format!(
+            "High NXDOMAIN rate: {} responses with RCODE 3 (possible DGA/malware)",
+            nxdomain_count
+        ),
+        summary: format!(
+            "The capture contains {} DNS responses with RCODE NXDOMAIN, \
+             which may indicate domain generation algorithm (DGA) activity, \
+             malware beaconing to non-existent domains, or DNS enumeration.",
+            nxdomain_count
+        ),
+        evidence: vec![FindingEvidenceView {
+            packet_indexes,
+            description: format!("{nxdomain_count} NXDOMAIN responses observed."),
+        }],
+    })
 }
 
 fn audit_connection_anomalies(capture: &AnalyzedCapture) -> Vec<FindingView> {

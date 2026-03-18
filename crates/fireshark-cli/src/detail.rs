@@ -271,11 +271,22 @@ fn render_dns<W: Write>(w: &mut W, l: &DnsLayer) -> io::Result<()> {
         "    Transaction ID: 0x{:04x}  [{}]",
         l.transaction_id, direction
     )?;
-    writeln!(
-        w,
-        "    Questions: {}  Answers: {}",
-        l.question_count, l.answer_count
-    )?;
+    if l.is_response && l.rcode != 0 {
+        writeln!(
+            w,
+            "    Questions: {}  Answers: {}  RCODE: {} ({})",
+            l.question_count,
+            l.answer_count,
+            l.rcode,
+            dns_rcode_name(l.rcode)
+        )?;
+    } else {
+        writeln!(
+            w,
+            "    Questions: {}  Answers: {}",
+            l.question_count, l.answer_count
+        )?;
+    }
     match (&l.query_name, l.query_type) {
         (Some(name), Some(qtype)) => {
             writeln!(w, "    Query: {} ({})", name, dns_qtype_name(qtype))?;
@@ -454,6 +465,18 @@ fn dns_qtype_name(qtype: u16) -> &'static str {
         15 => "MX",
         16 => "TXT",
         28 => "AAAA",
+        _ => "Unknown",
+    }
+}
+
+fn dns_rcode_name(rcode: u8) -> &'static str {
+    match rcode {
+        0 => "No Error",
+        1 => "Format Error",
+        2 => "Server Failure",
+        3 => "NXDOMAIN",
+        4 => "Not Implemented",
+        5 => "Refused",
         _ => "Unknown",
     }
 }

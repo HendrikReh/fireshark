@@ -25,6 +25,7 @@ pub fn parse(bytes: &[u8], offset: usize) -> Result<Layer, DecodeError> {
     let flags = u16::from_be_bytes([bytes[2], bytes[3]]);
     let is_response = flags & 0x8000 != 0;
     let opcode = ((flags >> 11) & 0x0F) as u8;
+    let rcode = (flags & 0x000F) as u8;
     let question_count = u16::from_be_bytes([bytes[4], bytes[5]]);
     let answer_count = u16::from_be_bytes([bytes[6], bytes[7]]);
     // authority_count and additional_count read but not stored
@@ -59,6 +60,7 @@ pub fn parse(bytes: &[u8], offset: usize) -> Result<Layer, DecodeError> {
         transaction_id,
         is_response,
         opcode,
+        rcode,
         question_count,
         answer_count,
         query_name,

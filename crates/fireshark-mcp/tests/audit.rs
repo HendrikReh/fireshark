@@ -205,6 +205,7 @@ fn dns_query_packet(source: &str, query_name: &str, query_type: u16) -> DecodedF
                     transaction_id: 0x1234,
                     is_response: false,
                     opcode: 0,
+                    rcode: 0,
                     question_count: 1,
                     answer_count: 0,
                     query_name: Some(query_name.to_string()),
@@ -785,4 +786,81 @@ fn valid_profiles_constant_matches_expected_values() {
     assert!(VALID_PROFILES.contains(&"dns"));
     assert!(VALID_PROFILES.contains(&"quality"));
     assert_eq!(VALID_PROFILES.len(), 3);
+}
+
+#[test]
+fn audit_flags_nxdomain_storm() {
+    // Create 25 DNS NXDOMAIN responses (threshold is 20)
+    let packets: Vec<_> = (0..25)
+        .map(|i| nxdomain_response_packet("192.168.1.1", &format!("random{i}.evil.com")))
+        .collect();
+
+    let capture = AnalyzedCapture::from_packets(packets);
+    let findings = AuditEngine::audit(&capture);
+
+    let nxdomain = findings.iter().find(|f| f.category == "dns_anomaly");
+    assert!(nxdomain.is_some(), "should detect NXDOMAIN storm");
+    assert!(nxdomain.unwrap().title.contains("NXDOMAIN"));
+}
+
+#[test]
+fn audit_does_not_flag_normal_nxdomain_rate() {
+    // 5 NXDOMAIN responses — below threshold
+    let packets: Vec<_> = (0..5)
+        .map(|i| nxdomain_response_packet("192.168.1.1", &format!("typo{i}.example.com")))
+        .collect();
+
+    let capture = AnalyzedCapture::from_packets(packets);
+    let findings = AuditEngine::audit(&capture);
+
+    assert!(
+        findings.iter().all(|f| f.category != "dns_anomaly"),
+        "should not flag low NXDOMAIN count"
+    );
+}
+
+fn nxdomain_response_packet(src: &str, query_name: &str) -> DecodedFrame {
+    let src_addr: std::net::Ipv4Addr = src.parse().unwrap();
+    DecodedFrame::new(
+        Frame::builder()
+            .data(vec![0u8; 60])
+            .protocol("DNS")
+            .build()
+            .unwrap(),
+        Packet::new(
+            vec![
+                ethernet_layer(),
+                Layer::Ipv4(Ipv4Layer {
+                    source: src_addr,
+                    destination: std::net::Ipv4Addr::new(192, 168, 1, 2),
+                    protocol: 17,
+                    ttl: 64,
+                    identification: 1,
+                    dscp: 0,
+                    ecn: 0,
+                    dont_fragment: false,
+                    fragment_offset: 0,
+                    more_fragments: false,
+                    header_checksum: 0,
+                }),
+                Layer::Udp(UdpLayer {
+                    source_port: 53,
+                    destination_port: 50_000,
+                    length: 40,
+                }),
+                Layer::Dns(DnsLayer {
+                    transaction_id: 0xABCD,
+                    is_response: true,
+                    opcode: 0,
+                    rcode: 3, // NXDOMAIN
+                    question_count: 1,
+                    answer_count: 0,
+                    query_name: Some(query_name.to_string()),
+                    query_type: Some(1),
+                    answers: Vec::new(),
+                }),
+            ],
+            Vec::new(),
+        ),
+    )
 }

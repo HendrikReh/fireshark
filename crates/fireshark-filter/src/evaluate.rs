@@ -293,6 +293,9 @@ fn resolve_layer_field(field: &str, decoded: &DecodedFrame) -> Option<FieldValue
             ("dns.opcode", Layer::Dns(l)) => {
                 return Some(FieldValue::Integer(u64::from(l.opcode)));
             }
+            ("dns.rcode", Layer::Dns(l)) => {
+                return Some(FieldValue::Integer(u64::from(l.rcode)));
+            }
             ("dns.qcount", Layer::Dns(l)) => {
                 return Some(FieldValue::Integer(u64::from(l.question_count)));
             }

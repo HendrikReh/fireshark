@@ -106,6 +106,7 @@ pub struct DnsLayer {
     pub transaction_id: u16,
     pub is_response: bool,
     pub opcode: u8,
+    pub rcode: u8,
     pub question_count: u16,
     pub answer_count: u16,
     pub query_name: Option<String>,
