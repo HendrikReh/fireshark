@@ -65,6 +65,7 @@ pub fn parse(bytes: &[u8], layer_offset: usize) -> Result<NetworkPayload<'_>, De
     // Fragment headers are a special case: always 8 bytes.
     let mut ext_offset = HEADER_LEN;
     let mut is_non_initial_fragment = false;
+    let mut is_fragmented = false;
 
     for _ in 0..MAX_EXT_HEADERS {
         if !is_skippable_extension(next_header) {
@@ -85,6 +86,7 @@ pub fn parse(bytes: &[u8], layer_offset: usize) -> Result<NetworkPayload<'_>, De
             let frag_offset_flags =
                 u16::from_be_bytes([bytes[ext_offset + 2], bytes[ext_offset + 3]]);
             let fragment_offset = frag_offset_flags >> 3;
+            is_fragmented = true;
             if fragment_offset != 0 {
                 is_non_initial_fragment = true;
             }
@@ -115,5 +117,6 @@ pub fn parse(bytes: &[u8], layer_offset: usize) -> Result<NetworkPayload<'_>, De
         payload_offset: layer_offset + ext_offset,
         issues,
         is_non_initial_fragment,
+        is_fragmented,
     })
 }

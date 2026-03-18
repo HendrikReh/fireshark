@@ -45,6 +45,10 @@ pub(crate) struct NetworkPayload<'a> {
     /// IPv6 Fragment header with offset > 0). Transport decode should be
     /// suppressed because the payload is fragment data, not a transport header.
     pub(crate) is_non_initial_fragment: bool,
+    /// True if this packet is any fragment (initial or not). Transport checksum
+    /// validation should be skipped because the checksum covers the full
+    /// reassembled upper-layer packet, not individual fragments.
+    pub(crate) is_fragmented: bool,
 }
 
 pub fn decode_packet(bytes: &[u8]) -> Result<Packet, DecodeError> {
@@ -274,23 +278,23 @@ fn append_network_layer(
             payload_offset,
             issues: network_issues,
             is_non_initial_fragment,
+            is_fragmented,
         }) => {
             let network_span = LayerSpan {
                 offset: layer_offset,
                 len: payload_offset - layer_offset,
             };
-            // Extract fields needed for transport checksum validation before
-            // the layer is moved into the layers vec. Skip checksum validation
-            // on fragments (MF set for IPv4, or any non-initial fragment)
-            // because the transport segment is incomplete.
-            let checksum_addrs: Option<ChecksumAddrs> = match &layer {
-                Layer::Ipv4(ipv4) if !ipv4.more_fragments && !is_non_initial_fragment => {
-                    Some(ChecksumAddrs::V4(ipv4.source, ipv4.destination))
+            // Skip checksum validation on any fragment (initial or not)
+            // because the transport checksum covers the full reassembled
+            // upper-layer packet, not individual fragment payloads.
+            let checksum_addrs: Option<ChecksumAddrs> = if is_fragmented {
+                None
+            } else {
+                match &layer {
+                    Layer::Ipv4(ipv4) => Some(ChecksumAddrs::V4(ipv4.source, ipv4.destination)),
+                    Layer::Ipv6(ipv6) => Some(ChecksumAddrs::V6(ipv6.source, ipv6.destination)),
+                    _ => None,
                 }
-                Layer::Ipv6(ipv6) if !is_non_initial_fragment => {
-                    Some(ChecksumAddrs::V6(ipv6.source, ipv6.destination))
-                }
-                _ => None,
             };
             layers.push(layer);
             spans.push(network_span);
