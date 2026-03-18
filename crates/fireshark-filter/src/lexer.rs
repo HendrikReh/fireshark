@@ -55,7 +55,8 @@ pub(crate) struct SpannedToken {
 }
 
 /// Tokenize a display filter expression string.
-pub fn tokenize(input: &str) -> Result<Vec<Token>, FilterError> {
+#[cfg(test)]
+pub(crate) fn tokenize(input: &str) -> Result<Vec<Token>, FilterError> {
     Ok(tokenize_spanned(input)?
         .into_iter()
         .map(|token| token.token)

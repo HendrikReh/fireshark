@@ -5,10 +5,7 @@ use predicates::prelude::PredicateBooleanExt;
 use predicates::str::contains;
 
 fn has_tshark() -> bool {
-    std::process::Command::new("tshark")
-        .arg("--version")
-        .output()
-        .is_ok()
+    fireshark_tshark::is_available()
 }
 
 #[test]

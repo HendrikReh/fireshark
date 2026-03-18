@@ -3,10 +3,7 @@ mod support;
 use fireshark_backend::{BackendCapture, BackendKind};
 
 fn has_tshark() -> bool {
-    std::process::Command::new("tshark")
-        .arg("--version")
-        .output()
-        .is_ok()
+    fireshark_tshark::is_available()
 }
 
 #[test]

@@ -52,16 +52,8 @@ fn pipeline_propagates_decode_errors() {
 
 fn repo_root() -> PathBuf {
     let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let mut current = manifest_dir.to_path_buf();
-    loop {
-        if current.join("Cargo.toml").is_file()
-            && current.join("crates").is_dir()
-            && current.join("fixtures").is_dir()
-        {
-            return current;
-        }
-        assert!(current.pop(), "workspace root should exist");
-    }
+    fireshark_core::find_workspace_root(manifest_dir)
+        .expect("workspace root should exist above CARGO_MANIFEST_DIR")
 }
 
 #[test]

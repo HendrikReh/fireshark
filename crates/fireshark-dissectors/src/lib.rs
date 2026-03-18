@@ -9,7 +9,7 @@ mod arp;
 mod dns;
 mod error;
 mod ethernet;
-pub mod http;
+pub(crate) mod http;
 mod icmp;
 mod ipv4;
 mod ipv6;

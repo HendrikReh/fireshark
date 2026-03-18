@@ -22,6 +22,13 @@ pub use version::{TsharkVersion, discover, parse_version_output};
 
 use std::path::Path;
 
+/// Returns `true` if a usable `tshark` binary is found on the system.
+///
+/// Useful in test code for skipping tests that require tshark.
+pub fn is_available() -> bool {
+    discover().is_ok()
+}
+
 /// Run tshark against a capture file and return parsed packets.
 ///
 /// Discovers tshark on the system, runs it with `-T fields` output,

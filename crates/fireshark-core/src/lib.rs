@@ -6,6 +6,7 @@ mod packet;
 mod pipeline;
 mod stream;
 mod summary;
+mod testing;
 mod timestamp;
 
 pub use frame::{Frame, FrameBuildError, FrameBuilder};
@@ -23,4 +24,5 @@ pub use packet::{LayerSpan, Packet};
 pub use pipeline::{DecodedFrame, Pipeline, PipelineError, TrackingPipeline};
 pub use stream::{StreamKey, StreamMetadata, StreamTracker};
 pub use summary::PacketSummary;
+pub use testing::find_workspace_root;
 pub use timestamp::format_utc;

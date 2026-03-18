@@ -4,7 +4,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use support::{find_workspace_root, repo_root};
+use fireshark_core::find_workspace_root;
+use support::repo_root;
 
 #[test]
 fn repo_root_finds_the_current_workspace() {

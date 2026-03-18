@@ -1,7 +1,8 @@
 pub mod ast;
 mod error;
 mod evaluate;
-pub mod lexer;
+mod fields;
+pub(crate) mod lexer;
 mod parser;
 
 pub use error::FilterError;
