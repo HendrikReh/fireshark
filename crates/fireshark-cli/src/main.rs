@@ -4,6 +4,7 @@ mod detail;
 mod follow;
 mod hexdump;
 mod issues;
+mod json;
 mod stats;
 mod summary;
 mod timestamp;
@@ -36,6 +37,9 @@ enum Command {
         /// Analysis backend: native (default) or tshark
         #[arg(long = "backend", default_value = "native")]
         backend: String,
+        /// Output as JSONL (one JSON object per line)
+        #[arg(long = "json")]
+        json: bool,
     },
     /// Inspect a single packet with decoded layer tree and hex dump
     Detail {
@@ -54,6 +58,9 @@ enum Command {
         /// Analysis backend: native (default) or tshark
         #[arg(long = "backend", default_value = "native")]
         backend: String,
+        /// Output as JSONL (one JSON object per line)
+        #[arg(long = "json")]
+        json: bool,
     },
     /// List decode issues (truncated or malformed packets)
     Issues {
@@ -62,6 +69,9 @@ enum Command {
         /// Analysis backend: native (default) or tshark
         #[arg(long = "backend", default_value = "native")]
         backend: String,
+        /// Output as JSONL (one JSON object per line)
+        #[arg(long = "json")]
+        json: bool,
     },
     /// Run security audit heuristics on a capture file
     Audit {
@@ -73,6 +83,9 @@ enum Command {
         /// Maximum number of packets to analyze (default: 100000)
         #[arg(long = "max-packets", default_value = "100000")]
         max_packets: usize,
+        /// Output as JSONL (one JSON object per line)
+        #[arg(long = "json")]
+        json: bool,
     },
     /// Show all packets in a TCP/UDP conversation by stream ID
     Follow {
@@ -106,7 +119,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             path,
             filter,
             backend,
-        } => summary::run(&path, filter.as_deref(), &backend)?,
+            json,
+        } => summary::run(&path, filter.as_deref(), &backend, json)?,
         Command::Detail {
             path,
             packet,
@@ -115,18 +129,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             require_native_backend(&backend, "detail")?;
             detail::run(&path, packet)?;
         }
-        Command::Stats { path, backend } => stats::run(&path, &backend)?,
-        Command::Issues { path, backend } => {
+        Command::Stats {
+            path,
+            backend,
+            json,
+        } => stats::run(&path, &backend, json)?,
+        Command::Issues {
+            path,
+            backend,
+            json,
+        } => {
             require_native_backend(&backend, "issues")?;
-            issues::run(&path)?;
+            issues::run(&path, json)?;
         }
         Command::Audit {
             path,
             backend,
             max_packets,
+            json,
         } => {
             require_native_backend(&backend, "audit")?;
-            audit::run(&path, max_packets)?;
+            audit::run(&path, max_packets, json)?;
         }
         Command::Follow {
             path,

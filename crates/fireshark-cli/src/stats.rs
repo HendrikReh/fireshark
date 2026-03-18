@@ -9,20 +9,21 @@ use fireshark_core::TrackingPipeline;
 use fireshark_dissectors::decode_packet;
 use fireshark_file::CaptureReader;
 
+use crate::json::{EndpointJson, ProtocolJson, StatsJson};
 use crate::timestamp;
 
-pub fn run(path: &Path, backend: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(path: &Path, backend: &str, json: bool) -> Result<(), Box<dyn std::error::Error>> {
     let kind: BackendKind = backend
         .parse()
         .map_err(|e: String| -> Box<dyn std::error::Error> { e.into() })?;
 
     match kind {
-        BackendKind::Native => run_native(path),
-        BackendKind::Tshark => run_tshark(path),
+        BackendKind::Native => run_native(path, json),
+        BackendKind::Tshark => run_tshark(path, json),
     }
 }
 
-fn run_native(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+fn run_native(path: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
     let reader = CaptureReader::open(path)?;
 
     let mut packet_count: usize = 0;
@@ -67,57 +68,94 @@ fn run_native(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
 
     let tracker = pipeline.into_tracker();
 
-    println!("Capture Statistics");
-    println!("{}", "\u{2500}".repeat(38));
-
-    println!("Packets:    {packet_count}");
-    println!("Streams:    {}", tracker.stream_count());
-
-    match (first_ts, last_ts) {
-        (Some(first), Some(last)) => {
-            let duration = last.saturating_sub(first);
-            println!(
-                "Duration:   {} ({} \u{2192} {})",
-                format_duration(duration),
-                timestamp::format_utc(first),
-                timestamp::format_utc(last)
-            );
-        }
-        _ => {
-            println!("Duration:   -");
-        }
-    }
-
-    println!();
-    println!("Protocol Distribution:");
-
     let mut protocols: Vec<(String, usize)> = protocol_counts.into_iter().collect();
     protocols.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-
-    for (protocol, count) in &protocols {
-        let pct = if packet_count > 0 {
-            (*count as f64 / packet_count as f64) * 100.0
-        } else {
-            0.0
-        };
-        println!("  {protocol:<10} {count:>4}  ({pct:>4.1}%)");
-    }
-
-    println!();
-    println!("Top Endpoints (10):");
 
     let mut endpoints: Vec<(String, usize)> = endpoint_counts.into_iter().collect();
     endpoints.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
     endpoints.truncate(10);
 
-    for (endpoint, count) in &endpoints {
-        println!("  {endpoint:<22} {count:>4} packets");
+    if json {
+        let duration_seconds = match (first_ts, last_ts) {
+            (Some(first), Some(last)) => Some(last.saturating_sub(first).as_secs_f64()),
+            _ => None,
+        };
+        let stats = StatsJson {
+            packet_count,
+            stream_count: tracker.stream_count(),
+            duration_seconds,
+            first_timestamp: first_ts.map(timestamp::format_utc),
+            last_timestamp: last_ts.map(timestamp::format_utc),
+            protocols: protocols
+                .iter()
+                .map(|(name, count)| {
+                    let pct = if packet_count > 0 {
+                        (*count as f64 / packet_count as f64) * 100.0
+                    } else {
+                        0.0
+                    };
+                    ProtocolJson {
+                        name: name.clone(),
+                        count: *count,
+                        percent: pct,
+                    }
+                })
+                .collect(),
+            top_endpoints: endpoints
+                .iter()
+                .map(|(endpoint, count)| EndpointJson {
+                    endpoint: endpoint.clone(),
+                    count: *count,
+                })
+                .collect(),
+        };
+        println!("{}", serde_json::to_string(&stats).unwrap());
+    } else {
+        println!("Capture Statistics");
+        println!("{}", "\u{2500}".repeat(38));
+
+        println!("Packets:    {packet_count}");
+        println!("Streams:    {}", tracker.stream_count());
+
+        match (first_ts, last_ts) {
+            (Some(first), Some(last)) => {
+                let duration = last.saturating_sub(first);
+                println!(
+                    "Duration:   {} ({} \u{2192} {})",
+                    format_duration(duration),
+                    timestamp::format_utc(first),
+                    timestamp::format_utc(last)
+                );
+            }
+            _ => {
+                println!("Duration:   -");
+            }
+        }
+
+        println!();
+        println!("Protocol Distribution:");
+
+        for (protocol, count) in &protocols {
+            let pct = if packet_count > 0 {
+                (*count as f64 / packet_count as f64) * 100.0
+            } else {
+                0.0
+            };
+            println!("  {protocol:<10} {count:>4}  ({pct:>4.1}%)");
+        }
+
+        println!();
+        println!("Top Endpoints (10):");
+
+        for (endpoint, count) in &endpoints {
+            println!("  {endpoint:<22} {count:>4} packets");
+        }
     }
 
     Ok(())
 }
 
-fn run_tshark(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+fn run_tshark(path: &Path, json: bool) -> Result<(), Box<dyn std::error::Error>> {
     let capture = BackendCapture::open(path, BackendKind::Tshark)?;
 
     let packet_count = capture.packet_count();
@@ -136,44 +174,84 @@ fn run_tshark(path: &Path) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    println!("Capture Statistics");
-    println!("{}", "\u{2500}".repeat(38));
-
-    println!("Packets:    {packet_count}");
-    println!("Streams:    -");
-
-    match (first_ts, last_ts) {
-        (Some(first), Some(last)) => {
-            let duration = last.saturating_sub(first);
-            println!(
-                "Duration:   {} ({} \u{2192} {})",
-                format_duration(duration),
-                timestamp::format_utc(first),
-                timestamp::format_utc(last)
-            );
-        }
-        _ => {
-            println!("Duration:   -");
-        }
-    }
-
-    println!();
-    println!("Protocol Distribution:");
-
-    for (protocol, count) in capture.protocol_counts() {
-        let pct = if packet_count > 0 {
-            (*count as f64 / packet_count as f64) * 100.0
-        } else {
-            0.0
+    if json {
+        let duration_seconds = match (first_ts, last_ts) {
+            (Some(first), Some(last)) => Some(last.saturating_sub(first).as_secs_f64()),
+            _ => None,
         };
-        println!("  {protocol:<10} {count:>4}  ({pct:>4.1}%)");
-    }
+        let protocol_counts_vec = capture.protocol_counts();
+        let endpoint_counts_vec = capture.endpoint_counts();
+        let stats = StatsJson {
+            packet_count,
+            stream_count: 0,
+            duration_seconds,
+            first_timestamp: first_ts.map(timestamp::format_utc),
+            last_timestamp: last_ts.map(timestamp::format_utc),
+            protocols: protocol_counts_vec
+                .iter()
+                .map(|(name, count)| {
+                    let pct = if packet_count > 0 {
+                        (*count as f64 / packet_count as f64) * 100.0
+                    } else {
+                        0.0
+                    };
+                    ProtocolJson {
+                        name: name.clone(),
+                        count: *count,
+                        percent: pct,
+                    }
+                })
+                .collect(),
+            top_endpoints: endpoint_counts_vec
+                .iter()
+                .take(10)
+                .map(|(endpoint, count)| EndpointJson {
+                    endpoint: endpoint.clone(),
+                    count: *count,
+                })
+                .collect(),
+        };
+        println!("{}", serde_json::to_string(&stats).unwrap());
+    } else {
+        println!("Capture Statistics");
+        println!("{}", "\u{2500}".repeat(38));
 
-    println!();
-    println!("Top Endpoints (10):");
+        println!("Packets:    {packet_count}");
+        println!("Streams:    -");
 
-    for (endpoint, count) in capture.endpoint_counts().iter().take(10) {
-        println!("  {endpoint:<22} {count:>4} packets");
+        match (first_ts, last_ts) {
+            (Some(first), Some(last)) => {
+                let duration = last.saturating_sub(first);
+                println!(
+                    "Duration:   {} ({} \u{2192} {})",
+                    format_duration(duration),
+                    timestamp::format_utc(first),
+                    timestamp::format_utc(last)
+                );
+            }
+            _ => {
+                println!("Duration:   -");
+            }
+        }
+
+        println!();
+        println!("Protocol Distribution:");
+
+        for (protocol, count) in capture.protocol_counts() {
+            let pct = if packet_count > 0 {
+                (*count as f64 / packet_count as f64) * 100.0
+            } else {
+                0.0
+            };
+            println!("  {protocol:<10} {count:>4}  ({pct:>4.1}%)");
+        }
+
+        println!();
+        println!("Top Endpoints (10):");
+
+        for (endpoint, count) in capture.endpoint_counts().iter().take(10) {
+            println!("  {endpoint:<22} {count:>4} packets");
+        }
     }
 
     Ok(())

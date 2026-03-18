@@ -6,9 +6,30 @@ use colored::Colorize;
 use fireshark_mcp::analysis::AnalyzedCapture;
 use fireshark_mcp::audit::AuditEngine;
 
-pub fn run(path: &Path, max_packets: usize) -> Result<(), Box<dyn std::error::Error>> {
+use crate::json::FindingJson;
+
+pub fn run(path: &Path, max_packets: usize, json: bool) -> Result<(), Box<dyn std::error::Error>> {
     let capture = AnalyzedCapture::open_with_limit(path, max_packets)?;
     let findings = AuditEngine::audit(&capture);
+
+    if json {
+        for finding in &findings {
+            let evidence_count: usize = finding
+                .evidence
+                .iter()
+                .map(|e| e.packet_indexes.len())
+                .sum();
+            let f = FindingJson {
+                id: finding.id.clone(),
+                severity: finding.severity.clone(),
+                category: finding.category.clone(),
+                title: finding.title.clone(),
+                evidence_count,
+            };
+            println!("{}", serde_json::to_string(&f).unwrap());
+        }
+        return Ok(());
+    }
 
     println!("Security Audit");
     println!("{}", "\u{2500}".repeat(38));
