@@ -6,6 +6,7 @@ mod follow;
 mod hexdump;
 mod issues;
 mod json;
+mod render;
 mod stats;
 mod summary;
 mod timestamp;

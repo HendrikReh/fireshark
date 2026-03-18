@@ -1,5 +1,7 @@
-use fireshark_core::{DecodeIssue, DecodeIssueKind, DnsAnswerData, Layer, format_mac};
-use fireshark_dissectors::tls;
+use fireshark_core::{
+    DecodeIssue, DecodeIssueKind, DnsAnswerData, Layer, cipher_suite_name, format_mac,
+    named_group_name, sig_alg_name,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -459,7 +461,7 @@ impl LayerView {
                     .iter()
                     .map(|&id| CipherSuiteView {
                         id,
-                        name: tls::cipher_suite_name(id).to_string(),
+                        name: cipher_suite_name(id).to_string(),
                     })
                     .collect(),
                 compression_methods: layer.compression_methods.clone(),
@@ -471,7 +473,7 @@ impl LayerView {
                     .iter()
                     .map(|&id| SignatureAlgorithmView {
                         id,
-                        name: tls::sig_alg_name(id).to_string(),
+                        name: sig_alg_name(id).to_string(),
                     })
                     .collect(),
                 key_share_groups: layer
@@ -479,7 +481,7 @@ impl LayerView {
                     .iter()
                     .map(|&id| NamedGroupView {
                         id,
-                        name: tls::named_group_name(id).to_string(),
+                        name: named_group_name(id).to_string(),
                     })
                     .collect(),
             },
@@ -488,14 +490,14 @@ impl LayerView {
                 server_version: layer.server_version,
                 cipher_suite: CipherSuiteView {
                     id: layer.cipher_suite,
-                    name: tls::cipher_suite_name(layer.cipher_suite).to_string(),
+                    name: cipher_suite_name(layer.cipher_suite).to_string(),
                 },
                 compression_method: layer.compression_method,
                 selected_version: layer.selected_version,
                 alpn: layer.alpn.clone(),
                 key_share_group: layer.key_share_group.map(|id| NamedGroupView {
                     id,
-                    name: tls::named_group_name(id).to_string(),
+                    name: named_group_name(id).to_string(),
                 }),
             },
             Layer::Http(layer) => Self::Http {

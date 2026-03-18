@@ -14,7 +14,7 @@ mod icmp;
 mod ipv4;
 mod ipv6;
 mod tcp;
-pub mod tls;
+mod tls;
 mod udp;
 
 pub use error::DecodeError;
