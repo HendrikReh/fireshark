@@ -13,6 +13,7 @@ const HTTP_METHODS: &[&[u8]] = &[
     b"PATCH ",
     b"OPTIONS ",
     b"CONNECT ",
+    b"TRACE ",
 ];
 
 /// Check whether the first bytes of `bytes` look like an HTTP request or

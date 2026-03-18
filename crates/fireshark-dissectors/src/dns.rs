@@ -178,22 +178,24 @@ fn parse_answers(bytes: &[u8], start: usize, count: u16) -> Vec<DnsAnswer> {
     answers
 }
 
-/// Parse a DNS name using label-length encoding.
+/// Maximum number of compression pointer hops to prevent infinite loops.
+const MAX_POINTER_HOPS: usize = 16;
+
+/// Parse a DNS name using label-length encoding with compression pointer
+/// following per RFC 1035 §4.1.4.
 ///
 /// Returns `Some((name, bytes_consumed))` on success, `None` on failure.
 /// `bytes_consumed` counts bytes from `start` through the terminating zero
-/// (or up to a compression pointer, which terminates parsing).
-///
-/// **Limitation:** Compression pointers (label byte with `0xC0` mask) are not
-/// followed. When a pointer is encountered, the parser returns whatever
-/// labels were accumulated before the pointer. This means DNS responses that
-/// compress the question name (common) may yield an incomplete or empty name.
-/// The audit engine works around this by using the query name from the request
-/// packet. Full pointer following is deferred to a future release.
+/// or the first compression pointer encountered in the original position
+/// (not the target — RFC 1035 says the pointer terminates the name in the
+/// original stream).
 fn parse_name(bytes: &[u8], start: usize) -> Option<(String, usize)> {
     let mut labels: Vec<String> = Vec::new();
     let mut pos = start;
     let mut total_len: usize = 0;
+    // Track bytes consumed in the original stream (before any pointer jump).
+    let mut consumed: Option<usize> = None;
+    let mut pointer_hops = 0;
 
     for _ in 0..MAX_LABELS {
         if pos >= bytes.len() {
@@ -203,27 +205,35 @@ fn parse_name(bytes: &[u8], start: usize) -> Option<(String, usize)> {
         let n = bytes[pos];
 
         if n == 0 {
-            // End of name
-            let consumed = pos - start + 1; // +1 for the zero byte
+            // End of name. Use pre-recorded consumed bytes if we followed a
+            // pointer (pos may be in a different part of the buffer).
+            let c = consumed.unwrap_or_else(|| pos - start + 1);
             let name = labels.join(".");
-            return Some((name, consumed));
+            return Some((name, c));
         }
 
         if n & 0xC0 == 0xC0 {
-            // Compression pointer — stop parsing, return what we have
-            // (don't follow pointers in v1)
+            // Compression pointer
             if pos + 1 >= bytes.len() {
-                return None; // pointer byte missing
+                return None;
             }
-            let name = labels.join(".");
-            // If nothing was accumulated before the pointer, return empty
-            // which the caller converts to None
-            let consumed = pos - start + 2; // pointer is 2 bytes
-            return Some((name, consumed));
+            // Record consumed bytes only on the first pointer (original stream position).
+            if consumed.is_none() {
+                consumed = Some(pos - start + 2);
+            }
+            pointer_hops += 1;
+            if pointer_hops > MAX_POINTER_HOPS {
+                return None; // too many hops — likely a loop
+            }
+            let offset = (usize::from(n & 0x3F) << 8) | usize::from(bytes[pos + 1]);
+            if offset >= bytes.len() {
+                return None;
+            }
+            pos = offset;
+            continue;
         }
 
         if n > 63 {
-            // Invalid label length
             return None;
         }
 
@@ -232,10 +242,10 @@ fn parse_name(bytes: &[u8], start: usize) -> Option<(String, usize)> {
         let label_end = label_start + label_len;
 
         if label_end > bytes.len() {
-            return None; // truncated
+            return None;
         }
 
-        total_len += label_len + 1; // +1 for the length byte (or dot separator)
+        total_len += label_len + 1;
         if total_len > MAX_NAME_LEN {
             return None;
         }
@@ -245,7 +255,6 @@ fn parse_name(bytes: &[u8], start: usize) -> Option<(String, usize)> {
         pos = label_end;
     }
 
-    // Exceeded max labels
     None
 }
 
@@ -263,20 +272,35 @@ mod tests {
     }
 
     #[test]
-    fn parse_name_with_compression_pointer() {
-        // "www" then compression pointer 0xC00C
-        let data = b"\x03www\xC0\x0C";
-        let (name, consumed) = parse_name(data, 0).unwrap();
-        assert_eq!(name, "www");
-        assert_eq!(consumed, 6); // 1+3+2
+    fn parse_name_follows_compression_pointer() {
+        // Layout: "example.com" at offset 0, then "www" + pointer to offset 0
+        // Offset 0: 07 "example" 03 "com" 00  (13 bytes)
+        // Offset 13: 03 "www" C0 00            (6 bytes — pointer to offset 0)
+        let mut data = Vec::new();
+        data.extend_from_slice(b"\x07example\x03com\x00"); // offset 0..13
+        data.extend_from_slice(b"\x03www\xC0\x00"); // offset 13..19
+        let (name, consumed) = parse_name(&data, 13).unwrap();
+        assert_eq!(name, "www.example.com");
+        assert_eq!(consumed, 6); // 1+3+2 (pointer terminates original stream)
     }
 
     #[test]
-    fn parse_name_only_pointer_yields_empty() {
-        let data = b"\xC0\x0C";
-        let (name, consumed) = parse_name(data, 0).unwrap();
-        assert_eq!(name, "");
+    fn parse_name_pointer_only_resolves_target() {
+        // Layout: "example.com" at offset 0, then pointer to offset 0
+        let mut data = Vec::new();
+        data.extend_from_slice(b"\x07example\x03com\x00"); // offset 0..13
+        data.extend_from_slice(b"\xC0\x00"); // offset 13..15
+        let (name, consumed) = parse_name(&data, 13).unwrap();
+        assert_eq!(name, "example.com");
         assert_eq!(consumed, 2);
+    }
+
+    #[test]
+    fn parse_name_pointer_loop_rejected() {
+        // Self-referencing pointer at offset 0
+        let data = b"\xC0\x00";
+        // Should be rejected by MAX_POINTER_HOPS
+        assert!(parse_name(data, 0).is_none());
     }
 
     #[test]

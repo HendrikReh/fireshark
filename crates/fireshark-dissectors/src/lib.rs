@@ -19,7 +19,7 @@ mod udp;
 
 pub use error::DecodeError;
 
-use std::net::Ipv4Addr;
+use std::net::{Ipv4Addr, Ipv6Addr};
 
 use fireshark_core::{DecodeIssue, Layer, LayerSpan, Packet};
 
@@ -132,14 +132,66 @@ fn transport_span(layer: &Layer, payload_offset: usize) -> LayerSpan {
     }
 }
 
+/// Address pair for transport checksum validation.
+enum ChecksumAddrs {
+    V4(Ipv4Addr, Ipv4Addr),
+    V6(Ipv6Addr, Ipv6Addr),
+}
+
+/// Common checksum preamble: locate the checksum field, skip zero checksums.
+/// Returns `None` if validation should be skipped.
+fn read_transport_checksum(protocol: u8, transport_bytes: &[u8]) -> Option<u16> {
+    if transport_bytes.len() < 8 {
+        return None;
+    }
+    let checksum_offset = match protocol {
+        6 => 16, // TCP
+        17 => 6, // UDP
+        _ => return None,
+    };
+    if transport_bytes.len() < checksum_offset + 2 {
+        return None;
+    }
+    let checksum = u16::from_be_bytes([
+        transport_bytes[checksum_offset],
+        transport_bytes[checksum_offset + 1],
+    ]);
+    // UDP checksum 0 means "not computed" (IPv4 only, but also skip for IPv6
+    // NIC offload). TCP checksum 0 is technically invalid but skip to avoid
+    // false positives from NIC offload.
+    if checksum == 0 {
+        return None;
+    }
+    Some(checksum)
+}
+
+/// Fold and verify a ones' complement checksum sum.
+fn verify_ones_complement(
+    sum: u32,
+    transport_bytes: &[u8],
+    transport_offset: usize,
+    issues: &mut Vec<DecodeIssue>,
+) {
+    let mut s = sum;
+    // Sum transport header + payload.
+    for i in (0..transport_bytes.len()).step_by(2) {
+        let word = if i + 1 < transport_bytes.len() {
+            u16::from_be_bytes([transport_bytes[i], transport_bytes[i + 1]])
+        } else {
+            u16::from_be_bytes([transport_bytes[i], 0])
+        };
+        s += word as u32;
+    }
+    while s > 0xFFFF {
+        s = (s & 0xFFFF) + (s >> 16);
+    }
+    if s != 0xFFFF {
+        issues.push(DecodeIssue::checksum_mismatch(transport_offset));
+    }
+}
+
 /// Validate TCP or UDP checksum using the IPv4 pseudo-header.
-///
-/// Only IPv4 is supported. IPv6 uses a different pseudo-header format
-/// (128-bit addresses + 32-bit length + next-header) and is not yet
-/// implemented. Since IPv6 TCP/UDP checksums are mandatory (unlike IPv4
-/// UDP where checksum=0 means "not computed"), this means corrupted IPv6
-/// transport data will not be flagged as a `ChecksumMismatch` issue.
-fn validate_transport_checksum(
+fn validate_transport_checksum_v4(
     source: Ipv4Addr,
     destination: Ipv4Addr,
     protocol: u8,
@@ -147,39 +199,10 @@ fn validate_transport_checksum(
     transport_offset: usize,
     issues: &mut Vec<DecodeIssue>,
 ) {
-    // Skip if transport data is too short for a checksum field.
-    if transport_bytes.len() < 8 {
+    if read_transport_checksum(protocol, transport_bytes).is_none() {
         return;
     }
-
-    // Locate the checksum field within the transport header.
-    let checksum_offset = match protocol {
-        6 => 16, // TCP checksum at bytes 16-17
-        17 => 6, // UDP checksum at bytes 6-7
-        _ => return,
-    };
-    if transport_bytes.len() < checksum_offset + 2 {
-        return;
-    }
-
-    let checksum = u16::from_be_bytes([
-        transport_bytes[checksum_offset],
-        transport_bytes[checksum_offset + 1],
-    ]);
-
-    // UDP checksum 0 means "not computed" — skip.
-    if protocol == 17 && checksum == 0 {
-        return;
-    }
-    // TCP checksum should never be 0 in practice, but if it is, skip.
-    if checksum == 0 {
-        return;
-    }
-
-    // Build pseudo-header + transport data and verify.
     let mut sum: u32 = 0;
-
-    // Pseudo-header: src IP (4) + dst IP (4) + zero + protocol (1) + length (2)
     let src = source.octets();
     let dst = destination.octets();
     sum += u16::from_be_bytes([src[0], src[1]]) as u32;
@@ -188,24 +211,37 @@ fn validate_transport_checksum(
     sum += u16::from_be_bytes([dst[2], dst[3]]) as u32;
     sum += protocol as u32;
     sum += transport_bytes.len() as u32;
+    verify_ones_complement(sum, transport_bytes, transport_offset, issues);
+}
 
-    // Sum transport header + payload.
-    for i in (0..transport_bytes.len()).step_by(2) {
-        let word = if i + 1 < transport_bytes.len() {
-            u16::from_be_bytes([transport_bytes[i], transport_bytes[i + 1]])
-        } else {
-            u16::from_be_bytes([transport_bytes[i], 0])
-        };
-        sum += word as u32;
+/// Validate TCP or UDP checksum using the IPv6 pseudo-header (RFC 8200 §8.1).
+///
+/// Pseudo-header: src (16) + dst (16) + upper-layer length (4) + zeros (3) + next-header (1).
+fn validate_transport_checksum_v6(
+    source: Ipv6Addr,
+    destination: Ipv6Addr,
+    protocol: u8,
+    transport_bytes: &[u8],
+    transport_offset: usize,
+    issues: &mut Vec<DecodeIssue>,
+) {
+    if read_transport_checksum(protocol, transport_bytes).is_none() {
+        return;
     }
-
-    while sum > 0xFFFF {
-        sum = (sum & 0xFFFF) + (sum >> 16);
+    let mut sum: u32 = 0;
+    let src = source.octets();
+    let dst = destination.octets();
+    for i in (0..16).step_by(2) {
+        sum += u16::from_be_bytes([src[i], src[i + 1]]) as u32;
+        sum += u16::from_be_bytes([dst[i], dst[i + 1]]) as u32;
     }
-
-    if sum != 0xFFFF {
-        issues.push(DecodeIssue::checksum_mismatch(transport_offset));
-    }
+    // Upper-layer packet length as 32-bit value
+    let len = transport_bytes.len() as u32;
+    sum += (len >> 16) & 0xFFFF;
+    sum += len & 0xFFFF;
+    // Next header (protocol) in the low byte of the last 32-bit word
+    sum += protocol as u32;
+    verify_ones_complement(sum, transport_bytes, transport_offset, issues);
 }
 
 fn append_network_layer(
@@ -232,9 +268,14 @@ fn append_network_layer(
                 _ => true,
             };
             // Extract fields needed for transport checksum validation before
-            // the layer is moved into the layers vec.
-            let ipv4_addrs = match &layer {
-                Layer::Ipv4(ipv4) => Some((ipv4.source, ipv4.destination)),
+            // the layer is moved into the layers vec. Skip checksum validation
+            // on first fragments (MF set) because the transport segment is
+            // incomplete — the checksum covers the full reassembled segment.
+            let checksum_addrs: Option<ChecksumAddrs> = match &layer {
+                Layer::Ipv4(ipv4) if !ipv4.more_fragments => {
+                    Some(ChecksumAddrs::V4(ipv4.source, ipv4.destination))
+                }
+                Layer::Ipv6(ipv6) => Some(ChecksumAddrs::V6(ipv6.source, ipv6.destination)),
                 _ => None,
             };
             layers.push(layer);
@@ -271,10 +312,31 @@ fn append_network_layer(
             }
 
             // Validate TCP/UDP checksum after successful transport decode.
-            if let Some((src, dst)) = ipv4_addrs
+            if let Some(addrs) = checksum_addrs
                 && matches!(protocol, tcp::IP_PROTOCOL | udp::IP_PROTOCOL)
             {
-                validate_transport_checksum(src, dst, protocol, payload, payload_offset, issues);
+                match addrs {
+                    ChecksumAddrs::V4(src, dst) => {
+                        validate_transport_checksum_v4(
+                            src,
+                            dst,
+                            protocol,
+                            payload,
+                            payload_offset,
+                            issues,
+                        );
+                    }
+                    ChecksumAddrs::V6(src, dst) => {
+                        validate_transport_checksum_v6(
+                            src,
+                            dst,
+                            protocol,
+                            payload,
+                            payload_offset,
+                            issues,
+                        );
+                    }
+                }
             }
 
             // Application-layer dispatch: attempt to decode protocols above transport.
