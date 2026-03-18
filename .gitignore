@@ -18,6 +18,9 @@
 
 /TODO.txt
 
+# PPA captures (110MB, not committed)
+ppa3ecaptures/*.pcapng
+
 # Dolt database files (added by bd init)
 .dolt/
 *.db
