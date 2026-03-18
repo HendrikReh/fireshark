@@ -33,7 +33,7 @@ Each protocol has a plain struct with public fields:
 | `TcpLayer` | ports, seq, ack, data_offset, flags (`TcpFlags`), window |
 | `UdpLayer` | ports, length |
 | `IcmpLayer` | type, code, detail (`IcmpDetail`) |
-| `DnsLayer` | transaction_id, is_response, opcode, question_count, answer_count, query_name, query_type, answers |
+| `DnsLayer` | transaction_id, is_response, opcode, rcode, question_count, answer_count, query_name, query_type, answers |
 | `DnsAnswer` | name, record_type, ttl, data (`DnsAnswerData`) |
 | `DnsAnswerData` | A (IPv4), Aaaa (IPv6), Other (raw bytes) |
 | `TlsClientHelloLayer` | record_version, client_version, cipher_suites, compression_methods, sni, alpn, supported_versions, signature_algorithms, key_share_groups |

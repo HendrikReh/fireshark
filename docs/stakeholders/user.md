@@ -405,6 +405,7 @@ fireshark summary capture.pcap -f 'ip.src contains "192.168"'
 | `dns.acount` | integer | Answer count |
 | `dns.qtype` | integer | Query type (1=A, 28=AAAA, etc.) |
 | `dns.qname` | string | Query name (e.g., "example.com") |
+| `dns.rcode` | integer | Response code (0=NOERROR, 3=NXDOMAIN, etc.) |
 
 **TLS fields:**
 

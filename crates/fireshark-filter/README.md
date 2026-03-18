@@ -80,7 +80,7 @@ not arp
 | UDP | `udp.srcport`, `udp.dstport`, `udp.port`, `udp.length`, `udp.stream` |
 | ICMP | `icmp.type`, `icmp.code` |
 | ARP | `arp.opcode`, `arp.spa`, `arp.tpa` |
-| DNS | `dns.id`, `dns.qr`, `dns.opcode`, `dns.qcount`, `dns.acount`, `dns.qtype`, `dns.qname` (string) |
+| DNS | `dns.id`, `dns.qr`, `dns.opcode`, `dns.rcode`, `dns.qcount`, `dns.acount`, `dns.qtype`, `dns.qname` (string) |
 | TLS | `tls.handshake.type`, `tls.record_version`, `tls.client_version`, `tls.selected_version`, `tls.cipher_suite`, `tls.sni` (string) |
 | Ethernet | `eth.type` |
 

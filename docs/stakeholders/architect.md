@@ -230,7 +230,7 @@ MCP client
 | `session.rs` | `SessionManager` with `CaptureSession`, idle expiration, max-session cap |
 | `analysis.rs` | `AnalyzedCapture` loading captures via `Pipeline`, pre-computing protocol/endpoint counts |
 | `query.rs` | Packet listing, search, decode issue listing, protocol summary, top endpoints |
-| `audit.rs` | `AuditEngine` with 6 heuristic checks: decode issues, unknown traffic, scan fan-out, suspicious ports, cleartext credential exposure, DNS tunneling detection |
+| `audit.rs` | `AuditEngine` with 8 heuristic checks: decode issues, unknown traffic, scan fan-out, suspicious ports, cleartext credential exposure, DNS tunneling detection, NXDOMAIN storm, connection anomalies |
 | `model.rs` | Serializable view types for MCP JSON-RPC responses |
 | `filter.rs` | Shared filter utilities |
 
@@ -324,7 +324,7 @@ The native dissectors produce a typed layer model (`TcpLayer.flags.syn`, `DnsLay
 
 | Capability | Why it requires native dissectors |
 |-----------|-----------------------------------|
-| Security audit engine (7 heuristics) | Heuristics inspect typed fields (e.g., TCP flag combinations for scan detection, DNS payload lengths for tunneling detection). Flat string fields from tshark cannot feed this logic. |
+| Security audit engine (8 heuristics) | Heuristics inspect typed fields (e.g., TCP flag combinations for scan detection, DNS payload lengths for tunneling detection, NXDOMAIN response counting for DGA detection). Flat string fields from tshark cannot feed this logic. |
 | Stream tracking with `tcp.stream` filter and `follow` command | The `StreamTracker` assigns stream IDs during pipeline iteration by extracting 5-tuples from typed layers. tshark's conversation tracking is opaque and cannot participate in fireshark's filter or pipeline model. |
 | Display filter evaluation (`tcp.flags.syn and ip.ttl > 64`) | The filter evaluator resolves field names against typed `Layer` variants. tshark has its own separate filter engine whose results cannot feed back into fireshark's pipeline. |
 | Color-coded hex dump with per-layer byte spans | `LayerSpan` records are produced during native dissection. tshark does not expose byte offsets for individual protocol layers. |

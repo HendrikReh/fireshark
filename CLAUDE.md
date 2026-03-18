@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Fireshark is a packet analyzer built for LLMs and humans, written in Rust. It is library-first and built in phases (crawl/walk/run). Currently in the **walk** phase: 10 protocol dissectors, display filter language with string operators (`contains`, `matches`), TCP/UDP stream tracking, tshark-backed stream reassembly (`follow --payload`, `follow --http`), TLS certificate extraction, checksum validation, 7 security audit heuristics with audit profiles (`--profile security|dns|quality`), 20 MCP tools, 7 CLI commands, JSON export, capture comparison, and an optional tshark backend.
+Fireshark is a packet analyzer built for LLMs and humans, written in Rust. It is library-first and built in phases (crawl/walk/run). Currently in the **walk** phase: 10 protocol dissectors, display filter language with string operators (`contains`, `matches`), TCP/UDP stream tracking, tshark-backed stream reassembly (`follow --payload`, `follow --http`), TLS certificate extraction, checksum validation, 8 security audit heuristics with audit profiles (`--profile security|dns|quality`), 20 MCP tools, 7 CLI commands, JSON export, capture comparison, and an optional tshark backend.
 
 ## Workspace Layout
 

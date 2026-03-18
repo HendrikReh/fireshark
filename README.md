@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-0.8.0-blue)]()
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange?logo=rust)](https://www.rust-lang.org/)
-[![Tests](https://img.shields.io/badge/tests-437%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-439%20passing-brightgreen)]()
 [![Status](https://img.shields.io/badge/phase-walk-blue)]()
 
 Packet analyzer built for LLMs and humans. Rust-native protocol dissection with an MCP server that lets an AI assistant perform security audits, and a color-coded CLI for direct analysis.
@@ -27,7 +27,7 @@ Packet analyzer built for LLMs and humans. Rust-native protocol dissection with 
 
 ## Elevator Pitch
 
-Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wireshark — packet queries, protocol decoding, display filters, stream tracking, stream reassembly, certificate extraction, and security audit heuristics — through structured MCP tool calls. For humans, it's a fast, color-coded CLI that decodes 10 protocols, follows TCP/UDP conversations with payload reassembly, runs 7 automated security checks, validates checksums, and exports results as JSON. Everything is library-first: one Rust workspace, 8 crates, 437 tests, zero unsafe code.
+Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wireshark — packet queries, protocol decoding, display filters, stream tracking, stream reassembly, certificate extraction, and security audit heuristics — through structured MCP tool calls. For humans, it's a fast, color-coded CLI that decodes 10 protocols, follows TCP/UDP conversations with payload reassembly, runs 8 automated security checks, validates checksums, and exports results as JSON. Everything is library-first: one Rust workspace, 8 crates, 439 tests, zero unsafe code.
 
 ## Why native dissectors when tshark exists?
 
@@ -203,6 +203,9 @@ cargo run -p fireshark-cli -- summary capture.pcap -f "dns and not dns.qr"
 
 # DNS by transaction ID
 cargo run -p fireshark-cli -- summary capture.pcap -f "dns.id == 0x1234"
+
+# DNS NXDOMAIN responses
+cargo run -p fireshark-cli -- summary capture.pcap -f "dns.rcode == 3"
 
 # TLS handshakes
 cargo run -p fireshark-cli -- summary capture.pcap -f "tls"

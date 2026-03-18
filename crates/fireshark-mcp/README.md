@@ -87,7 +87,7 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 | `session.rs` | Session lifecycle management |
 | `analysis.rs` | Capture loading and analysis |
 | `query.rs` | Packet query and filtering logic |
-| `audit.rs` | Security heuristic engine (7 heuristics: decode issues, unknown traffic, scan activity, suspicious ports, cleartext credentials, DNS tunneling, connection anomalies) |
+| `audit.rs` | Security heuristic engine (8 heuristics: decode issues, unknown traffic, scan activity, suspicious ports, cleartext credentials, DNS tunneling, NXDOMAIN storm, connection anomalies) |
 | `model.rs` | Serializable view types for MCP responses |
 | `filter.rs` | Shared filter utilities |
 
