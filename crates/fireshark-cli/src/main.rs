@@ -98,8 +98,14 @@ enum Command {
         /// Stream ID (from stats or summary output)
         stream: u32,
         /// Analysis backend: native (default) or tshark
-        #[arg(long = "backend", default_value = "native")]
-        backend: String,
+        #[arg(long = "backend")]
+        backend: Option<String>,
+        /// Show reassembled payload (requires tshark backend)
+        #[arg(long = "payload")]
+        payload: bool,
+        /// Show HTTP request/response (requires tshark backend)
+        #[arg(long = "http")]
+        http: bool,
     },
     /// Compare two capture files and show differences
     Diff {
@@ -173,9 +179,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             path,
             stream,
             backend,
+            payload,
+            http,
         } => {
-            require_native_backend(&backend, "follow")?;
-            follow::run(&path, stream)?;
+            if payload || http {
+                // --payload and --http imply tshark. Error only if user
+                // explicitly chose native.
+                if backend.as_deref() == Some("native") {
+                    let flag = if payload { "--payload" } else { "--http" };
+                    return Err(format!(
+                        "{flag} requires the tshark backend; use --backend tshark or omit --backend"
+                    )
+                    .into());
+                }
+                follow::run_reassembly(&path, stream, payload, http)?;
+            } else {
+                let backend_str = backend.as_deref().unwrap_or("native");
+                require_native_backend(backend_str, "follow")?;
+                follow::run(&path, stream)?;
+            }
         }
         Command::Diff {
             path_a,

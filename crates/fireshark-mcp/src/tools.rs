@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use tokio::sync::Mutex;
@@ -21,6 +21,18 @@ use crate::query::{
 use crate::session::{SessionError, SessionManager};
 
 const DEFAULT_MAX_SESSIONS: usize = 8;
+
+/// Lightweight snapshot of session metadata for reassembly operations.
+pub struct SessionSnapshot {
+    path: Option<PathBuf>,
+}
+
+impl SessionSnapshot {
+    /// The capture file path, if available.
+    pub fn path(&self) -> Option<&Path> {
+        self.path.as_deref()
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum ToolError {
@@ -87,6 +99,7 @@ impl ToolService {
         max_packets: Option<usize>,
     ) -> Result<OpenCaptureResponse, ToolError> {
         let limit = max_packets.unwrap_or(DEFAULT_MAX_PACKETS).min(1_000_000);
+        let capture_path = path.as_ref().to_path_buf();
 
         // 1. Quick check: expire idle sessions first, then verify room.
         {
@@ -106,7 +119,7 @@ impl ToolService {
         let mut sessions = self.sessions.lock().await;
         sessions.expire_idle();
         sessions.check_limit()?;
-        let session_id = sessions.insert(capture);
+        let session_id = sessions.insert_with_path(capture, capture_path);
 
         let session = sessions
             .get_mut(&session_id)
@@ -122,6 +135,22 @@ impl ToolService {
         Ok(CloseCaptureResponse {
             session_id: session_id.to_string(),
             closed: true,
+        })
+    }
+
+    /// Acquire the session path for reassembly operations (tshark follow, certs).
+    pub async fn acquire_capture_for_reassembly(
+        &self,
+        session_id: &str,
+    ) -> Result<SessionSnapshot, ToolError> {
+        let mut sessions = self.sessions.lock().await;
+        sessions.expire_idle();
+        let session = sessions
+            .get_mut(session_id)
+            .ok_or_else(|| SessionError::NotFound(session_id.to_string()))?;
+        session.touch();
+        Ok(SessionSnapshot {
+            path: session.path().map(|p| p.to_path_buf()),
         })
     }
 

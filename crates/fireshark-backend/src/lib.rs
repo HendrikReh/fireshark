@@ -7,6 +7,7 @@ mod backend;
 mod capture;
 pub mod compare;
 mod native;
+pub mod reassembly;
 mod tshark;
 
 pub use backend::{BackendCapabilities, BackendKind};
@@ -14,3 +15,6 @@ pub use capture::{
     BackendCapture, BackendError, BackendIssue, BackendLayer, BackendPacket, BackendSummary,
 };
 pub use compare::{CaptureComparison, compare};
+pub use reassembly::{
+    Direction, FollowMode, HttpExchange, StreamPayload, StreamSegment, TlsCertInfo,
+};

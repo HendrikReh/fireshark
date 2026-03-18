@@ -364,6 +364,7 @@ dependencies = [
  "fireshark-file",
  "fireshark-filter",
  "fireshark-mcp",
+ "fireshark-tshark",
  "predicates",
  "serde",
  "serde_json",
@@ -412,10 +413,12 @@ name = "fireshark-mcp"
 version = "0.6.0"
 dependencies = [
  "assert_cmd",
+ "fireshark-backend",
  "fireshark-core",
  "fireshark-dissectors",
  "fireshark-file",
  "fireshark-filter",
+ "fireshark-tshark",
  "predicates",
  "rmcp",
  "schemars",

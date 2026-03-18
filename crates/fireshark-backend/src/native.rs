@@ -84,9 +84,11 @@ pub fn open(path: impl AsRef<Path>) -> Result<BackendCapture, BackendError> {
             supports_native_filter: true,
             supports_layer_spans: true,
             supports_audit: true,
+            supports_reassembly: false,
         },
         packets,
         protocol_counts,
         endpoint_counts,
+        path: None,
     })
 }

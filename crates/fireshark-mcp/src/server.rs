@@ -9,10 +9,11 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::model::{
-    CaptureComparisonView, CaptureDescriptionView, CaptureSummaryView, CloseCaptureResponse,
-    DecodeIssueListResponse, EndpointListResponse, FindingListResponse, OpenCaptureResponse,
-    PacketDetailView, PacketListResponse, ProtocolSummaryResponse, StreamListResponse,
-    StreamPacketsResponse,
+    CaptureComparisonView, CaptureDescriptionView, CaptureSummaryView, CertificateListView,
+    CertificateView, CloseCaptureResponse, DecodeIssueListResponse, EndpointListResponse,
+    FindingListResponse, OpenCaptureResponse, PacketDetailView, PacketListResponse,
+    ProtocolSummaryResponse, StreamListResponse, StreamPacketsResponse, StreamPayloadView,
+    StreamSegmentView,
 };
 use crate::query::PacketSearch;
 use crate::tools::{ToolError, ToolService};
@@ -304,6 +305,115 @@ impl FiresharkMcpServer {
             .map(Json)
             .map_err(tool_error)
     }
+
+    #[tool(description = "Get reassembled stream payload via tshark")]
+    async fn get_stream_payload(
+        &self,
+        Parameters(request): Parameters<GetStreamPayloadRequest>,
+    ) -> McpResult<StreamPayloadView> {
+        let mode = match request.mode.as_deref().unwrap_or("tcp") {
+            "tcp" => fireshark_backend::FollowMode::Tcp,
+            "http" => fireshark_backend::FollowMode::Http,
+            other => {
+                return Err(ErrorData::invalid_params(
+                    format!("unsupported follow mode: {other}; use 'tcp' or 'http'"),
+                    None,
+                ));
+            }
+        };
+
+        let (tshark_path, _version) = fireshark_tshark::discover().map_err(|e| {
+            ErrorData::internal_error(format!("tshark required for reassembly: {e}"), None)
+        })?;
+
+        let capture = self
+            .tools
+            .acquire_capture_for_reassembly(&request.session_id)
+            .await
+            .map_err(tool_error)?;
+
+        let capture_path = capture
+            .path()
+            .ok_or_else(|| {
+                ErrorData::internal_error("session has no capture path for reassembly", None)
+            })?
+            .to_path_buf();
+
+        let payload = fireshark_tshark::follow::follow_stream(
+            &tshark_path,
+            &capture_path,
+            request.stream_id,
+            mode,
+        )
+        .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+
+        let segments = payload
+            .segments
+            .iter()
+            .map(|seg| {
+                let direction = match seg.direction {
+                    fireshark_backend::Direction::ClientToServer => "client_to_server",
+                    fireshark_backend::Direction::ServerToClient => "server_to_client",
+                };
+                StreamSegmentView {
+                    direction: direction.to_string(),
+                    data_hex: seg.data.iter().map(|b| format!("{b:02x}")).collect(),
+                    data_len: seg.data.len(),
+                }
+            })
+            .collect();
+
+        Ok(Json(StreamPayloadView {
+            stream_id: payload.stream_id,
+            client: payload.client,
+            server: payload.server,
+            segments,
+        }))
+    }
+
+    #[tool(description = "Extract TLS certificate information from a capture")]
+    async fn get_certificates(
+        &self,
+        Parameters(request): Parameters<SessionRequest>,
+    ) -> McpResult<CertificateListView> {
+        let (tshark_path, _version) = fireshark_tshark::discover().map_err(|e| {
+            ErrorData::internal_error(
+                format!("tshark required for certificate extraction: {e}"),
+                None,
+            )
+        })?;
+
+        let capture = self
+            .tools
+            .acquire_capture_for_reassembly(&request.session_id)
+            .await
+            .map_err(tool_error)?;
+
+        let capture_path = capture
+            .path()
+            .ok_or_else(|| {
+                ErrorData::internal_error(
+                    "session has no capture path for certificate extraction",
+                    None,
+                )
+            })?
+            .to_path_buf();
+
+        let certs = fireshark_tshark::certs::extract_certificates(&tshark_path, &capture_path)
+            .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+
+        let certificates = certs
+            .into_iter()
+            .map(|c| CertificateView {
+                packet_index: c.packet_index,
+                common_name: c.common_name,
+                san_dns_names: c.san_dns_names,
+                organization: c.organization,
+            })
+            .collect();
+
+        Ok(Json(CertificateListView { certificates }))
+    }
 }
 
 pub async fn run_stdio() -> Result<(), Box<dyn std::error::Error>> {
@@ -425,4 +535,12 @@ struct GetStreamRequest {
 struct CompareCapturesRequest {
     session_id_a: String,
     session_id_b: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+struct GetStreamPayloadRequest {
+    session_id: String,
+    stream_id: u32,
+    /// Follow mode: "tcp" (default) or "http"
+    mode: Option<String>,
 }

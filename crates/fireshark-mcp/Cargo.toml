@@ -9,10 +9,12 @@ name = "fireshark-mcp"
 path = "src/main.rs"
 
 [dependencies]
+fireshark-backend = { path = "../fireshark-backend" }
 fireshark-core = { path = "../fireshark-core" }
 fireshark-dissectors = { path = "../fireshark-dissectors" }
 fireshark-file = { path = "../fireshark-file" }
 fireshark-filter = { path = "../fireshark-filter" }
+fireshark-tshark = { path = "../fireshark-tshark" }
 rmcp = { version = "0.16", features = ["client", "transport-child-process", "transport-io"] }
 schemars = "1"
 serde = { version = "1", features = ["derive"] }

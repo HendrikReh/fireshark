@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -29,6 +29,7 @@ pub struct CaptureSession {
     capture: Arc<AnalyzedCapture>,
     pub last_accessed: Instant,
     findings: Option<Vec<FindingView>>,
+    path: Option<PathBuf>,
 }
 
 impl CaptureSession {
@@ -38,6 +39,17 @@ impl CaptureSession {
             capture: Arc::new(capture),
             last_accessed: Instant::now(),
             findings: None,
+            path: None,
+        }
+    }
+
+    fn with_path(id: String, capture: AnalyzedCapture, path: PathBuf) -> Self {
+        Self {
+            id,
+            capture: Arc::new(capture),
+            last_accessed: Instant::now(),
+            findings: None,
+            path: Some(path),
         }
     }
 
@@ -60,6 +72,11 @@ impl CaptureSession {
         self.findings
             .get_or_insert_with(|| AuditEngine::audit(&self.capture))
             .as_slice()
+    }
+
+    /// The capture file path, if stored at session creation time.
+    pub fn path(&self) -> Option<&Path> {
+        self.path.as_deref()
     }
 }
 
@@ -101,8 +118,9 @@ impl SessionManager {
         let id = format!("session-{}", self.next_id);
         self.next_id += 1;
 
+        let capture_path = path.as_ref().to_path_buf();
         let capture = AnalyzedCapture::open(path)?;
-        let session = CaptureSession::new(id.clone(), capture);
+        let session = CaptureSession::with_path(id.clone(), capture, capture_path);
         self.sessions.insert(id.clone(), session);
 
         Ok(id)
@@ -128,6 +146,17 @@ impl SessionManager {
         self.next_id += 1;
 
         let session = CaptureSession::new(id.clone(), capture);
+        self.sessions.insert(id.clone(), session);
+
+        id
+    }
+
+    /// Insert a pre-built `AnalyzedCapture` with a known file path.
+    pub fn insert_with_path(&mut self, capture: AnalyzedCapture, path: PathBuf) -> String {
+        let id = format!("session-{}", self.next_id);
+        self.next_id += 1;
+
+        let session = CaptureSession::with_path(id.clone(), capture, path);
         self.sessions.insert(id.clone(), session);
 
         id

@@ -4,14 +4,20 @@
 //! This crate handles discovery, execution, and TSV parsing. The resulting
 //! [`TsharkCapture`] is converted to backend-neutral types by `fireshark-backend`.
 
+pub mod certs;
 mod command;
 mod error;
+pub mod follow;
 mod normalize;
-mod version;
+pub mod reassembly;
+pub mod version;
 
 pub use command::run_fields;
 pub use error::TsharkError;
 pub use normalize::{TsharkCapture, TsharkPacket, parse_tsv};
+pub use reassembly::{
+    Direction, FollowMode, HttpExchange, StreamPayload, StreamSegment, TlsCertInfo,
+};
 pub use version::{TsharkVersion, discover, parse_version_output};
 
 use std::path::Path;

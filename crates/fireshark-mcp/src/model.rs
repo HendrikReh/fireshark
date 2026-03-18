@@ -516,6 +516,34 @@ pub struct PortDiffView {
     pub count: usize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct StreamSegmentView {
+    pub direction: String,
+    pub data_hex: String,
+    pub data_len: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct StreamPayloadView {
+    pub stream_id: u32,
+    pub client: String,
+    pub server: String,
+    pub segments: Vec<StreamSegmentView>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CertificateView {
+    pub packet_index: usize,
+    pub common_name: Option<String>,
+    pub san_dns_names: Vec<String>,
+    pub organization: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CertificateListView {
+    pub certificates: Vec<CertificateView>,
+}
+
 pub fn format_issue_kind(kind: &DecodeIssueKind) -> String {
     match kind {
         DecodeIssueKind::Truncated => "truncated",

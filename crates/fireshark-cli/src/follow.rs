@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use fireshark_backend::reassembly::{Direction, FollowMode};
 use fireshark_core::TrackingPipeline;
 use fireshark_dissectors::decode_packet;
 use fireshark_file::CaptureReader;
@@ -84,4 +85,92 @@ pub fn run(path: &Path, stream_id: u32) -> Result<(), Box<dyn std::error::Error>
     }
 
     Ok(())
+}
+
+/// Reassemble and display stream payload via the tshark backend.
+///
+/// When `payload` is true, shows a hex dump of the reassembled TCP stream.
+/// When `http` is true, shows the HTTP request/response exchange.
+pub fn run_reassembly(
+    path: &Path,
+    stream_id: u32,
+    payload: bool,
+    http: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let (tshark_path, _version) =
+        fireshark_tshark::discover().map_err(|e| format!("tshark required for reassembly: {e}"))?;
+
+    if payload {
+        let stream_payload = fireshark_tshark::follow::follow_stream(
+            &tshark_path,
+            path,
+            stream_id,
+            FollowMode::Tcp,
+        )?;
+
+        println!(
+            "Stream {}: {} <-> {}",
+            stream_payload.stream_id, stream_payload.client, stream_payload.server
+        );
+        println!("{}", "\u{2500}".repeat(38));
+
+        if stream_payload.segments.is_empty() {
+            println!("(no payload data)");
+        }
+        for segment in &stream_payload.segments {
+            let dir_label = match segment.direction {
+                Direction::ClientToServer => ">>>",
+                Direction::ServerToClient => "<<<",
+            };
+            println!("{dir_label} {} bytes", segment.data.len());
+            print_hex_dump(&segment.data);
+        }
+    }
+
+    if http {
+        let stream_payload = fireshark_tshark::follow::follow_stream(
+            &tshark_path,
+            path,
+            stream_id,
+            FollowMode::Http,
+        )?;
+
+        println!(
+            "Stream {}: {} <-> {}",
+            stream_payload.stream_id, stream_payload.client, stream_payload.server
+        );
+        println!("{}", "\u{2500}".repeat(38));
+
+        if stream_payload.segments.is_empty() {
+            println!("(no HTTP data)");
+        }
+        for segment in &stream_payload.segments {
+            let dir_label = match segment.direction {
+                Direction::ClientToServer => ">>>",
+                Direction::ServerToClient => "<<<",
+            };
+            let text = String::from_utf8_lossy(&segment.data);
+            print!("{dir_label} {text}");
+        }
+    }
+
+    Ok(())
+}
+
+/// Print a hex dump of the given bytes, 16 bytes per line.
+fn print_hex_dump(data: &[u8]) {
+    for (offset, chunk) in data.chunks(16).enumerate() {
+        let hex: Vec<String> = chunk.iter().map(|b| format!("{b:02x}")).collect();
+        let ascii: String = chunk
+            .iter()
+            .map(|&b| {
+                if b.is_ascii_graphic() || b == b' ' {
+                    b as char
+                } else {
+                    '.'
+                }
+            })
+            .collect();
+        println!("  {:04x}  {:<48}  {}", offset * 16, hex.join(" "), ascii);
+    }
 }

@@ -34,4 +34,5 @@ pub struct BackendCapabilities {
     pub supports_native_filter: bool,
     pub supports_layer_spans: bool,
     pub supports_audit: bool,
+    pub supports_reassembly: bool,
 }

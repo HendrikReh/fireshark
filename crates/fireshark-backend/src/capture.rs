@@ -1,7 +1,8 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::backend::{BackendCapabilities, BackendKind};
+use crate::reassembly::{FollowMode, StreamPayload, TlsCertInfo};
 
 #[derive(Debug, thiserror::Error)]
 pub enum BackendError {
@@ -46,6 +47,7 @@ pub struct BackendCapture {
     pub(crate) packets: Vec<BackendPacket>,
     pub(crate) protocol_counts: Vec<(String, usize)>,
     pub(crate) endpoint_counts: Vec<(String, usize)>,
+    pub(crate) path: Option<PathBuf>,
 }
 
 impl BackendCapture {
@@ -65,14 +67,18 @@ impl BackendCapture {
             packets,
             protocol_counts,
             endpoint_counts,
+            path: None,
         }
     }
 
     pub fn open(path: impl AsRef<Path>, kind: BackendKind) -> Result<Self, BackendError> {
-        match kind {
-            BackendKind::Native => crate::native::open(path),
-            BackendKind::Tshark => crate::tshark::open(path),
-        }
+        let capture_path = path.as_ref().to_path_buf();
+        let mut capture = match kind {
+            BackendKind::Native => crate::native::open(&path),
+            BackendKind::Tshark => crate::tshark::open(&path),
+        }?;
+        capture.path = Some(capture_path);
+        Ok(capture)
     }
 
     pub fn backend_kind(&self) -> BackendKind {
@@ -101,5 +107,54 @@ impl BackendCapture {
 
     pub fn endpoint_counts(&self) -> &[(String, usize)] {
         &self.endpoint_counts
+    }
+
+    /// The capture file path, if available.
+    pub fn path(&self) -> Option<&Path> {
+        self.path.as_deref()
+    }
+
+    /// Follow/reassemble a stream using the tshark backend.
+    ///
+    /// Returns an error if the capture path is unavailable or the backend
+    /// does not support reassembly.
+    pub fn follow_stream(
+        &self,
+        stream_id: u32,
+        mode: FollowMode,
+    ) -> Result<StreamPayload, BackendError> {
+        let path = self
+            .path
+            .as_ref()
+            .ok_or_else(|| BackendError::Unsupported("no capture path available".into()))?;
+        if !self.capabilities.supports_reassembly {
+            return Err(BackendError::Unsupported(
+                "reassembly requires tshark backend".into(),
+            ));
+        }
+        let (tshark_path, _version) =
+            fireshark_tshark::discover().map_err(|e| BackendError::Open(e.to_string()))?;
+        fireshark_tshark::follow::follow_stream(&tshark_path, path, stream_id, mode)
+            .map_err(|e| BackendError::Open(e.to_string()))
+    }
+
+    /// Extract TLS certificate information from the capture using tshark.
+    ///
+    /// Returns an error if the capture path is unavailable or the backend
+    /// does not support reassembly.
+    pub fn extract_certificates(&self) -> Result<Vec<TlsCertInfo>, BackendError> {
+        let path = self
+            .path
+            .as_ref()
+            .ok_or_else(|| BackendError::Unsupported("no capture path available".into()))?;
+        if !self.capabilities.supports_reassembly {
+            return Err(BackendError::Unsupported(
+                "certificate extraction requires tshark backend".into(),
+            ));
+        }
+        let (tshark_path, _version) =
+            fireshark_tshark::discover().map_err(|e| BackendError::Open(e.to_string()))?;
+        fireshark_tshark::certs::extract_certificates(&tshark_path, path)
+            .map_err(|e| BackendError::Open(e.to_string()))
     }
 }
