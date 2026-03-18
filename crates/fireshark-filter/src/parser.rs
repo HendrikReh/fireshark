@@ -178,6 +178,10 @@ fn parse_atom(cursor: &mut Cursor<'_>) -> Result<Expr, FilterError> {
             cursor.advance();
             Ok(Expr::HasProtocol(Protocol::Tls))
         }
+        Token::Http => {
+            cursor.advance();
+            Ok(Expr::HasProtocol(Protocol::Http))
+        }
 
         // Shorthand: port N
         Token::Port => {
@@ -592,6 +596,7 @@ mod tests {
         assert_eq!(parse("ipv6").unwrap(), Expr::HasProtocol(Protocol::Ipv6));
         assert_eq!(parse("eth").unwrap(), Expr::HasProtocol(Protocol::Ethernet));
         assert_eq!(parse("dns").unwrap(), Expr::HasProtocol(Protocol::Dns));
+        assert_eq!(parse("http").unwrap(), Expr::HasProtocol(Protocol::Http));
     }
 
     #[test]

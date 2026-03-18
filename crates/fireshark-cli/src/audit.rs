@@ -40,6 +40,8 @@ pub fn run(
                 category: finding.category.clone(),
                 title: finding.title.clone(),
                 evidence_count,
+                escalated: finding.escalated,
+                notes: finding.notes.clone(),
             };
             println!("{}", serde_json::to_string(&f).unwrap());
         }
@@ -79,8 +81,17 @@ pub fn run(
             }
         }
 
-        println!("{severity_label} {}", finding.title);
+        let escalated_label = if finding.escalated {
+            " [ESCALATED]".to_string()
+        } else {
+            String::new()
+        };
+        println!("{severity_label}{escalated_label} {}", finding.title);
         println!("  {}", finding.summary);
+
+        if let Some(notes) = &finding.notes {
+            println!("  Notes: {notes}");
+        }
 
         for evidence in &finding.evidence {
             println!("  Evidence: {} packets", evidence.packet_indexes.len());

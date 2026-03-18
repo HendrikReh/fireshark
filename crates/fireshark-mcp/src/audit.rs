@@ -182,6 +182,8 @@ fn audit_scan_activity(capture: &AnalyzedCapture) -> Vec<FindingView> {
                         targets.len()
                     ),
                 }],
+                escalated: false,
+                notes: None,
             })
         })
         .collect()
@@ -239,6 +241,8 @@ fn audit_suspicious_ports(capture: &AnalyzedCapture) -> Vec<FindingView> {
                 packet_indexes,
                 description: format!("Packets targeted destination port {port}."),
             }],
+            escalated: false,
+            notes: None,
         })
         .collect()
 }
@@ -279,6 +283,8 @@ fn audit_cleartext_credentials(capture: &AnalyzedCapture) -> Vec<FindingView> {
                     packet_indexes,
                     description: format!("Packets targeted {name} destination port {port}."),
                 }],
+                escalated: false,
+                notes: None,
             }
         })
         .collect()
@@ -379,6 +385,8 @@ fn audit_dns_tunneling(capture: &AnalyzedCapture) -> Vec<FindingView> {
                     packet_indexes: stats.packet_indexes,
                     description: format!("DNS queries from {source} with tunneling indicators."),
                 }],
+                escalated: false,
+                notes: None,
             })
         })
         .collect()
@@ -427,6 +435,8 @@ fn audit_nxdomain_storm(capture: &AnalyzedCapture) -> Option<FindingView> {
             packet_indexes,
             description: format!("{nxdomain_count} NXDOMAIN responses observed."),
         }],
+        escalated: false,
+        notes: None,
     })
 }
 
@@ -461,6 +471,8 @@ fn audit_connection_anomalies(capture: &AnalyzedCapture) -> Vec<FindingView> {
                     packet_indexes,
                     description: format!("Packets from stream {id} with incomplete handshake."),
                 }],
+                escalated: false,
+                notes: None,
             });
         }
 
@@ -481,6 +493,8 @@ fn audit_connection_anomalies(capture: &AnalyzedCapture) -> Vec<FindingView> {
                     packet_indexes,
                     description: format!("Packets from stream {id} exhibiting RST storm behavior."),
                 }],
+                escalated: false,
+                notes: None,
             });
         }
 
@@ -509,6 +523,8 @@ fn audit_connection_anomalies(capture: &AnalyzedCapture) -> Vec<FindingView> {
                     packet_indexes,
                     description: format!("Packets from stream {id} with no connection teardown."),
                 }],
+                escalated: false,
+                notes: None,
             });
         }
     }
@@ -565,6 +581,8 @@ fn finding_for_ratio(
                 ratio * 100.0
             ),
         }],
+        escalated: false,
+        notes: None,
     })
 }
 

@@ -19,6 +19,7 @@ pub enum Token {
     Ethernet,
     Dns,
     Tls,
+    Http,
     // Shorthand keywords
     Port,
     Src,
@@ -338,6 +339,7 @@ fn scan_identifier(input: &str, pos: &mut usize) -> Result<Token, FilterError> {
         "eth" | "ethernet" => Token::Ethernet,
         "dns" => Token::Dns,
         "tls" => Token::Tls,
+        "http" => Token::Http,
         "port" => Token::Port,
         "src" => Token::Src,
         "dst" => Token::Dst,
@@ -565,6 +567,18 @@ mod tests {
     fn tokenize_dns_keyword() {
         let tokens = tokenize("dns").unwrap();
         assert_eq!(tokens, vec![Token::Dns]);
+    }
+
+    #[test]
+    fn tokenize_http_keyword() {
+        let tokens = tokenize("http").unwrap();
+        assert_eq!(tokens, vec![Token::Http]);
+    }
+
+    #[test]
+    fn tokenize_http_field_is_ident() {
+        let tokens = tokenize("http.method").unwrap();
+        assert_eq!(tokens, vec![Token::Ident("http.method".to_string())]);
     }
 
     #[test]

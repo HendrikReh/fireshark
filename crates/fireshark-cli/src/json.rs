@@ -51,6 +51,9 @@ pub struct FindingJson {
     pub category: String,
     pub title: String,
     pub evidence_count: usize,
+    pub escalated: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
 }
 
 #[derive(Serialize)]

@@ -139,6 +139,19 @@ pub struct TlsServerHelloLayer {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HttpLayer {
+    pub is_request: bool,
+    pub method: Option<String>,
+    pub uri: Option<String>,
+    pub version: String,
+    pub status_code: Option<u16>,
+    pub reason: Option<String>,
+    pub host: Option<String>,
+    pub content_type: Option<String>,
+    pub content_length: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Layer {
     Unknown,
     Ethernet(EthernetLayer),
@@ -151,6 +164,7 @@ pub enum Layer {
     Dns(DnsLayer),
     TlsClientHello(TlsClientHelloLayer),
     TlsServerHello(TlsServerHelloLayer),
+    Http(HttpLayer),
 }
 
 /// Format a 6-byte MAC address as colon-separated hex.
@@ -175,6 +189,7 @@ impl Layer {
             Self::Dns(_) => "DNS",
             Self::TlsClientHello(_) => "TLS",
             Self::TlsServerHello(_) => "TLS",
+            Self::Http(_) => "HTTP",
         }
     }
 }

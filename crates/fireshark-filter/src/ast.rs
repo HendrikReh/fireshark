@@ -42,6 +42,7 @@ pub enum Protocol {
     Ethernet,
     Dns,
     Tls,
+    Http,
 }
 
 /// A dotted field path, e.g. `"ip.src"` or `"tcp.flags.syn"`.

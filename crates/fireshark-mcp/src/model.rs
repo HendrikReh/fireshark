@@ -169,6 +169,8 @@ pub struct FindingView {
     pub title: String,
     pub summary: String,
     pub evidence: Vec<FindingEvidenceView>,
+    pub escalated: bool,
+    pub notes: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -317,6 +319,18 @@ pub enum LayerView {
         selected_version: Option<u16>,
         alpn: Option<String>,
         key_share_group: Option<NamedGroupView>,
+    },
+    #[serde(rename = "HTTP")]
+    Http {
+        is_request: bool,
+        method: Option<String>,
+        uri: Option<String>,
+        version: String,
+        status_code: Option<u16>,
+        reason: Option<String>,
+        host: Option<String>,
+        content_type: Option<String>,
+        content_length: Option<u64>,
     },
 }
 
@@ -483,6 +497,17 @@ impl LayerView {
                     id,
                     name: tls::named_group_name(id).to_string(),
                 }),
+            },
+            Layer::Http(layer) => Self::Http {
+                is_request: layer.is_request,
+                method: layer.method.clone(),
+                uri: layer.uri.clone(),
+                version: layer.version.clone(),
+                status_code: layer.status_code,
+                reason: layer.reason.clone(),
+                host: layer.host.clone(),
+                content_type: layer.content_type.clone(),
+                content_length: layer.content_length,
             },
         }
     }

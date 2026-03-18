@@ -252,6 +252,18 @@ impl FiresharkMcpServer {
             .map_err(tool_error)
     }
 
+    #[tool(description = "Escalate an audit finding with analyst notes")]
+    async fn escalate_finding(
+        &self,
+        Parameters(request): Parameters<EscalateFindingRequest>,
+    ) -> McpResult<crate::model::FindingView> {
+        self.tools
+            .escalate_finding(&request.session_id, &request.finding_id, &request.notes)
+            .await
+            .map(Json)
+            .map_err(tool_error)
+    }
+
     #[tool(description = "List TCP/UDP conversation streams in a capture session")]
     async fn list_streams(
         &self,
@@ -516,6 +528,13 @@ struct ListFindingsRequest {
 struct ExplainFindingRequest {
     session_id: String,
     finding_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+struct EscalateFindingRequest {
+    session_id: String,
+    finding_id: String,
+    notes: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

@@ -11,6 +11,13 @@ use crate::model::FindingView;
 
 const DEFAULT_IDLE_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
+#[derive(Debug, Clone)]
+pub struct EscalationNote {
+    pub finding_id: String,
+    pub notes: String,
+    pub escalated_at: String,
+}
+
 #[derive(Debug, Error)]
 pub enum SessionError {
     #[error(transparent)]
@@ -30,6 +37,7 @@ pub struct CaptureSession {
     pub last_accessed: Instant,
     findings: Option<Vec<FindingView>>,
     path: Option<PathBuf>,
+    escalations: Vec<EscalationNote>,
 }
 
 impl CaptureSession {
@@ -40,6 +48,7 @@ impl CaptureSession {
             last_accessed: Instant::now(),
             findings: None,
             path: None,
+            escalations: Vec::new(),
         }
     }
 
@@ -50,6 +59,7 @@ impl CaptureSession {
             last_accessed: Instant::now(),
             findings: None,
             path: Some(path),
+            escalations: Vec::new(),
         }
     }
 
@@ -77,6 +87,23 @@ impl CaptureSession {
     /// The capture file path, if stored at session creation time.
     pub fn path(&self) -> Option<&Path> {
         self.path.as_deref()
+    }
+
+    /// Record an escalation note for a finding.
+    pub fn escalate(&mut self, finding_id: String, notes: String) {
+        let escalated_at = format_epoch_now();
+        // Replace existing escalation for the same finding, if any.
+        self.escalations.retain(|e| e.finding_id != finding_id);
+        self.escalations.push(EscalationNote {
+            finding_id,
+            notes,
+            escalated_at,
+        });
+    }
+
+    /// Look up the escalation note for a given finding id.
+    pub fn get_escalation(&self, finding_id: &str) -> Option<&EscalationNote> {
+        self.escalations.iter().find(|e| e.finding_id == finding_id)
     }
 }
 
@@ -181,5 +208,14 @@ impl SessionManager {
         let idle_timeout = self.idle_timeout;
         self.sessions
             .retain(|_, session| session.last_accessed.elapsed() < idle_timeout);
+    }
+}
+
+/// Format the current wall-clock time as a simple epoch-seconds string.
+/// Avoids pulling in `chrono` for a single formatting operation.
+fn format_epoch_now() -> String {
+    match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+        Ok(d) => d.as_secs().to_string(),
+        Err(_) => String::from("0"),
     }
 }

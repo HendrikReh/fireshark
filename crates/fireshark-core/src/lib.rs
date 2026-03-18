@@ -10,9 +10,9 @@ mod timestamp;
 pub use frame::{Frame, FrameBuildError, FrameBuilder};
 pub use issues::{DecodeIssue, DecodeIssueKind};
 pub use layer::{
-    ArpLayer, DnsAnswer, DnsAnswerData, DnsLayer, EthernetLayer, IcmpDetail, IcmpLayer, Ipv4Layer,
-    Ipv6Layer, Layer, TcpFlags, TcpLayer, TlsClientHelloLayer, TlsServerHelloLayer, UdpLayer,
-    format_mac,
+    ArpLayer, DnsAnswer, DnsAnswerData, DnsLayer, EthernetLayer, HttpLayer, IcmpDetail, IcmpLayer,
+    Ipv4Layer, Ipv6Layer, Layer, TcpFlags, TcpLayer, TlsClientHelloLayer, TlsServerHelloLayer,
+    UdpLayer, format_mac,
 };
 pub use packet::{LayerSpan, Packet};
 pub use pipeline::{DecodedFrame, Pipeline, PipelineError, TrackingPipeline};

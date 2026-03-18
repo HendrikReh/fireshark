@@ -44,6 +44,7 @@ fn has_protocol(protocol: &Protocol, decoded: &DecodedFrame) -> bool {
             Protocol::Tls => {
                 matches!(layer, Layer::TlsClientHello(_) | Layer::TlsServerHello(_))
             }
+            Protocol::Http => matches!(layer, Layer::Http(_)),
         })
 }
 
@@ -339,6 +340,23 @@ fn resolve_layer_field(field: &str, decoded: &DecodedFrame) -> Option<FieldValue
             }
             ("tls.cipher_suite", Layer::TlsServerHello(l)) => {
                 return Some(FieldValue::Integer(u64::from(l.cipher_suite)));
+            }
+
+            // HTTP
+            ("http.method", Layer::Http(l)) => {
+                return l.method.as_ref().map(|s| FieldValue::Str(s.clone()));
+            }
+            ("http.uri", Layer::Http(l)) => {
+                return l.uri.as_ref().map(|s| FieldValue::Str(s.clone()));
+            }
+            ("http.host", Layer::Http(l)) => {
+                return l.host.as_ref().map(|s| FieldValue::Str(s.clone()));
+            }
+            ("http.status_code", Layer::Http(l)) => {
+                return l.status_code.map(|c| FieldValue::Integer(u64::from(c)));
+            }
+            ("http.content_type", Layer::Http(l)) => {
+                return l.content_type.as_ref().map(|s| FieldValue::Str(s.clone()));
             }
 
             _ => {}
@@ -1174,5 +1192,55 @@ mod tests {
             "../../../fixtures/bytes/ethernet_ipv4_tcp_tls_client_hello.bin"
         ));
         assert!(run_filter("tls.sni", &decoded));
+    }
+
+    // --- HTTP filter tests ---
+
+    #[test]
+    fn has_protocol_http_on_http_packet() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp_http_get.bin"
+        ));
+        assert!(run_filter("http", &decoded));
+    }
+
+    #[test]
+    fn has_protocol_http_on_tcp_only_is_false() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp.bin"
+        ));
+        assert!(!run_filter("http", &decoded));
+    }
+
+    #[test]
+    fn http_method_contains_get() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp_http_get.bin"
+        ));
+        assert!(run_filter(r#"http.method contains "GET""#, &decoded));
+    }
+
+    #[test]
+    fn http_host_contains_example() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp_http_get.bin"
+        ));
+        assert!(run_filter(r#"http.host contains "example""#, &decoded));
+    }
+
+    #[test]
+    fn http_uri_eq_root() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp_http_get.bin"
+        ));
+        assert!(run_filter(r#"http.uri == "/""#, &decoded));
+    }
+
+    #[test]
+    fn http_content_type_contains_html() {
+        let decoded = decoded_from_bytes(include_bytes!(
+            "../../../fixtures/bytes/ethernet_ipv4_tcp_http_get.bin"
+        ));
+        assert!(run_filter(r#"http.content_type contains "html""#, &decoded));
     }
 }

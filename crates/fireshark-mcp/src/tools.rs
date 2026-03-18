@@ -297,13 +297,24 @@ impl ToolService {
         let mut sessions = self.sessions.lock().await;
         let session = require_session(&mut sessions, session_id)?;
 
-        Ok(session
+        // Collect findings first (releases the mutable borrow from findings()).
+        let mut results: Vec<FindingView> = session
             .findings()
             .iter()
             .filter(|finding| matches_filter(&finding.severity, severity))
             .filter(|finding| matches_filter(&finding.category, category))
             .cloned()
-            .collect())
+            .collect();
+
+        // Merge escalation notes.
+        for finding in &mut results {
+            if let Some(esc) = session.get_escalation(&finding.id) {
+                finding.escalated = true;
+                finding.notes = Some(esc.notes.clone());
+            }
+        }
+
+        Ok(results)
     }
 
     pub async fn explain_finding(
@@ -323,6 +334,37 @@ impl ToolService {
                 session_id: session_id.to_string(),
                 finding_id: finding_id.to_string(),
             })
+    }
+
+    pub async fn escalate_finding(
+        &self,
+        session_id: &str,
+        finding_id: &str,
+        notes: &str,
+    ) -> Result<FindingView, ToolError> {
+        let mut sessions = self.sessions.lock().await;
+        let session = require_session(&mut sessions, session_id)?;
+
+        // Verify the finding exists.
+        let finding = session
+            .findings()
+            .iter()
+            .find(|f| f.id == finding_id)
+            .cloned()
+            .ok_or_else(|| ToolError::FindingNotFound {
+                session_id: session_id.to_string(),
+                finding_id: finding_id.to_string(),
+            })?;
+
+        // Record escalation.
+        session.escalate(finding_id.to_string(), notes.to_string());
+
+        // Return the finding with escalation info.
+        Ok(FindingView {
+            escalated: true,
+            notes: Some(notes.to_string()),
+            ..finding
+        })
     }
 
     // ── composite tools ──────────────────────────────────────────────

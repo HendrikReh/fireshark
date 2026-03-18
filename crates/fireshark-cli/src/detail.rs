@@ -5,8 +5,8 @@ use std::path::Path;
 
 use colored::Colorize;
 use fireshark_core::{
-    ArpLayer, DecodedFrame, DnsAnswerData, DnsLayer, EthernetLayer, IcmpDetail, IcmpLayer,
-    Ipv4Layer, Ipv6Layer, Layer, LayerSpan, Pipeline, TcpLayer, TlsClientHelloLayer,
+    ArpLayer, DecodedFrame, DnsAnswerData, DnsLayer, EthernetLayer, HttpLayer, IcmpDetail,
+    IcmpLayer, Ipv4Layer, Ipv6Layer, Layer, LayerSpan, Pipeline, TcpLayer, TlsClientHelloLayer,
     TlsServerHelloLayer, UdpLayer, format_mac,
 };
 use fireshark_dissectors::decode_packet;
@@ -91,6 +91,7 @@ fn render_layer<W: Write>(w: &mut W, layer: &Layer) -> io::Result<()> {
         Layer::Dns(l) => render_dns(w, l),
         Layer::TlsClientHello(l) => render_tls_client_hello(w, l),
         Layer::TlsServerHello(l) => render_tls_server_hello(w, l),
+        Layer::Http(l) => render_http(w, l),
     }
 }
 
@@ -451,6 +452,39 @@ fn render_tls_server_hello<W: Write>(w: &mut W, l: &TlsServerHelloLayer) -> io::
             fireshark_dissectors::tls::named_group_name(g),
             g
         )?;
+    }
+    Ok(())
+}
+
+fn render_http<W: Write>(w: &mut W, l: &HttpLayer) -> io::Result<()> {
+    writeln!(w, "{}", "▸ HTTP".color(color::protocol_color("HTTP")))?;
+    if l.is_request {
+        writeln!(
+            w,
+            "    {} {} {}",
+            l.method.as_deref().unwrap_or("?"),
+            l.uri.as_deref().unwrap_or("?"),
+            l.version
+        )?;
+    } else {
+        writeln!(
+            w,
+            "    {} {} {}",
+            l.version,
+            l.status_code
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "?".to_string()),
+            l.reason.as_deref().unwrap_or("")
+        )?;
+    }
+    if let Some(host) = &l.host {
+        writeln!(w, "    Host: {host}")?;
+    }
+    if let Some(ct) = &l.content_type {
+        writeln!(w, "    Content-Type: {ct}")?;
+    }
+    if let Some(cl) = l.content_length {
+        writeln!(w, "    Content-Length: {cl}")?;
     }
     Ok(())
 }

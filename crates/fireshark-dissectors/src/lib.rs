@@ -9,6 +9,7 @@ mod arp;
 mod dns;
 mod error;
 mod ethernet;
+pub mod http;
 mod icmp;
 mod ipv4;
 mod ipv6;
@@ -342,6 +343,19 @@ fn append_network_layer(
                         };
                         append_layer_with_span(
                             tls::parse(app_payload, transport_end),
+                            transport_end,
+                            span,
+                            layers,
+                            spans,
+                            issues,
+                        );
+                    } else if is_tcp && http::is_http_signature(app_payload) {
+                        let span = LayerSpan {
+                            offset: transport_end,
+                            len: app_payload.len(),
+                        };
+                        append_layer_with_span(
+                            http::parse(app_payload, transport_end),
                             transport_end,
                             span,
                             layers,

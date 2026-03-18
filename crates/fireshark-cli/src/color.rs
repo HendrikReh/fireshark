@@ -14,6 +14,8 @@ pub fn protocol_color(protocol: &str) -> Color {
         Color::Magenta
     } else if protocol.eq_ignore_ascii_case("tls") {
         Color::BrightGreen
+    } else if protocol.eq_ignore_ascii_case("http") {
+        Color::BrightCyan
     } else if protocol.eq_ignore_ascii_case("ipv4")
         || protocol.eq_ignore_ascii_case("ipv6")
         || protocol.eq_ignore_ascii_case("ethernet")
