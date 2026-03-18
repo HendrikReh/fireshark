@@ -1,8 +1,8 @@
 # Fireshark
 
-[![Version](https://img.shields.io/badge/version-0.7.0-blue)]()
+[![Version](https://img.shields.io/badge/version-0.8.0-blue)]()
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange?logo=rust)](https://www.rust-lang.org/)
-[![Tests](https://img.shields.io/badge/tests-427%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-437%20passing-brightgreen)]()
 [![Status](https://img.shields.io/badge/phase-walk-blue)]()
 
 Packet analyzer built for LLMs and humans. Rust-native protocol dissection with an MCP server that lets an AI assistant perform security audits, and a color-coded CLI for direct analysis.
@@ -27,7 +27,7 @@ Packet analyzer built for LLMs and humans. Rust-native protocol dissection with 
 
 ## Elevator Pitch
 
-Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wireshark — packet queries, protocol decoding, display filters, stream tracking, and security audit heuristics — through structured MCP tool calls. For humans, it's a fast, color-coded CLI that decodes 10 protocols, follows TCP/UDP conversations, runs 7 automated security checks, validates checksums, and exports results as JSON. Everything is library-first: one Rust workspace, 8 crates, 427 tests, zero unsafe code.
+Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wireshark — packet queries, protocol decoding, display filters, stream tracking, stream reassembly, certificate extraction, and security audit heuristics — through structured MCP tool calls. For humans, it's a fast, color-coded CLI that decodes 10 protocols, follows TCP/UDP conversations with payload reassembly, runs 7 automated security checks, validates checksums, and exports results as JSON. Everything is library-first: one Rust workspace, 8 crates, 437 tests, zero unsafe code.
 
 ## Why native dissectors when tshark exists?
 
@@ -97,7 +97,9 @@ tshark --version   # must be >= 3.0.0
 - **Stream tracking** — TCP/UDP conversation tracking with canonical 5-tuple keys, stream IDs, and per-stream statistics
 - **Color-coded CLI** — Wireshark-style protocol coloring in summary output
 - **Packet detail view** — decoded layer tree with color-coded hex dump (`fireshark detail`)
-- **Follow stream** — `fireshark follow` shows all packets in a conversation by stream ID
+- **Follow stream** — `fireshark follow` shows all packets in a conversation by stream ID, with `--payload` for reassembled TCP payload hex dump and `--http` for HTTP request/response (requires tshark backend)
+- **Stream reassembly** — tshark-backed TCP stream reassembly via `follow --payload` and `follow --http`
+- **TLS certificate extraction** — extract subject CN, SAN DNS names, and organization from TLS handshakes via `get_certificates` MCP tool (requires tshark backend)
 - **Display filters** — Wireshark-style expression language (`-f "tcp and port 443"`, `tcp.stream == 0`) with string operators (`contains`, `matches` for regex)
 - **JSON export** — `--json` flag on `summary`, `stats`, `issues`, `audit` for JSONL output (one JSON object per line, no color codes)
 - **Capture comparison** — `fireshark diff <file1> <file2>` shows new/missing hosts, protocols, and ports between two captures
@@ -121,6 +123,12 @@ cargo run -p fireshark-cli -- detail your-capture.pcap 1
 
 # Follow a TCP/UDP conversation
 cargo run -p fireshark-cli -- follow your-capture.pcap 0
+
+# Follow with reassembled TCP payload hex dump (requires tshark)
+cargo run -p fireshark-cli -- follow your-capture.pcap 0 --payload
+
+# Follow with HTTP request/response (requires tshark)
+cargo run -p fireshark-cli -- follow your-capture.pcap 0 --http
 
 # Capture statistics
 cargo run -p fireshark-cli -- stats your-capture.pcap
@@ -196,6 +204,12 @@ cargo run -p fireshark-cli -- summary capture.pcap -f 'tls.sni matches ".*\.exam
 ```bash
 # Show all packets in TCP/UDP conversation 0
 cargo run -p fireshark-cli -- follow capture.pcap 0
+
+# Show reassembled TCP payload as hex dump (requires tshark)
+cargo run -p fireshark-cli -- follow capture.pcap 0 --payload
+
+# Show HTTP request/response for a stream (requires tshark)
+cargo run -p fireshark-cli -- follow capture.pcap 0 --http
 ```
 
 ```text
@@ -226,7 +240,7 @@ Shows a decoded layer tree with field values and a color-coded hex dump where ea
 | `fireshark-cli` | CLI with 7 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`, `diff` |
 | `fireshark-backend` | Backend abstraction: native pipeline and tshark subprocess adapters |
 | `fireshark-tshark` | tshark subprocess discovery, execution, and output normalization |
-| `fireshark-mcp` | Offline MCP server (18 tools) for LLM-driven capture analysis, security audits, and capture comparison |
+| `fireshark-mcp` | Offline MCP server (20 tools) for LLM-driven capture analysis, security audits, stream reassembly, certificate extraction, and capture comparison |
 
 Other directories:
 
@@ -246,10 +260,11 @@ cargo run -p fireshark-mcp
 |--------|-------|
 | Session | `open_capture`, `describe_capture`, `close_capture` |
 | Packet queries | `list_packets`, `get_packet`, `search_packets`, `list_decode_issues`, `summarize_protocols`, `top_endpoints` |
-| Streams | `list_streams`, `get_stream` |
+| Streams | `list_streams`, `get_stream`, `get_stream_payload` |
 | Capture overview | `summarize_capture` |
 | Comparison | `compare_captures` |
 | Audit | `audit_capture`, `list_findings`, `explain_finding` |
+| TLS | `get_certificates` |
 
 Constraints: stdio transport, offline captures, configurable packet limit (default 100k), 8 concurrent sessions, 15-minute idle timeout.
 
@@ -317,7 +332,9 @@ A typical analysis session through MCP:
 4. **Drill down** — `get_packet({ session_id, packet_index: 42 })` → full layer decode for a suspicious packet
 5. **Filter** — `list_packets({ session_id, filter: "tls and tls.handshake.type == 1" })` → all TLS ClientHellos
 6. **Stream** — `get_stream({ session_id, stream_id: 5 })` → follow a conversation
-7. **Close** — `close_capture({ session_id })` → free resources
+7. **Reassemble** — `get_stream_payload({ session_id, stream_id: 5 })` → reassembled TCP payload hex dump
+8. **Certificates** — `get_certificates({ session_id })` → TLS certificate details (subject CN, SAN DNS, org)
+9. **Close** — `close_capture({ session_id })` → free resources
 
 ### Capture Size Limits
 
@@ -367,8 +384,8 @@ cargo fuzz run fuzz_capture_reader -- -max_total_time=60
 | Phase | Focus | Status |
 |-------|-------|--------|
 | **Crawl** | Offline capture parsing, dissection, CLI, MCP server, display filters, stream tracking | Complete |
-| **Walk** | tshark backend, capture comparison, JSON export, checksum validation, live capture backends | Active |
-| **Run** | String filters (contains/matches), audit profiles, HTTP dissector, advanced statistics, certificate parsing | Active |
+| **Walk** | tshark backend, capture comparison, JSON export, checksum validation, tshark stream reassembly, TLS certificate extraction, live capture backends | Active |
+| **Run** | String filters (contains/matches), audit profiles, HTTP dissector, advanced statistics | Active |
 
 ## Design Rules
 
@@ -399,4 +416,4 @@ Copyright 2026 Hendrik Reh <hendrik.reh@blacksmith-consulting.ai>. See [`COPYRIG
 
 ---
 
-**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

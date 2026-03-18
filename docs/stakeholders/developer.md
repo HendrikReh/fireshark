@@ -91,7 +91,7 @@ cargo run -p fireshark-cli -- summary fixtures/smoke/fuzz-2006-06-26-2594.pcap -
 
 ```
 fireshark/
-  Cargo.toml              # Workspace root (version 0.7.0, edition 2024)
+  Cargo.toml              # Workspace root (version 0.8.0, edition 2024)
   Justfile                # Task runner recipes
   CLAUDE.md               # AI agent conventions
   crates/
@@ -100,7 +100,7 @@ fireshark/
     fireshark-file/       # pcap and pcapng file ingestion (CaptureReader)
     fireshark-filter/     # Display filter parser and evaluator (including tcp.stream/udp.stream)
     fireshark-cli/        # CLI binary ("fireshark") with 7 commands: summary, detail, stats, issues, audit, follow, diff. Supports --json on summary, stats, issues, audit
-    fireshark-mcp/        # MCP server binary (18 tools) for LLM-driven capture analysis and capture comparison
+    fireshark-mcp/        # MCP server binary (20 tools) for LLM-driven capture analysis, stream reassembly, certificate extraction, and capture comparison
   fixtures/
     bytes/                # Handcrafted binary blobs for unit tests
     smoke/                # Small pcap/pcapng files for integration tests
@@ -822,4 +822,4 @@ Spans are searched in reverse order so the innermost (most specific) layer wins 
 
 ---
 
-**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

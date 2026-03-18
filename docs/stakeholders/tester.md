@@ -303,7 +303,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 427 |
+| Total tests | 437 |
 | Byte fixtures | 18 |
 | Smoke captures | 3 |
 | Total fixtures | 21 |
@@ -315,11 +315,11 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 - No HTTP application-layer protocol tests -- HTTP is not yet implemented
 - No IP fragment reassembly tests -- reassembly is not yet implemented
-- No TCP stream reassembly tests -- stream tracking (conversation identity) is implemented, but byte-level reassembly is not
+- TCP stream reassembly tested via tshark backend (`follow --payload`, `follow --http`)
 - No performance/benchmark tests
 - No property-based tests (outside of fuzzing)
 - MCP tests do not cover the 15-minute idle timeout or the 100k packet limit at scale
 
 ---
 
-**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

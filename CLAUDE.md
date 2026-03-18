@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Fireshark is a packet analyzer built for LLMs and humans, written in Rust. It is library-first and built in phases (crawl/walk/run). Currently in the **walk** phase: 10 protocol dissectors, display filter language with string operators (`contains`, `matches`), TCP/UDP stream tracking, checksum validation, 7 security audit heuristics with audit profiles (`--profile security|dns|quality`), 18 MCP tools, 7 CLI commands, JSON export, capture comparison, and an optional tshark backend.
+Fireshark is a packet analyzer built for LLMs and humans, written in Rust. It is library-first and built in phases (crawl/walk/run). Currently in the **walk** phase: 10 protocol dissectors, display filter language with string operators (`contains`, `matches`), TCP/UDP stream tracking, tshark-backed stream reassembly (`follow --payload`, `follow --http`), TLS certificate extraction, checksum validation, 7 security audit heuristics with audit profiles (`--profile security|dns|quality`), 20 MCP tools, 7 CLI commands, JSON export, capture comparison, and an optional tshark backend.
 
 ## Workspace Layout
 
@@ -15,7 +15,7 @@ Fireshark is a packet analyzer built for LLMs and humans, written in Rust. It is
 | `fireshark-cli` | Thin CLI binary (`fireshark`) with 7 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`, `diff`. Supports `--json` flag on `summary`, `stats`, `issues`, `audit`. Audit supports `--profile security|dns|quality` |
 | `fireshark-backend` | Backend abstraction: native pipeline and tshark subprocess adapters |
 | `fireshark-tshark` | tshark subprocess discovery, execution, and output normalization |
-| `fireshark-mcp` | Offline MCP server (18 tools) for LLM-driven capture analysis, security audits, and capture comparison |
+| `fireshark-mcp` | Offline MCP server (20 tools) for LLM-driven capture analysis, security audits, stream reassembly, certificate extraction, and capture comparison |
 
 - `fixtures/bytes/` — handcrafted binary blobs used in unit tests
 - `fixtures/smoke/` — small pcap files for integration/CLI tests

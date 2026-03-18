@@ -4,7 +4,7 @@ Shared backend abstraction for fireshark capture analysis.
 
 ## Overview
 
-Provides a backend-neutral capture model that both CLI and MCP can consume. Two backend implementations: native (Rust pipeline) and tshark (subprocess). Supports capture comparison to identify new/missing hosts, protocols, and ports between two captures.
+Provides a backend-neutral capture model that both CLI and MCP can consume. Two backend implementations: native (Rust pipeline) and tshark (subprocess). Supports capture comparison to identify new/missing hosts, protocols, and ports between two captures. The tshark backend supports stream reassembly via `follow_stream` and TLS certificate extraction.
 
 ## Key Types
 
@@ -32,7 +32,7 @@ let capture = BackendCapture::open("capture.pcap", BackendKind::Tshark)?;
 Wraps the existing Rust pipeline (`fireshark-file` + `fireshark-dissectors` + `fireshark-core`). Full feature support: streams, filters, audit, layer spans.
 
 ### Tshark (optional)
-Runs `tshark -T fields` as a subprocess and normalizes the output. Provides instant coverage of all Wireshark-supported protocols. Limited capabilities: no streams, no native filter, no audit, no layer spans.
+Runs `tshark -T fields` as a subprocess and normalizes the output. Provides instant coverage of all Wireshark-supported protocols. Supports stream reassembly (`follow_stream` for payload and HTTP) and TLS certificate extraction. Limited capabilities: no streams (native tracking), no native filter, no audit, no layer spans.
 
 ## Capability Model
 
@@ -45,7 +45,8 @@ Each backend declares its capabilities. Consumers check before using features:
 | Native filter | Yes | No |
 | Layer spans | Yes | No |
 | Audit | Yes | No |
+| Reassembly | No | Yes |
 
 ---
 
-**Version:** 0.6.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

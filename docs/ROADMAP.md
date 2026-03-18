@@ -15,9 +15,10 @@ Fireshark is an MCP-first packet analyzer. The LLM is the analyst — the MCP se
 3. **v0.5:** Conversation intelligence — who talked to whom? how?
 4. **v0.6.0:** Backend abstraction — tshark as optional oracle, differential testing
 5. **v0.6:** Security analyst platform — comparison, export, checksums, certificates
-6. **v0.7 (current):** Content intelligence — string filters, audit profiles
-7. **v0.8:** Application intelligence — HTTP, certificate parsing
-8. **v1.0:** Real-time intelligence — live capture
+6. **v0.7:** Content intelligence — string filters, audit profiles
+7. **v0.8 (current):** Stream reassembly — tshark-backed payload reassembly, TLS certificate extraction
+8. **v0.9:** Application intelligence — HTTP, advanced statistics
+9. **v1.0:** Real-time intelligence — live capture
 
 ---
 
@@ -91,11 +92,21 @@ JSON export, checksum validation, and capture comparison delivered. Certificate 
 | MCP `audit_capture` accepts `profile` parameter | **Done** |
 | Default (no profile) runs all heuristics | **Done** |
 
-## v0.8 — Application intelligence
+## v0.8 — Stream reassembly + certificate extraction (COMPLETE)
+
+| Feature | Status |
+|---------|--------|
+| tshark-backed TCP stream reassembly via `follow --payload` (hex dump of reassembled payload) | **Done** |
+| tshark-backed HTTP reassembly via `follow --http` (HTTP request/response) | **Done** |
+| `get_stream_payload` MCP tool — reassembled TCP payload for a stream (requires tshark backend) | **Done** |
+| `get_certificates` MCP tool — TLS certificate extraction: subject CN, SAN DNS names, organization (requires tshark backend) | **Done** |
+| `supports_reassembly` capability in `BackendCapabilities` | **Done** |
+| `follow_stream` method on backend for reassembly support | **Done** |
+
+## v0.9 — Application intelligence
 
 | Feature | MCP impact | CLI impact |
 |---------|-----------|------------|
-| Certificate parsing | `get_packet` returns X.509 subject, issuer, validity. tshark backend can serve as reference implementation. | `detail` shows cert chain |
 | HTTP basic dissector (requires stream tracking) | `get_packet` returns method, URI, Host, status | `detail` shows HTTP |
 | Finding escalation | `escalate_finding(finding_id, notes)` — builds investigation log | Investigation workflow |
 
@@ -125,14 +136,14 @@ JSON export, checksum validation, and capture comparison delivered. Certificate 
 | Metric | Value |
 |--------|-------|
 | Protocols | 10 (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello) |
-| Tests | 427 |
+| Tests | 437 |
 | Source lines | ~9,500 |
 | Crates | 8 (fireshark-core, fireshark-file, fireshark-dissectors, fireshark-filter, fireshark-cli, fireshark-mcp, fireshark-backend, fireshark-tshark) |
-| MCP tools | 18 |
+| MCP tools | 20 |
 | CLI commands | 7 (summary, detail, follow, stats, issues, audit, diff) |
 | Filter fields | 50+ |
 | Audit heuristics | 7 |
 
 ---
 
-**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

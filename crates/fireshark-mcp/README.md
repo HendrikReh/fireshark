@@ -41,6 +41,7 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 |------|-------------|
 | `list_streams` | Paginated TCP/UDP conversation stream metadata |
 | `get_stream` | All packets in a single conversation with stream metadata |
+| `get_stream_payload` | Reassembled TCP payload for a stream (requires tshark backend) |
 
 ### Capture Overview
 
@@ -61,6 +62,12 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 | `audit_capture` | Run heuristic security analysis (scan detection, suspicious ports, cleartext credential exposure, DNS tunneling detection). Accepts optional `profile` parameter: `"security"`, `"dns"`, or `"quality"`. Default (no profile) runs all heuristics |
 | `list_findings` | List audit findings with severity and evidence |
 | `explain_finding` | Get detailed explanation of a specific finding |
+
+### TLS
+
+| Tool | Description |
+|------|-------------|
+| `get_certificates` | Extract TLS certificate details: subject CN, SAN DNS names, organization (requires tshark backend) |
 
 ## Constraints
 
@@ -86,4 +93,4 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 
 ---
 
-**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

@@ -4,7 +4,7 @@ tshark subprocess backend for fireshark capture analysis.
 
 ## Overview
 
-Discovers and executes the `tshark` command-line tool (from Wireshark) to analyze capture files. Parses machine-readable output and normalizes it into fireshark's backend-neutral model.
+Discovers and executes the `tshark` command-line tool (from Wireshark) to analyze capture files. Parses machine-readable output and normalizes it into fireshark's backend-neutral model. Includes modules for TCP stream reassembly (`follow`) and TLS certificate extraction (`certs`).
 
 ## Requirements
 
@@ -32,6 +32,11 @@ Uses `tshark -T fields` with tab-separated output for reliable parsing. Extracts
 
 No JSON dependency -- TSV parsing is simple and version-stable.
 
+## Modules
+
+- **`follow`** -- TCP stream reassembly via `tshark -z follow,tcp,hex,<stream>`. Supports payload hex dump and HTTP request/response extraction.
+- **`certs`** -- TLS certificate extraction via tshark. Extracts subject CN, SAN DNS names, and organization from TLS handshakes.
+
 ---
 
-**Version:** 0.6.0 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

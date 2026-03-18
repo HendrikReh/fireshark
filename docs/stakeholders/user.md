@@ -97,6 +97,30 @@ Stream 0: TCP 192.0.2.10:51514 ↔ 198.51.100.20:443
 
 The stream header shows the conversation's protocol, endpoints, packet/byte count, and duration. Use `fireshark stats` to discover available stream IDs.
 
+#### Stream Reassembly (requires tshark)
+
+The `follow` command supports reassembled stream views via the tshark backend:
+
+```bash
+# Show reassembled TCP payload as hex dump
+fireshark follow capture.pcap 0 --payload
+
+# Show HTTP request/response for a stream
+fireshark follow capture.pcap 0 --http
+```
+
+The `--payload` flag shows the reassembled TCP payload as a hex dump, reconstructing the byte stream from individual TCP segments. The `--http` flag shows the HTTP request and response for HTTP streams. Both flags require tshark to be installed.
+
+### TLS Certificate Extraction
+
+TLS certificate details can be extracted from captures using the `get_certificates` MCP tool (requires tshark backend). This extracts:
+
+- Subject Common Name (CN)
+- Subject Alternative Name (SAN) DNS entries
+- Organization name
+
+This is useful for identifying which services are being contacted and verifying certificate validity during security audits.
+
 ### Compare Two Captures
 
 Compare a baseline and suspect capture to find new or missing hosts, protocols, and ports:
@@ -161,7 +185,9 @@ The tshark backend delegates analysis to Wireshark's `tshark` command-line tool.
 
 - Protocol identification and packet summaries work for all protocols tshark supports
 - Capture statistics (`stats` command) work
-- Stream tracking is **not available** -- no `follow` command, no `tcp.stream`/`udp.stream` filters
+- **Stream reassembly is available** -- `follow --payload` (hex dump) and `follow --http` (HTTP request/response)
+- **TLS certificate extraction is available** -- `get_certificates` MCP tool
+- Stream tracking (native) is **not available** -- no `tcp.stream`/`udp.stream` filters
 - Security audit is **not available** -- no `audit` command
 - Display filters are **not available** -- fireshark's filter engine requires typed native layers
 - Detail hex dump is **not available** -- tshark does not expose per-layer byte offsets
@@ -180,6 +206,9 @@ fireshark stats --backend tshark capture.pcap
 | Following a TCP/UDP conversation | `native` |
 | Filtering packets by field values | `native` |
 | Inspecting packet bytes with hex dump | `native` |
+| Reassembled TCP stream payload | `tshark` |
+| HTTP request/response extraction | `tshark` |
+| TLS certificate extraction | `tshark` |
 | Triage of a capture with many unknown protocols | `tshark` |
 | Quick protocol distribution overview | either |
 | Validating fireshark output against Wireshark | `tshark` |
@@ -580,6 +609,7 @@ Any MCP-compatible client can connect by spawning the binary as a subprocess ove
 |------|-----------|---------|
 | `list_streams` | `session_id`, optional `offset`, `limit` | Paginated TCP/UDP conversation metadata |
 | `get_stream` | `session_id`, `stream_id` | Stream metadata plus all packets in the conversation |
+| `get_stream_payload` | `session_id`, `stream_id` | Reassembled TCP payload hex dump (requires tshark backend) |
 
 #### Capture Overview
 
@@ -600,6 +630,12 @@ Any MCP-compatible client can connect by spawning the binary as a subprocess ove
 | `audit_capture` | `session_id`, optional `profile` (`"security"`, `"dns"`, `"quality"`) | Heuristic security analysis results (filtered by profile if specified) |
 | `list_findings` | `session_id` | Audit findings with severity and evidence |
 | `explain_finding` | `session_id`, `finding_id` | Detailed explanation of a specific finding |
+
+#### TLS
+
+| Tool | Parameters | Returns |
+|------|-----------|---------|
+| `get_certificates` | `session_id` | TLS certificate details: subject CN, SAN DNS names, organization (requires tshark backend) |
 
 ### Workflow Example
 
@@ -820,4 +856,4 @@ fireshark audit --profile quality capture.pcap
 
 ---
 
-**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

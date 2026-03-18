@@ -35,9 +35,15 @@ Show all packets belonging to a TCP/UDP conversation by stream ID.
 
 ```bash
 fireshark follow capture.pcap 0
+
+# Show reassembled TCP payload as hex dump (requires tshark)
+fireshark follow capture.pcap 0 --payload
+
+# Show HTTP request/response for a stream (requires tshark)
+fireshark follow capture.pcap 0 --http
 ```
 
-Output: stream header (protocol, endpoints, packet/byte count, duration), then a color-coded packet listing of every packet in the conversation.
+Output: stream header (protocol, endpoints, packet/byte count, duration), then a color-coded packet listing of every packet in the conversation. With `--payload`, shows the reassembled TCP payload as a hex dump. With `--http`, shows the HTTP request/response.
 
 ### `stats`
 
@@ -110,4 +116,4 @@ fireshark audit capture.pcap --json
 
 ---
 
-**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

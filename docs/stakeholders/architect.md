@@ -9,10 +9,10 @@ Development follows a phased approach:
 | Phase | Focus | Status |
 |-------|-------|--------|
 | **Crawl** | Offline pcap/pcapng parsing, protocol dissection, CLI, display filters, MCP server, stream tracking | Complete |
-| **Walk** | Live capture backends, tshark backend, TCP reassembly, capture comparison, JSON export, checksum validation | Active |
-| **Run** | String filters (contains/matches), audit profiles, HTTP dissector, certificate parsing | Active |
+| **Walk** | Live capture backends, tshark backend, TCP reassembly, capture comparison, JSON export, checksum validation, tshark stream reassembly, TLS certificate extraction | Active |
+| **Run** | String filters (contains/matches), audit profiles, HTTP dissector, advanced statistics | Active |
 
-The crawl phase is complete. Walk phase is active — stream tracking, display filters, tshark backend, JSON export, checksum validation, and capture comparison are delivered. Live capture is the remaining walk milestone. Each phase delivers vertical slices of functionality, not speculative frameworks.
+The crawl phase is complete. Walk phase is active — stream tracking, display filters, tshark backend, JSON export, checksum validation, capture comparison, tshark stream reassembly, and TLS certificate extraction are delivered. Live capture is the remaining walk milestone. Each phase delivers vertical slices of functionality, not speculative frameworks.
 
 ## 2. Architecture Diagram
 
@@ -234,16 +234,17 @@ MCP client
 | `model.rs` | Serializable view types for MCP JSON-RPC responses |
 | `filter.rs` | Shared filter utilities |
 
-**MCP Tools (18 total):**
+**MCP Tools (20 total):**
 
 | Family | Tools |
 |--------|-------|
 | Session | `open_capture`, `describe_capture`, `close_capture` |
 | Packet queries | `list_packets`, `get_packet`, `search_packets`, `list_decode_issues`, `summarize_protocols`, `top_endpoints` |
-| Streams | `list_streams`, `get_stream` |
+| Streams | `list_streams`, `get_stream`, `get_stream_payload` |
 | Capture overview | `summarize_capture` |
 | Comparison | `compare_captures` |
 | Audit | `audit_capture`, `list_findings`, `explain_finding` |
+| TLS | `get_certificates` |
 
 **Depends on:** `fireshark-core`, `fireshark-file`, `fireshark-dissectors`, `fireshark-filter`, `rmcp`, `schemars`, `serde`, `serde_json`, `thiserror`, `tokio`
 
@@ -335,6 +336,8 @@ The native dissectors produce a typed layer model (`TcpLayer.flags.syn`, `DnsLay
 | Broad protocol identification | 3,000+ protocols vs fireshark's 10 |
 | Quick triage of unsupported protocols | Useful when a capture contains protocols fireshark does not yet dissect |
 | Correctness oracle for differential testing | tshark output serves as a reference to validate native dissector correctness |
+| Stream reassembly | TCP stream payload reassembly and HTTP request/response extraction via `follow --payload` and `follow --http` |
+| TLS certificate extraction | Subject CN, SAN DNS names, organization from TLS handshakes via `get_certificates` MCP tool |
 
 **Design principle:** Fireshark owns the product API surface (the `Layer` enum, `Pipeline`, `StreamTracker`, filter evaluator, audit engine). tshark is an optional backend behind the `BackendCapture` abstraction. CLI and MCP commands work identically with either backend, but features that require typed layer access (audit, streams, filters, detail hex dump) are only available with the native backend.
 
@@ -469,7 +472,7 @@ All ANSI color output, protocol-to-color mapping, hex dump formatting, and times
 |-----------|--------|
 | **Ethernet-only link type** | `CaptureReader` rejects captures with non-Ethernet link types at open time. No support for raw IP, loopback, Wi-Fi radiotap, or other link layers. |
 | **No live capture** | File-only ingestion. No `libpcap`/`npcap` binding, no `AF_PACKET`, no BPF. Planned for walk phase. |
-| **No TCP/IP reassembly** | Each packet is decoded independently. Stream tracking identifies conversations by 5-tuple, but there is no TCP stream reassembly or IP fragment reassembly (non-initial fragments skip transport decoding). |
+| **No native TCP/IP reassembly** | Each packet is decoded independently by the native pipeline. Stream tracking identifies conversations by 5-tuple, but native TCP stream reassembly or IP fragment reassembly is not implemented (non-initial fragments skip transport decoding). The tshark backend provides TCP stream reassembly via `follow --payload` and `follow --http`. |
 | **String filter operators** | Filter language supports `contains` (case-insensitive substring) and `matches` (regex) operators on any field type via string conversion. String-typed fields: `dns.qname`, `tls.sni`. |
 | **No IPv6 CIDR filtering** | IPv4 CIDR (`ip.dst == 10.0.0.0/8`, `src 10.0.0.0/8`) is supported. IPv6 CIDR is not implemented -- only exact IPv6 address matching works. |
 | **No MAC address filtering** | `eth.type` is filterable as an integer, but there is no `eth.src` or `eth.dst` field for MAC address comparison. |
@@ -496,16 +499,19 @@ Delivered the foundational offline analysis stack:
 - **Complete:** Security audit heuristics: decode issues, unknown traffic, scan detection, suspicious ports, cleartext credential exposure, DNS tunneling detection, connection anomalies
 - **Complete:** Fuzz testing infrastructure with two targets
 
-### Walk (Active -- v0.6.0 + v0.6)
+### Walk (Active -- v0.6.0 + v0.6 + v0.8)
 
-Adds backend abstraction, comparison, export, and checksum validation:
+Adds backend abstraction, comparison, export, checksum validation, stream reassembly, and certificate extraction:
 
 - **Complete:** tshark subprocess backend with differential testing (v0.6.0)
 - **Complete:** JSON export -- `--json` flag on `summary`, `stats`, `issues`, `audit` for JSONL output (v0.6)
 - **Complete:** Checksum validation -- IPv4 header, TCP, UDP checksums; `DecodeIssueKind::ChecksumMismatch`; zero checksums (NIC offload) skipped (v0.6)
 - **Complete:** Capture comparison -- `diff` CLI command + `compare_captures` MCP tool (v0.6)
+- **Complete:** tshark-backed TCP stream reassembly -- `follow --payload` (hex dump) and `follow --http` (HTTP request/response) (v0.8)
+- **Complete:** TLS certificate extraction -- `get_certificates` MCP tool (subject CN, SAN DNS, org) (v0.8)
+- **Complete:** `get_stream_payload` MCP tool -- reassembled TCP payload (v0.8)
+- **Complete:** `supports_reassembly` capability in `BackendCapabilities` (v0.8)
 - Planned: Live capture backends (platform-specific: `libpcap`, `AF_PACKET`, etc.)
-- Planned: TCP stream reassembly
 - Planned: BPF compile-time capture filters (distinct from display filters)
 
 ### Run (Active -- v0.7)
@@ -517,8 +523,7 @@ Enables analyst workflows:
 - **Complete:** Audit profiles (`--profile security|dns|quality` on CLI, `profile` parameter on MCP `audit_capture`)
 - Planned: Advanced statistics (IO graphs, flow analysis, RTT estimation)
 - Planned: Application-layer dissectors (HTTP, TCP-based DNS, full TLS record parsing beyond handshake)
-- Planned: Certificate parsing (X.509 subject, issuer, validity)
 
 ---
 
-**Version:** 0.7.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
