@@ -9,10 +9,10 @@ Development follows a phased approach:
 | Phase | Focus | Status |
 |-------|-------|--------|
 | **Crawl** | Offline pcap/pcapng parsing, protocol dissection, CLI, display filters, MCP server, stream tracking | Complete |
-| **Walk** | Live capture backends, tshark backend, TCP reassembly, capture comparison | Active |
-| **Run** | Advanced statistics, extended filter language, HTTP dissector, export | Planned |
+| **Walk** | Live capture backends, tshark backend, TCP reassembly, capture comparison, JSON export, checksum validation | Active |
+| **Run** | Advanced statistics, extended filter language, HTTP dissector, certificate parsing | Planned |
 
-The crawl phase is complete. Walk phase is active — stream tracking, display filters, and tshark backend are delivered. Live capture is the remaining walk milestone. Each phase delivers vertical slices of functionality, not speculative frameworks.
+The crawl phase is complete. Walk phase is active — stream tracking, display filters, tshark backend, JSON export, checksum validation, and capture comparison are delivered. Live capture is the remaining walk milestone. Each phase delivers vertical slices of functionality, not speculative frameworks.
 
 ## 2. Architecture Diagram
 
@@ -137,7 +137,7 @@ MCP client
 | `StreamTracker` | Maps `StreamKey` to monotonic `u32` stream IDs, accumulates metadata |
 | `PipelineError<F, D>` | Enum distinguishing frame-source errors from decode errors |
 | `PacketSummary` | One-line display summary (protocol, endpoints, ports, timestamp, length) |
-| `DecodeIssue`, `DecodeIssueKind` | Structured decode problem at a byte offset (Truncated or Malformed) |
+| `DecodeIssue`, `DecodeIssueKind` | Structured decode problem at a byte offset (Truncated, Malformed, or ChecksumMismatch) |
 | `TcpFlags`, `IcmpDetail` | Sub-types for protocol layer fields |
 
 **Source:** `crates/fireshark-core/src/lib.rs`
@@ -196,7 +196,7 @@ MCP client
 
 ### fireshark-cli
 
-**Responsibility:** Thin CLI binary (`fireshark`) with 6 subcommands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`. All presentation logic (color, formatting, hex dump) is confined here.
+**Responsibility:** Thin CLI binary (`fireshark`) with 7 subcommands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`, `diff`. Supports `--json` flag on `summary`, `stats`, `issues`, `audit` for JSONL output. All presentation logic (color, formatting, hex dump) is confined here.
 
 **Modules:**
 
@@ -208,6 +208,7 @@ MCP client
 | `stats.rs` | Capture statistics: packets, streams, duration, protocols, endpoints |
 | `issues.rs` | Decode issue listing |
 | `audit.rs` | Security audit heuristics |
+| `diff.rs` | Capture comparison: new/missing hosts, protocols, ports |
 | `hexdump.rs` | Color-coded hex dump using `LayerSpan` data |
 | `color.rs` | Protocol-to-ANSI-color mapping |
 | `timestamp.rs` | ISO 8601 UTC formatting via Hinnant `civil_from_days` (no `chrono`) |
@@ -233,7 +234,7 @@ MCP client
 | `model.rs` | Serializable view types for MCP JSON-RPC responses |
 | `filter.rs` | Shared filter utilities |
 
-**MCP Tools (17 total):**
+**MCP Tools (18 total):**
 
 | Family | Tools |
 |--------|-------|
@@ -241,6 +242,7 @@ MCP client
 | Packet queries | `list_packets`, `get_packet`, `search_packets`, `list_decode_issues`, `summarize_protocols`, `top_endpoints` |
 | Streams | `list_streams`, `get_stream` |
 | Capture overview | `summarize_capture` |
+| Comparison | `compare_captures` |
 | Audit | `audit_capture`, `list_findings`, `explain_finding` |
 
 **Depends on:** `fireshark-core`, `fireshark-file`, `fireshark-dissectors`, `fireshark-filter`, `rmcp`, `schemars`, `serde`, `serde_json`, `thiserror`, `tokio`
@@ -478,32 +480,33 @@ All ANSI color output, protocol-to-color mapping, hex dump formatting, and times
 
 ## 9. Phase Roadmap
 
-### Crawl (Current -- v0.5.x)
+### Crawl (Complete -- v0.5.x)
 
-Delivers the foundational offline analysis stack:
+Delivered the foundational offline analysis stack:
 
 - **Complete:** pcap/pcapng reading with timestamp and original wire length extraction
 - **Complete:** Protocol dissection for Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello (10 protocols)
 - **Complete:** Application-layer dispatch by port number (DNS over UDP port 53) and heuristic dispatch (TLS on any TCP port)
 - **Complete:** DNS response parsing with A/AAAA answer records
 - **Complete:** TLS handshake analysis: SNI extraction, cipher suites, ALPN, supported versions, signature algorithms, key share groups
-- **Complete:** Color-coded CLI with 6 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`
+- **Complete:** Color-coded CLI with commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`
 - **Complete:** Display filter language with lexer, parser, evaluator (including TLS filter fields, `tcp.stream`/`udp.stream`)
-- **Complete:** MCP server with 17 tools across session management, packet queries, streams, capture overview, and security audit
+- **Complete:** MCP server with tools across session management, packet queries, streams, capture overview, and security audit
 - **Complete:** TCP/UDP stream tracking: `StreamTracker` with canonical 5-tuple keys, `TrackingPipeline` iterator adapter, per-stream metadata
-- **Complete:** `follow` CLI command for viewing all packets in a conversation
-- **Complete:** `list_streams`, `get_stream`, `summarize_capture` MCP tools
-- **Complete:** Security audit heuristics (6): decode issues, unknown traffic, scan detection, suspicious ports, cleartext credential exposure, DNS tunneling detection
+- **Complete:** Security audit heuristics: decode issues, unknown traffic, scan detection, suspicious ports, cleartext credential exposure, DNS tunneling detection, connection anomalies
 - **Complete:** Fuzz testing infrastructure with two targets
 
-### Walk (Planned)
+### Walk (Active -- v0.5.2 + v0.6)
 
-Adds live capture and reassembly:
+Adds backend abstraction, comparison, export, and checksum validation:
 
-- Live capture backends (platform-specific: `libpcap`, `AF_PACKET`, etc.)
-- TCP stream reassembly
-- BPF compile-time capture filters (distinct from display filters)
-- Streaming pipeline mode (process packets as they arrive, not all-at-once)
+- **Complete:** tshark subprocess backend with differential testing (v0.5.2)
+- **Complete:** JSON export -- `--json` flag on `summary`, `stats`, `issues`, `audit` for JSONL output (v0.6)
+- **Complete:** Checksum validation -- IPv4 header, TCP, UDP checksums; `DecodeIssueKind::ChecksumMismatch`; zero checksums (NIC offload) skipped (v0.6)
+- **Complete:** Capture comparison -- `diff` CLI command + `compare_captures` MCP tool (v0.6)
+- Planned: Live capture backends (platform-specific: `libpcap`, `AF_PACKET`, etc.)
+- Planned: TCP stream reassembly
+- Planned: BPF compile-time capture filters (distinct from display filters)
 
 ### Run (Planned)
 
@@ -512,8 +515,8 @@ Enables analyst workflows:
 - Advanced statistics (IO graphs, flow analysis, RTT estimation)
 - Extended filter language (string contains, regex matching, MAC address fields, IPv6 CIDR)
 - Application-layer dissectors (HTTP, TCP-based DNS, full TLS record parsing beyond handshake)
-- Export capabilities (filtered capture writing, CSV/JSON export)
+- Certificate parsing (X.509 subject, issuer, validity)
 
 ---
 
-**Version:** 0.5.2 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.2 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

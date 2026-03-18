@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-0.5.2-blue)]()
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange?logo=rust)](https://www.rust-lang.org/)
-[![Tests](https://img.shields.io/badge/tests-351%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-384%20passing-brightgreen)]()
 [![Status](https://img.shields.io/badge/phase-walk-blue)]()
 
 Packet analyzer built for LLMs and humans. Rust-native protocol dissection with an MCP server that lets an AI assistant perform security audits, and a color-coded CLI for direct analysis.
@@ -27,7 +27,7 @@ Packet analyzer built for LLMs and humans. Rust-native protocol dissection with 
 
 ## Elevator Pitch
 
-Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wireshark — packet queries, protocol decoding, display filters, stream tracking, and security audit heuristics — through structured MCP tool calls. For humans, it's a fast, color-coded CLI that decodes 10 protocols, follows TCP/UDP conversations, and runs 7 automated security checks. Everything is library-first: one Rust workspace, 8 crates, 351 tests, zero unsafe code.
+Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wireshark — packet queries, protocol decoding, display filters, stream tracking, and security audit heuristics — through structured MCP tool calls. For humans, it's a fast, color-coded CLI that decodes 10 protocols, follows TCP/UDP conversations, runs 7 automated security checks, validates checksums, and exports results as JSON. Everything is library-first: one Rust workspace, 8 crates, 384 tests, zero unsafe code.
 
 ## Why native dissectors when tshark exists?
 
@@ -91,6 +91,7 @@ tshark --version   # must be >= 3.0.0
 
 - **Capture file reading** — pcap and pcapng with timestamps and original wire length
 - **Protocol dissection** — Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS (ClientHello + ServerHello) with full RFC field extraction
+- **Checksum validation** — IPv4 header, TCP, and UDP checksums verified during dissection; zero checksums (NIC offload) are skipped
 - **TLS handshake analysis** — heuristic dispatch on any TCP port, SNI extraction, cipher suites, ALPN, supported versions, signature algorithms, key share groups
 - **DNS response parsing** — A/AAAA answer records with typed answer data
 - **Stream tracking** — TCP/UDP conversation tracking with canonical 5-tuple keys, stream IDs, and per-stream statistics
@@ -98,7 +99,9 @@ tshark --version   # must be >= 3.0.0
 - **Packet detail view** — decoded layer tree with color-coded hex dump (`fireshark detail`)
 - **Follow stream** — `fireshark follow` shows all packets in a conversation by stream ID
 - **Display filters** — Wireshark-style expression language (`-f "tcp and port 443"`, `tcp.stream == 0`)
-- **MCP server** — offline capture analysis for LLM-driven workflows and security audits, including stream and summary tools
+- **JSON export** — `--json` flag on `summary`, `stats`, `issues`, `audit` for JSONL output (one JSON object per line, no color codes)
+- **Capture comparison** — `fireshark diff <file1> <file2>` shows new/missing hosts, protocols, and ports between two captures
+- **MCP server** — offline capture analysis for LLM-driven workflows and security audits, including stream, summary, and comparison tools
 - **Fuzz testing** — cargo-fuzz infrastructure with two fuzz targets
 
 ## Quick Start
@@ -127,6 +130,15 @@ cargo run -p fireshark-cli -- audit your-capture.pcap
 
 # Security audit with custom packet limit
 cargo run -p fireshark-cli -- audit --max-packets 500000 large-capture.pcap
+
+# Compare two captures (new/missing hosts, protocols, ports)
+cargo run -p fireshark-cli -- diff baseline.pcap suspect.pcap
+
+# JSON export (JSONL: one JSON object per line, no color codes)
+cargo run -p fireshark-cli -- summary your-capture.pcap --json
+cargo run -p fireshark-cli -- stats your-capture.pcap --json
+cargo run -p fireshark-cli -- issues your-capture.pcap --json
+cargo run -p fireshark-cli -- audit your-capture.pcap --json
 
 # Use tshark backend for broader protocol coverage
 cargo run -p fireshark-cli -- summary --backend tshark your-capture.pcap
@@ -202,10 +214,10 @@ Shows a decoded layer tree with field values and a color-coded hex dump where ea
 | `fireshark-file` | pcap and pcapng ingestion with timestamp/length extraction |
 | `fireshark-dissectors` | Protocol decoders (10 protocols) with full RFC field extraction |
 | `fireshark-filter` | Display filter language: lexer, parser, evaluator (including `tcp.stream`/`udp.stream`) |
-| `fireshark-cli` | CLI with 6 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow` |
+| `fireshark-cli` | CLI with 7 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`, `diff` |
 | `fireshark-backend` | Backend abstraction: native pipeline and tshark subprocess adapters |
 | `fireshark-tshark` | tshark subprocess discovery, execution, and output normalization |
-| `fireshark-mcp` | Offline MCP server (17 tools) for LLM-driven capture analysis and security audits |
+| `fireshark-mcp` | Offline MCP server (18 tools) for LLM-driven capture analysis, security audits, and capture comparison |
 
 Other directories:
 
@@ -227,6 +239,7 @@ cargo run -p fireshark-mcp
 | Packet queries | `list_packets`, `get_packet`, `search_packets`, `list_decode_issues`, `summarize_protocols`, `top_endpoints` |
 | Streams | `list_streams`, `get_stream` |
 | Capture overview | `summarize_capture` |
+| Comparison | `compare_captures` |
 | Audit | `audit_capture`, `list_findings`, `explain_finding` |
 
 Constraints: stdio transport, offline captures, configurable packet limit (default 100k), 8 concurrent sessions, 15-minute idle timeout.
@@ -345,8 +358,8 @@ cargo fuzz run fuzz_capture_reader -- -max_total_time=60
 | Phase | Focus | Status |
 |-------|-------|--------|
 | **Crawl** | Offline capture parsing, dissection, CLI, MCP server, display filters, stream tracking | Complete |
-| **Walk** | tshark backend, capture comparison, live capture backends | Active |
-| **Run** | HTTP dissector, string filters, advanced statistics, export | Planned |
+| **Walk** | tshark backend, capture comparison, JSON export, checksum validation, live capture backends | Active |
+| **Run** | HTTP dissector, string filters, advanced statistics, certificate parsing | Planned |
 
 ## Design Rules
 
@@ -377,4 +390,4 @@ Copyright 2026 Hendrik Reh <hendrik.reh@blacksmith-consulting.ai>. See [`COPYRIG
 
 ---
 
-**Version:** 0.5.2 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.2 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

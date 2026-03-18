@@ -4,7 +4,7 @@ Protocol decoders for the fireshark packet analyzer.
 
 ## Overview
 
-Decodes raw Ethernet frames into structured, typed protocol layers. Each dissector validates headers, extracts fields per RFC, and reports decode issues (truncation, malformation) instead of panicking.
+Decodes raw Ethernet frames into structured, typed protocol layers. Each dissector validates headers, extracts fields per RFC, validates checksums (IPv4 header, TCP, UDP), and reports decode issues (truncation, malformation, checksum mismatch) instead of panicking. Zero checksums (common with NIC offload) are skipped.
 
 ## Supported Protocols
 
@@ -49,9 +49,10 @@ Layer byte spans are tracked alongside layers for hex dump coloring.
 
 - `DecodeError::Truncated` — buffer too short for the protocol header
 - `DecodeError::Malformed` — header fields are invalid (wrong version, bad IHL, etc.)
+- `DecodeIssueKind::ChecksumMismatch` — IPv4 header, TCP, or UDP checksum does not match computed value (zero checksums from NIC offload are skipped)
 
 Decode errors at inner layers are captured as `DecodeIssue` on the packet, not propagated as `Err`. Only Ethernet truncation prevents packet creation entirely.
 
 ---
 
-**Version:** 0.5.2 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.2 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

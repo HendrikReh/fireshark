@@ -4,7 +4,7 @@ Shared backend abstraction for fireshark capture analysis.
 
 ## Overview
 
-Provides a backend-neutral capture model that both CLI and MCP can consume. Two backend implementations: native (Rust pipeline) and tshark (subprocess).
+Provides a backend-neutral capture model that both CLI and MCP can consume. Two backend implementations: native (Rust pipeline) and tshark (subprocess). Supports capture comparison to identify new/missing hosts, protocols, and ports between two captures.
 
 ## Key Types
 
@@ -48,4 +48,4 @@ Each backend declares its capabilities. Consumers check before using features:
 
 ---
 
-**Version:** 0.5.2 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.2 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

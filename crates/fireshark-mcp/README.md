@@ -4,7 +4,7 @@ Offline MCP server for LLM-driven packet capture analysis and security audits.
 
 ## Overview
 
-Exposes fireshark's capture analysis capabilities through the Model Context Protocol (MCP) over stdio transport. An LLM client opens a capture file, receives a session ID, and uses it for follow-up queries about packets, protocols, endpoints, and security findings.
+Exposes fireshark's capture analysis capabilities through the Model Context Protocol (MCP) over stdio transport. An LLM client opens a capture file, receives a session ID, and uses it for follow-up queries about packets, protocols, endpoints, security findings, and capture comparisons.
 
 ## Usage
 
@@ -48,6 +48,12 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 |------|-------------|
 | `summarize_capture` | Single-call capture summary: packets, streams, protocols, endpoints, timestamps, audit findings |
 
+### Comparison
+
+| Tool | Description |
+|------|-------------|
+| `compare_captures` | Compare two open sessions to identify new/missing hosts, protocols, and ports |
+
 ### Security Audit
 
 | Tool | Description |
@@ -74,10 +80,10 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 | `session.rs` | Session lifecycle management |
 | `analysis.rs` | Capture loading and analysis |
 | `query.rs` | Packet query and filtering logic |
-| `audit.rs` | Security heuristic engine (6 heuristics: decode issues, unknown traffic, scan activity, suspicious ports, cleartext credentials, DNS tunneling) |
+| `audit.rs` | Security heuristic engine (7 heuristics: decode issues, unknown traffic, scan activity, suspicious ports, cleartext credentials, DNS tunneling, connection anomalies) |
 | `model.rs` | Serializable view types for MCP responses |
 | `filter.rs` | Shared filter utilities |
 
 ---
 
-**Version:** 0.5.2 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.2 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

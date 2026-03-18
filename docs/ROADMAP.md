@@ -12,9 +12,9 @@ Fireshark is an MCP-first packet analyzer. The LLM is the analyst — the MCP se
 
 1. **v0.3:** Packet intelligence — protocols, fields, filters, audit heuristics
 2. **v0.4:** Application intelligence — what domains? what services?
-3. **v0.5 (current):** Conversation intelligence — who talked to whom? how?
+3. **v0.5:** Conversation intelligence — who talked to whom? how?
 4. **v0.5.2:** Backend abstraction — tshark as optional oracle, differential testing
-5. **v0.6:** Security analyst platform — comparison, export, checksums, certificates
+5. **v0.6 (current):** Security analyst platform — comparison, export, checksums, certificates
 6. **v0.7:** Content intelligence — string filters, HTTP, audit profiles
 7. **v1.0:** Real-time intelligence — live capture
 
@@ -67,19 +67,22 @@ Optional `tshark` subprocess backend for offline capture analysis. The native Ru
 **Design doc:** `docs/plans/2026-03-17-tshark-backend-design.md`
 **Implementation plan:** `docs/plans/2026-03-17-tshark-backend.md`
 
-## v0.6 — Security analyst platform
+## v0.6 — Security analyst platform (COMPLETE)
 
-| Feature | MCP impact | CLI impact |
-|---------|-----------|------------|
-| Capture comparison | New tool: `compare_captures(session_a, session_b)` — new hosts, ports, missing traffic. Synergy with tshark backend: compare native vs tshark views. | `diff <file1> <file2>` |
-| Export tool | `export_packets(session_id, filter?, format)` as JSON | `--json` flag |
-| Checksum validation (issue #8) | `audit_capture` flags corrupted packets; `get_packet` shows checksum status | Decode issues in detail |
-| Certificate parsing | `get_packet` returns X.509 subject, issuer, validity. tshark backend can serve as reference implementation. | `detail` shows cert chain |
+JSON export, checksum validation, and capture comparison delivered. Certificate parsing deferred to v0.7.
+
+| Feature | Status |
+|---------|--------|
+| Capture comparison — `compare_captures` MCP tool, `diff <file1> <file2>` CLI command (new/missing hosts, protocols, ports) | **Done** |
+| JSON export — `--json` flag on `summary`, `stats`, `issues`, `audit` (JSONL output, no color codes) | **Done** |
+| Checksum validation — IPv4 header, TCP, UDP checksums verified; `DecodeIssueKind::ChecksumMismatch`; zero checksums (NIC offload) skipped | **Done** |
+| Certificate parsing | **Deferred to v0.7** |
 
 ## v0.7 — String filters + extended audit
 
 | Feature | MCP impact | CLI impact |
 |---------|-----------|------------|
+| Certificate parsing | `get_packet` returns X.509 subject, issuer, validity. tshark backend can serve as reference implementation. | `detail` shows cert chain |
 | String/regex filter operators (issue #10) | `search_packets` with `dns.qname contains "evil.com"` | `-f 'dns.qname contains "phishing"'` |
 | HTTP basic dissector (requires stream tracking) | `get_packet` returns method, URI, Host, status | `detail` shows HTTP |
 | Audit profiles | `audit_capture(session_id, profile="security")` — security, performance, compliance | `--audit-profile` flag |
@@ -111,14 +114,14 @@ Optional `tshark` subprocess backend for offline capture analysis. The native Ru
 | Metric | Value |
 |--------|-------|
 | Protocols | 10 (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello) |
-| Tests | 351 |
+| Tests | 384 |
 | Source lines | ~9,500 |
 | Crates | 8 (fireshark-core, fireshark-file, fireshark-dissectors, fireshark-filter, fireshark-cli, fireshark-mcp, fireshark-backend, fireshark-tshark) |
-| MCP tools | 17 |
-| CLI commands | 6 (summary, detail, follow, stats, issues, audit) |
+| MCP tools | 18 |
+| CLI commands | 7 (summary, detail, follow, stats, issues, audit, diff) |
 | Filter fields | 50+ |
 | Audit heuristics | 7 |
 
 ---
 
-**Version:** 0.5.2 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.2 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

@@ -18,7 +18,7 @@ This crate defines the foundational types that all other fireshark crates depend
 - **`StreamMetadata`** — per-stream statistics: packet count, byte count, first/last seen timestamps
 - **`StreamTracker`** — maps `StreamKey` values to monotonic `u32` stream IDs, accumulates per-stream metadata
 - **`PacketSummary`** — one-line summary with protocol, endpoints, ports, timestamp, and length
-- **`DecodeIssue`** — structured error with kind (truncated/malformed) and byte offset
+- **`DecodeIssue`** — structured error with kind (truncated/malformed/checksum mismatch) and byte offset. `DecodeIssueKind::ChecksumMismatch` is produced when IPv4 header, TCP, or UDP checksums fail validation (zero checksums from NIC offload are skipped)
 
 ## Layer Types
 
@@ -41,4 +41,4 @@ Each protocol has a plain struct with public fields:
 
 ---
 
-**Version:** 0.5.2 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.2 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

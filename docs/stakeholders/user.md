@@ -97,6 +97,42 @@ Stream 0: TCP 192.0.2.10:51514 ↔ 198.51.100.20:443
 
 The stream header shows the conversation's protocol, endpoints, packet/byte count, and duration. Use `fireshark stats` to discover available stream IDs.
 
+### Compare Two Captures
+
+Compare a baseline and suspect capture to find new or missing hosts, protocols, and ports:
+
+```bash
+fireshark diff baseline.pcap suspect.pcap
+```
+
+The output shows which hosts, protocols, and ports appeared in one capture but not the other — useful for detecting changes between a known-good baseline and a new capture.
+
+### JSON Export
+
+Add `--json` to `summary`, `stats`, `issues`, or `audit` to get machine-readable output. Each line is one JSON object (JSONL format), with no ANSI color codes:
+
+```bash
+# JSONL packet summaries
+fireshark summary capture.pcap --json
+
+# JSONL statistics
+fireshark stats capture.pcap --json
+
+# JSONL decode issues
+fireshark issues capture.pcap --json
+
+# JSONL audit findings
+fireshark audit capture.pcap --json
+```
+
+This is useful for piping into `jq`, feeding into scripts, or integrating with other tools.
+
+### Checksum Validation
+
+Fireshark validates IPv4 header, TCP, and UDP checksums during dissection. If a checksum does not match the computed value, a `ChecksumMismatch` decode issue is recorded on the packet. Zero checksums (common when NIC offload is enabled, meaning the checksum was computed by hardware after capture) are skipped — they are not flagged as errors.
+
+Checksum issues appear in the `issues` command output and in `detail` view decode issue indicators.
+
 ### Backend Selection
 
 fireshark supports two analysis backends. The choice affects which features are available and how broad protocol coverage is.
@@ -529,6 +565,12 @@ Any MCP-compatible client can connect by spawning the binary as a subprocess ove
 |------|-----------|---------|
 | `summarize_capture` | `session_id` | Single-call summary: packets, streams, protocols, endpoints, timestamps, findings |
 
+#### Comparison
+
+| Tool | Parameters | Returns |
+|------|-----------|---------|
+| `compare_captures` | `session_id_a`, `session_id_b` | New/missing hosts, protocols, and ports between two captures |
+
 #### Security Audit
 
 | Tool | Parameters | Returns |
@@ -727,4 +769,4 @@ fireshark follow capture.pcap 0
 
 ---
 
-**Version:** 0.5.2 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.2 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

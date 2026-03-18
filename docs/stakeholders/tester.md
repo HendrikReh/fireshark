@@ -303,7 +303,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 351 |
+| Total tests | 384 |
 | Byte fixtures | 18 |
 | Smoke captures | 3 |
 | Total fixtures | 21 |
@@ -322,4 +322,4 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 ---
 
-**Version:** 0.5.2 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.2 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

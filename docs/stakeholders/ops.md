@@ -59,7 +59,7 @@ If tshark is not found when `--backend tshark` is requested, fireshark will exit
 
 ## CLI Operation
 
-The CLI has 6 commands:
+The CLI has 7 commands:
 
 ```bash
 # List all packets with color-coded protocol summary
@@ -79,6 +79,15 @@ fireshark issues <capture.pcap>
 
 # Run security audit heuristics
 fireshark audit <capture.pcap>
+
+# Compare two captures (new/missing hosts, protocols, ports)
+fireshark diff <baseline.pcap> <suspect.pcap>
+
+# JSON export (JSONL output, no color codes) — supported on summary, stats, issues, audit
+fireshark summary <capture.pcap> --json
+fireshark stats <capture.pcap> --json
+fireshark issues <capture.pcap> --json
+fireshark audit <capture.pcap> --json
 ```
 
 Exit codes:
@@ -109,7 +118,7 @@ Connect from any MCP-compatible client (e.g., Claude Desktop, an LLM agent) by w
 
 A session is created by calling `open_capture` with a file path. The server returns a `session_id` that must be passed to all subsequent queries. Sessions are closed explicitly with `close_capture` or automatically after 15 minutes of inactivity.
 
-### MCP Tool Families (17 tools)
+### MCP Tool Families (18 tools)
 
 | Family | Tools |
 |--------|-------|
@@ -117,6 +126,7 @@ A session is created by calling `open_capture` with a file path. The server retu
 | Packet queries | `list_packets`, `get_packet`, `search_packets`, `list_decode_issues`, `summarize_protocols`, `top_endpoints` |
 | Streams | `list_streams`, `get_stream` |
 | Capture overview | `summarize_capture` |
+| Comparison | `compare_captures` |
 | Audit | `audit_capture`, `list_findings`, `explain_finding` |
 
 ## Resource Usage
@@ -201,4 +211,4 @@ The file does not have a valid pcap or pcapng magic number. Ensure the file is n
 
 ---
 
-**Version:** 0.5.2 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.2 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

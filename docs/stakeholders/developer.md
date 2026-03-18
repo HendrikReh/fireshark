@@ -99,8 +99,8 @@ fireshark/
     fireshark-dissectors/  # Protocol decoders: Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS (10 protocols)
     fireshark-file/       # pcap and pcapng file ingestion (CaptureReader)
     fireshark-filter/     # Display filter parser and evaluator (including tcp.stream/udp.stream)
-    fireshark-cli/        # CLI binary ("fireshark") with 6 commands: summary, detail, stats, issues, audit, follow
-    fireshark-mcp/        # MCP server binary (17 tools) for LLM-driven capture analysis
+    fireshark-cli/        # CLI binary ("fireshark") with 7 commands: summary, detail, stats, issues, audit, follow, diff. Supports --json on summary, stats, issues, audit
+    fireshark-mcp/        # MCP server binary (18 tools) for LLM-driven capture analysis and capture comparison
   fixtures/
     bytes/                # Handcrafted binary blobs for unit tests
     smoke/                # Small pcap/pcapng files for integration tests
@@ -532,6 +532,15 @@ fn stats_command_runs_successfully() {
 
 The `support::repo_root()` helper locates the workspace root from `CARGO_MANIFEST_DIR`, so tests work regardless of the working directory.
 
+### JSON Output (`--json` Flag)
+
+Commands that support `--json` output JSONL (one JSON object per line, no ANSI color codes). When adding a new command that produces tabular or structured output, follow this pattern:
+
+1. Add a `--json` flag to the clap struct for the command.
+2. When `--json` is set, serialize each output record as a single JSON line using `serde_json::to_string()` and print it to stdout.
+3. Do not emit ANSI color codes in JSON mode.
+4. Commands that currently support `--json`: `summary`, `stats`, `issues`, `audit`.
+
 ---
 
 ## 8. Testing Guide
@@ -791,4 +800,4 @@ Spans are searched in reverse order so the innermost (most specific) layer wins 
 
 ---
 
-**Version:** 0.5.2 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.2 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

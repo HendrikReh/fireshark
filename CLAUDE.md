@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Fireshark is a packet analyzer built for LLMs and humans, written in Rust. It is library-first and built in phases (crawl/walk/run). Currently in the **walk** phase: 10 protocol dissectors, display filter language, TCP/UDP stream tracking, 7 security audit heuristics, 17 MCP tools, 6 CLI commands, and an optional tshark backend.
+Fireshark is a packet analyzer built for LLMs and humans, written in Rust. It is library-first and built in phases (crawl/walk/run). Currently in the **walk** phase: 10 protocol dissectors, display filter language, TCP/UDP stream tracking, checksum validation, 7 security audit heuristics, 18 MCP tools, 7 CLI commands, JSON export, capture comparison, and an optional tshark backend.
 
 ## Workspace Layout
 
@@ -12,10 +12,10 @@ Fireshark is a packet analyzer built for LLMs and humans, written in Rust. It is
 | `fireshark-dissectors` | Protocol decoders: Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello |
 | `fireshark-filter` | Display filter language: lexer, parser, evaluator (including `tcp.stream`/`udp.stream`) |
 | `fireshark-file` | pcap and pcapng file ingestion |
-| `fireshark-cli` | Thin CLI binary (`fireshark`) with 6 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow` |
+| `fireshark-cli` | Thin CLI binary (`fireshark`) with 7 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`, `diff`. Supports `--json` flag on `summary`, `stats`, `issues`, `audit` |
 | `fireshark-backend` | Backend abstraction: native pipeline and tshark subprocess adapters |
 | `fireshark-tshark` | tshark subprocess discovery, execution, and output normalization |
-| `fireshark-mcp` | Offline MCP server (17 tools) for LLM-driven capture analysis and security audits |
+| `fireshark-mcp` | Offline MCP server (18 tools) for LLM-driven capture analysis, security audits, and capture comparison |
 
 - `fixtures/bytes/` — handcrafted binary blobs used in unit tests
 - `fixtures/smoke/` — small pcap files for integration/CLI tests
@@ -58,7 +58,7 @@ Each protocol dissector in `fireshark-dissectors/src/` follows this structure:
 1. Module-level constants (`ETHER_TYPE`, `IP_PROTOCOL`, `MIN_HEADER_LEN`)
 2. A `parse(bytes: &[u8], ...)` function that validates and decodes
 3. Explicit bounds checks before every slice access
-4. Returns `DecodeError::Truncated` for short buffers, `DecodeError::Malformed` for invalid fields
+4. Returns `DecodeError::Truncated` for short buffers, `DecodeError::Malformed` for invalid fields. Checksum failures produce `DecodeIssueKind::ChecksumMismatch` (zero checksums from NIC offload are skipped)
 5. Network-layer dissectors (IPv4, IPv6) return `NetworkPayload` with payload slice and offset
 6. Link/transport-layer dissectors return `Layer` directly
 7. Application-layer dissectors use port-based (DNS on UDP 53) or heuristic dispatch (TLS on any TCP port via record header inspection)

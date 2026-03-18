@@ -4,7 +4,7 @@ Command-line interface for the fireshark packet analyzer.
 
 ## Overview
 
-Thin CLI binary (`fireshark`) that exercises the library stack. Provides packet summary listing with color output, packet detail inspection with hex dump, display filter support, capture statistics, decode issue listing, security audit, and stream follow.
+Thin CLI binary (`fireshark`) that exercises the library stack. Provides packet summary listing with color output, packet detail inspection with hex dump, display filter support, capture statistics, decode issue listing, security audit, stream follow, and capture comparison. Supports `--json` flag on `summary`, `stats`, `issues`, `audit` for JSONL output (one JSON object per line, no color codes).
 
 ## Commands
 
@@ -63,6 +63,25 @@ Run heuristic security analysis: scan detection, suspicious ports, cleartext cre
 fireshark audit capture.pcap
 ```
 
+### `diff`
+
+Compare two capture files to identify new/missing hosts, protocols, and ports.
+
+```bash
+fireshark diff baseline.pcap suspect.pcap
+```
+
+### `--json` Flag
+
+Output JSONL (one JSON object per line, no color codes) on supported commands:
+
+```bash
+fireshark summary capture.pcap --json
+fireshark stats capture.pcap --json
+fireshark issues capture.pcap --json
+fireshark audit capture.pcap --json
+```
+
 ## Modules
 
 | Module | Purpose |
@@ -73,10 +92,11 @@ fireshark audit capture.pcap
 | `stats.rs` | Capture statistics: packets, streams, duration, protocols, endpoints |
 | `issues.rs` | Decode issue listing |
 | `audit.rs` | Security audit heuristics |
+| `diff.rs` | Capture comparison: new/missing hosts, protocols, ports |
 | `hexdump.rs` | Color-coded hex dump formatter |
 | `color.rs` | Protocol-to-color mapping (Wireshark-inspired) |
 | `timestamp.rs` | ISO 8601 UTC formatting via Hinnant civil_from_days |
 
 ---
 
-**Version:** 0.5.2 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.2 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
