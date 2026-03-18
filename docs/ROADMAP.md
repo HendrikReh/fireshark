@@ -121,4 +121,4 @@ Optional `tshark` subprocess backend for offline capture analysis. The native Ru
 
 ---
 
-**Version:** 0.5.1 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.5.2 | **Last updated:** 2026-03-17 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
