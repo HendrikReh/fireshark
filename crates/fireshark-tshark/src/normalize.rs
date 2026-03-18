@@ -132,8 +132,12 @@ fn non_empty(s: &str) -> Option<&str> {
 }
 
 /// Append `:port` to an address string if a port is present.
+///
+/// IPv6 addresses are bracketed (`[addr]:port`) to avoid ambiguity with
+/// the colon separators in the address itself.
 fn append_port(addr: &str, port: Option<&str>) -> String {
     match port {
+        Some(p) if !addr.is_empty() && addr.contains(':') => format!("[{addr}]:{p}"),
         Some(p) if !addr.is_empty() => format!("{addr}:{p}"),
         _ => addr.to_string(),
     }
@@ -196,5 +200,27 @@ mod tests {
         let pkt = &capture.packets[0];
         assert_eq!(pkt.source, "192.168.1.1:12345");
         assert_eq!(pkt.destination, "8.8.8.8:53");
+    }
+
+    #[test]
+    fn ipv6_endpoints_bracketed_with_port() {
+        let header = "frame.number\tframe.time_epoch\tframe.len\tframe.cap_len\t\
+                       _ws.col.protocol\t_ws.col.info\tip.src\tip.dst\t\
+                       ipv6.src\tipv6.dst\ttcp.srcport\ttcp.dstport\t\
+                       udp.srcport\tudp.dstport";
+        let row = "1\t1.000000000\t74\t74\tTCP\tinfo\t\t\t\
+                   2001:db8::1\t2001:db8::2\t51514\t443\t\t";
+        let tsv = format!("{header}\n{row}\n");
+        let capture = parse_tsv(&tsv).unwrap();
+        let pkt = &capture.packets[0];
+        assert_eq!(pkt.source, "[2001:db8::1]:51514");
+        assert_eq!(pkt.destination, "[2001:db8::2]:443");
+    }
+
+    #[test]
+    fn ipv6_endpoint_without_port_not_bracketed() {
+        // When there's no port, IPv6 addresses stay bare
+        let addr = append_port("2001:db8::1", None);
+        assert_eq!(addr, "2001:db8::1");
     }
 }

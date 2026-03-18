@@ -71,9 +71,12 @@ pub fn parse_cert_output(output: &str) -> Result<Vec<TlsCertInfo>, TsharkError> 
             continue;
         }
 
-        let packet_index: usize = fields[0].parse().map_err(|e| {
+        let frame_number: usize = fields[0].parse().map_err(|e| {
             TsharkError::ParseOutput(format!("invalid frame number '{}': {e}", fields[0]))
         })?;
+        // tshark frame.number is 1-based; convert to 0-based for consistency
+        // with the rest of the fireshark API.
+        let packet_index = frame_number.saturating_sub(1);
 
         let common_name = fields.get(1).and_then(|s| non_empty(s)).map(String::from);
 
@@ -106,13 +109,22 @@ mod tests {
 
     #[test]
     fn parse_cert_tsv_single_row() {
+        // tshark frame.number is 1-based; packet_index should be 0-based (42 - 1 = 41)
         let output = "42\texample.com\twww.example.com,example.com\tExample Inc.\n";
         let certs = parse_cert_output(output).unwrap();
         assert_eq!(certs.len(), 1);
-        assert_eq!(certs[0].packet_index, 42);
+        assert_eq!(certs[0].packet_index, 41);
         assert_eq!(certs[0].common_name.as_deref(), Some("example.com"));
         assert_eq!(certs[0].san_dns_names, ["www.example.com", "example.com"]);
         assert_eq!(certs[0].organization.as_deref(), Some("Example Inc."));
+    }
+
+    #[test]
+    fn parse_cert_tsv_first_packet_is_zero_based() {
+        // frame.number=1 should map to packet_index=0
+        let output = "1\texample.com\t\t\n";
+        let certs = parse_cert_output(output).unwrap();
+        assert_eq!(certs[0].packet_index, 0);
     }
 
     #[test]
@@ -120,7 +132,7 @@ mod tests {
         let output = "10\t\t\t\n";
         let certs = parse_cert_output(output).unwrap();
         assert_eq!(certs.len(), 1);
-        assert_eq!(certs[0].packet_index, 10);
+        assert_eq!(certs[0].packet_index, 9); // 10 - 1
         assert!(certs[0].common_name.is_none());
         assert!(certs[0].san_dns_names.is_empty());
         assert!(certs[0].organization.is_none());
@@ -131,8 +143,8 @@ mod tests {
         let output = "5\tca.example.com\t\tCA Corp\n10\texample.com\twww.example.com\t\n";
         let certs = parse_cert_output(output).unwrap();
         assert_eq!(certs.len(), 2);
-        assert_eq!(certs[0].packet_index, 5);
-        assert_eq!(certs[1].packet_index, 10);
+        assert_eq!(certs[0].packet_index, 4); // 5 - 1
+        assert_eq!(certs[1].packet_index, 9); // 10 - 1
     }
 
     #[test]
