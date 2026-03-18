@@ -91,16 +91,16 @@ cargo run -p fireshark-cli -- summary fixtures/smoke/fuzz-2006-06-26-2594.pcap -
 
 ```
 fireshark/
-  Cargo.toml              # Workspace root (version 0.8.0, edition 2024)
+  Cargo.toml              # Workspace root (version 0.9.0, edition 2024)
   Justfile                # Task runner recipes
   CLAUDE.md               # AI agent conventions
   crates/
     fireshark-core/       # Domain types: Layer, Packet, Frame, Pipeline, StreamTracker, TrackingPipeline, PacketSummary
-    fireshark-dissectors/  # Protocol decoders: Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS (10 protocols)
+    fireshark-dissectors/  # Protocol decoders: Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS, HTTP (11 protocols)
     fireshark-file/       # pcap and pcapng file ingestion (CaptureReader)
     fireshark-filter/     # Display filter parser and evaluator (including tcp.stream/udp.stream)
     fireshark-cli/        # CLI binary ("fireshark") with 7 commands: summary, detail, stats, issues, audit, follow, diff. Supports --json on summary, stats, issues, audit
-    fireshark-mcp/        # MCP server binary (20 tools) for LLM-driven capture analysis, stream reassembly, certificate extraction, and capture comparison
+    fireshark-mcp/        # MCP server binary (21 tools) for LLM-driven capture analysis, stream reassembly, certificate extraction, finding escalation, and capture comparison
   fixtures/
     bytes/                # Handcrafted binary blobs for unit tests
     smoke/                # Small pcap/pcapng files for integration tests
@@ -450,7 +450,7 @@ v0.7 added string filter operators (`contains` for case-insensitive substring, `
 1. Return `FieldValue::Str(string_value)` from the match arm in `resolve_layer_field()`
 2. The `contains` and `matches` operators automatically work on any `FieldValue` type via string conversion, but returning `FieldValue::Str` gives the most natural behavior
 
-Current string-typed fields: `dns.qname`, `tls.sni`
+Current string-typed fields: `dns.qname`, `tls.sni`, `http.method`, `http.uri`, `http.host`, `http.content_type`
 
 Example:
 ```rust
@@ -774,6 +774,7 @@ The `color` module in `fireshark-cli` maps protocol names to ANSI colors (Wiresh
 | ICMP | Cyan |
 | DNS | Magenta |
 | TLS | BrightGreen |
+| HTTP | BrightCyan |
 | Ethernet, IPv4, IPv6 | White |
 | Unknown / other | Red |
 
@@ -822,4 +823,4 @@ Spans are searched in reverse order so the innermost (most specific) layer wins 
 
 ---
 
-**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.9.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

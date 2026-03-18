@@ -1,8 +1,8 @@
 # Fireshark
 
-[![Version](https://img.shields.io/badge/version-0.8.0-blue)]()
+[![Version](https://img.shields.io/badge/version-0.9.0-blue)]()
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange?logo=rust)](https://www.rust-lang.org/)
-[![Tests](https://img.shields.io/badge/tests-439%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-469%20passing-brightgreen)]()
 [![Status](https://img.shields.io/badge/phase-walk-blue)]()
 
 Packet analyzer built for LLMs and humans. Rust-native protocol dissection with an MCP server that lets an AI assistant perform security audits, and a color-coded CLI for direct analysis.
@@ -27,7 +27,7 @@ Packet analyzer built for LLMs and humans. Rust-native protocol dissection with 
 
 ## Elevator Pitch
 
-Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wireshark — packet queries, protocol decoding, display filters, stream tracking, stream reassembly, certificate extraction, and security audit heuristics — through structured MCP tool calls. For humans, it's a fast, color-coded CLI that decodes 10 protocols, follows TCP/UDP conversations with payload reassembly, runs 8 automated security checks, validates checksums, and exports results as JSON. Everything is library-first: one Rust workspace, 8 crates, 439 tests, zero unsafe code.
+Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wireshark — packet queries, protocol decoding, display filters, stream tracking, stream reassembly, certificate extraction, finding escalation, and security audit heuristics — through structured MCP tool calls. For humans, it's a fast, color-coded CLI that decodes 11 protocols, follows TCP/UDP conversations with payload reassembly, runs 8 automated security checks, validates checksums, and exports results as JSON. Everything is library-first: one Rust workspace, 8 crates, 469 tests, zero unsafe code.
 
 ## Why native dissectors when tshark exists?
 
@@ -39,7 +39,7 @@ The native Rust dissectors are the semantics engine: they give Fireshark stable,
 
 | Dimension | Native Rust | tshark |
 |-----------|-------------|--------|
-| Protocol breadth | Narrower: 10 core protocols | Much broader: thousands of dissectors |
+| Protocol breadth | Narrower: 11 core protocols | Much broader: thousands of dissectors |
 | Internal data model | Repo-owned typed layers and fields | External decode output that Fireshark must normalize |
 | Display filters | Smaller feature set, but in-process and integrated with Fireshark packet objects | More complete Wireshark semantics, but separate from Fireshark's native pipeline |
 | Stream handling | Repo-owned stream IDs and per-stream metadata | Stronger reassembly and follow capabilities |
@@ -48,13 +48,14 @@ The native Rust dissectors are the semantics engine: they give Fireshark stable,
 | Runtime dependencies | No Wireshark installation required | Requires the `tshark` binary |
 | Best use in Fireshark | Deterministic analysis, filtering, audits, MCP semantics | Broad protocol triage, reassembly, compatibility, validation |
 
-### Why the native 10 protocols still matter
+### Why the native 11 protocols still matter
 
 The native dissectors are not trying to out-Wireshark Wireshark. They cover the protocols that most of Fireshark's higher-level features actually depend on:
 
 - **Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP** provide the packet facts that drive summaries, endpoints, ports, TTL / hop limit checks, fragmentation state, stream IDs, and several audit heuristics.
 - **DNS** provides typed query names, query types, and response records, which directly support DNS-focused filtering and DNS-tunneling detection.
 - **TLS ClientHello / ServerHello** provides native access to handshake metadata such as SNI, ALPN, versions, cipher selection, and key-share groups, which are useful security pivots even without full TLS decryption.
+- **HTTP** provides first-packet method, URI, host, status code, and content type extraction via ASCII signature heuristic dispatch, enabling HTTP-specific filtering and audit without reassembly.
 
 That gives Fireshark a stable core it can own end-to-end:
 
@@ -115,7 +116,7 @@ tshark --version   # must be >= 3.0.0
 ## Features
 
 - **Capture file reading** — pcap and pcapng with timestamps and original wire length
-- **Protocol dissection** — Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS (ClientHello + ServerHello) with full RFC field extraction
+- **Protocol dissection** — Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS (ClientHello + ServerHello), HTTP with full RFC field extraction
 - **Checksum validation** — IPv4 header, TCP, and UDP checksums verified during dissection; zero checksums (NIC offload) are skipped
 - **TLS handshake analysis** — heuristic dispatch on any TCP port, SNI extraction, cipher suites, ALPN, supported versions, signature algorithms, key share groups
 - **DNS response parsing** — A/AAAA answer records with typed answer data
@@ -216,6 +217,24 @@ cargo run -p fireshark-cli -- summary capture.pcap -f "tls.handshake.type == 1"
 # TLS by cipher suite
 cargo run -p fireshark-cli -- summary capture.pcap -f "tls.cipher_suite == 0x1301"
 
+# HTTP requests
+cargo run -p fireshark-cli -- summary capture.pcap -f "http"
+
+# HTTP by method
+cargo run -p fireshark-cli -- summary capture.pcap -f 'http.method contains "POST"'
+
+# HTTP by URI
+cargo run -p fireshark-cli -- summary capture.pcap -f 'http.uri contains "/api"'
+
+# HTTP by host
+cargo run -p fireshark-cli -- summary capture.pcap -f 'http.host contains "example.com"'
+
+# HTTP by status code
+cargo run -p fireshark-cli -- summary capture.pcap -f "http.status_code == 200"
+
+# HTTP by content type
+cargo run -p fireshark-cli -- summary capture.pcap -f 'http.content_type contains "json"'
+
 # Filter by stream ID (conversation)
 cargo run -p fireshark-cli -- summary capture.pcap -f "tcp.stream == 0"
 cargo run -p fireshark-cli -- summary capture.pcap -f "udp.stream == 1"
@@ -263,12 +282,12 @@ Shows a decoded layer tree with field values and a color-coded hex dump where ea
 |-------|---------|
 | `fireshark-core` | Domain types (`Frame`, `Packet`, `Layer`, `Pipeline`, `StreamTracker`, `TrackingPipeline`), summaries, decode issues |
 | `fireshark-file` | pcap and pcapng ingestion with timestamp/length extraction |
-| `fireshark-dissectors` | Protocol decoders (10 protocols) with full RFC field extraction |
+| `fireshark-dissectors` | Protocol decoders (11 protocols) with full RFC field extraction |
 | `fireshark-filter` | Display filter language: lexer, parser, evaluator (including `tcp.stream`/`udp.stream`, `contains`/`matches` string operators) |
 | `fireshark-cli` | CLI with 7 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`, `diff` |
 | `fireshark-backend` | Backend abstraction: native pipeline and tshark subprocess adapters |
 | `fireshark-tshark` | tshark subprocess discovery, execution, and output normalization |
-| `fireshark-mcp` | Offline MCP server (20 tools) for LLM-driven capture analysis, security audits, stream reassembly, certificate extraction, and capture comparison |
+| `fireshark-mcp` | Offline MCP server (21 tools) for LLM-driven capture analysis, security audits, stream reassembly, certificate extraction, finding escalation, and capture comparison |
 
 Other directories:
 
@@ -291,7 +310,7 @@ cargo run -p fireshark-mcp
 | Streams | `list_streams`, `get_stream`, `get_stream_payload` |
 | Capture overview | `summarize_capture` |
 | Comparison | `compare_captures` |
-| Audit | `audit_capture`, `list_findings`, `explain_finding` |
+| Audit | `audit_capture`, `list_findings`, `explain_finding`, `escalate_finding` |
 | TLS | `get_certificates` |
 
 Constraints: stdio transport, offline captures, configurable packet limit (default 100k), 8 concurrent sessions, 15-minute idle timeout.
@@ -362,7 +381,8 @@ A typical analysis session through MCP:
 6. **Stream** — `get_stream({ session_id, stream_id: 5 })` → follow a conversation
 7. **Reassemble** — `get_stream_payload({ session_id, stream_id: 5 })` → reassembled TCP payload hex dump
 8. **Certificates** — `get_certificates({ session_id })` → TLS certificate details (subject CN, SAN DNS, org)
-9. **Close** — `close_capture({ session_id })` → free resources
+9. **Escalate** — `escalate_finding({ session_id, finding_id: "f1", notes: "confirmed C2 beacon" })` → mark finding for review
+10. **Close** — `close_capture({ session_id })` → free resources
 
 ### Capture Size Limits
 
@@ -413,7 +433,7 @@ cargo fuzz run fuzz_capture_reader -- -max_total_time=60
 |-------|-------|--------|
 | **Crawl** | Offline capture parsing, dissection, CLI, MCP server, display filters, stream tracking | Complete |
 | **Walk** | tshark backend, capture comparison, JSON export, checksum validation, tshark stream reassembly, TLS certificate extraction, live capture backends | Active |
-| **Run** | String filters (contains/matches), audit profiles, HTTP dissector, advanced statistics | Active |
+| **Run** | String filters (contains/matches), audit profiles, HTTP dissector, finding escalation, advanced statistics | Active |
 
 ## Design Rules
 
@@ -444,4 +464,4 @@ Copyright 2026 Hendrik Reh <hendrik.reh@blacksmith-consulting.ai>. See [`COPYRIG
 
 ---
 
-**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.9.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

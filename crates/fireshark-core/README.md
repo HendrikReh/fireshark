@@ -38,7 +38,8 @@ Each protocol has a plain struct with public fields:
 | `DnsAnswerData` | A (IPv4), Aaaa (IPv6), Other (raw bytes) |
 | `TlsClientHelloLayer` | record_version, client_version, cipher_suites, compression_methods, sni, alpn, supported_versions, signature_algorithms, key_share_groups |
 | `TlsServerHelloLayer` | record_version, server_version, cipher_suite, compression_method, selected_version, alpn, key_share_group |
+| `HttpLayer` | method, uri, host, status_code, content_type |
 
 ---
 
-**Version:** 0.6.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.9.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

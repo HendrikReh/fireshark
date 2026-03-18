@@ -35,7 +35,7 @@ fn crate_readme_contains_version_and_maintainer() {
     let readme = fs::read_to_string(crate_dir.join("README.md")).unwrap();
 
     assert!(
-        readme.contains("0.8.0"),
+        readme.contains("0.9.0"),
         "crate README should contain the current version"
     );
     assert!(

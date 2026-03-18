@@ -303,7 +303,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 | Metric | Value |
 |--------|-------|
-| Total tests | 439 |
+| Total tests | 469 |
 | Byte fixtures | 18 |
 | Smoke captures | 3 |
 | Total fixtures | 21 |
@@ -313,7 +313,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 ### Known Gaps
 
-- No HTTP application-layer protocol tests -- HTTP is not yet implemented
+- HTTP first-packet parser tested via fixture-based unit and integration tests
 - No IP fragment reassembly tests -- reassembly is not yet implemented
 - TCP stream reassembly tested via tshark backend (`follow --payload`, `follow --http`)
 - No performance/benchmark tests
@@ -322,4 +322,4 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 
 ---
 
-**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.9.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

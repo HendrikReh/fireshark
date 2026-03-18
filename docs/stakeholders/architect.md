@@ -10,7 +10,7 @@ Development follows a phased approach:
 |-------|-------|--------|
 | **Crawl** | Offline pcap/pcapng parsing, protocol dissection, CLI, display filters, MCP server, stream tracking | Complete |
 | **Walk** | Live capture backends, tshark backend, TCP reassembly, capture comparison, JSON export, checksum validation, tshark stream reassembly, TLS certificate extraction | Active |
-| **Run** | String filters (contains/matches), audit profiles, HTTP dissector, advanced statistics | Active |
+| **Run** | String filters (contains/matches), audit profiles, HTTP dissector, finding escalation, advanced statistics | Active |
 
 The crawl phase is complete. Walk phase is active — stream tracking, display filters, tshark backend, JSON export, checksum validation, capture comparison, tshark stream reassembly, and TLS certificate extraction are delivered. Live capture is the remaining walk milestone. Each phase delivers vertical slices of functionality, not speculative frameworks.
 
@@ -128,7 +128,7 @@ MCP client
 |------|---------|
 | `Frame`, `FrameBuilder` | Raw captured frame with timestamp, captured/original length, raw bytes |
 | `Packet` | Decoded protocol layers + decode issues + byte spans |
-| `Layer` | Enum wrapping typed layer structs (`Ethernet`, `Arp`, `Ipv4`, `Ipv6`, `Tcp`, `Udp`, `Icmp`, `Dns`, `TlsClientHello`, `TlsServerHello`) |
+| `Layer` | Enum wrapping typed layer structs (`Ethernet`, `Arp`, `Ipv4`, `Ipv6`, `Tcp`, `Udp`, `Icmp`, `Dns`, `TlsClientHello`, `TlsServerHello`, `Http`) |
 | `LayerSpan` | Byte offset + length for hex dump coloring |
 | `Pipeline<I, D>`, `DecodedFrame` | Generic iterator pairing frame source with decoder function |
 | `TrackingPipeline<I, D>` | Wraps `Pipeline`, assigns stream IDs via `StreamTracker` during iteration |
@@ -168,7 +168,7 @@ MCP client
 | `decode_packet(bytes: &[u8]) -> Result<Packet, DecodeError>` | Entry point for full-stack dissection |
 | `DecodeError` | Truncated (with layer name + offset) or Malformed |
 
-**Internal structure:** One module per protocol (`ethernet`, `arp`, `ipv4`, `ipv6`, `tcp`, `udp`, `icmp`, `dns`, `tls`), each with a `parse()` function. Network-layer dissectors return the crate-internal `NetworkPayload` struct carrying the parsed layer, the IP protocol number, and a payload slice for transport-layer dispatch. Application-layer dispatch uses two strategies: DNS is dispatched by port number (UDP port 53), while TLS uses heuristic dispatch on any TCP port by inspecting the TLS record header bytes (`0x16 0x03`).
+**Internal structure:** One module per protocol (`ethernet`, `arp`, `ipv4`, `ipv6`, `tcp`, `udp`, `icmp`, `dns`, `tls`, `http`), each with a `parse()` function. Network-layer dissectors return the crate-internal `NetworkPayload` struct carrying the parsed layer, the IP protocol number, and a payload slice for transport-layer dispatch. Application-layer dispatch uses three strategies: DNS is dispatched by port number (UDP port 53), TLS uses heuristic dispatch on any TCP port by inspecting the TLS record header bytes (`0x16 0x03`), and HTTP uses ASCII signature heuristic dispatch on TCP payloads (GET, POST, HTTP/).
 
 **Depends on:** `fireshark-core`, `thiserror`
 
@@ -234,7 +234,7 @@ MCP client
 | `model.rs` | Serializable view types for MCP JSON-RPC responses |
 | `filter.rs` | Shared filter utilities |
 
-**MCP Tools (20 total):**
+**MCP Tools (21 total):**
 
 | Family | Tools |
 |--------|-------|
@@ -243,7 +243,7 @@ MCP client
 | Streams | `list_streams`, `get_stream`, `get_stream_payload` |
 | Capture overview | `summarize_capture` |
 | Comparison | `compare_captures` |
-| Audit | `audit_capture`, `list_findings`, `explain_finding` |
+| Audit | `audit_capture`, `list_findings`, `explain_finding`, `escalate_finding` |
 | TLS | `get_certificates` |
 
 **Depends on:** `fireshark-core`, `fireshark-file`, `fireshark-dissectors`, `fireshark-filter`, `rmcp`, `schemars`, `serde`, `serde_json`, `thiserror`, `tokio`
@@ -359,6 +359,7 @@ Native dissectors own the packet facts fireshark reasons over. tshark owns bread
 | DNS | Query name + basic A/AAAA answers | Full RR semantics, compression following, EDNS, DNSSEC | Audit engine needs `query_name`; rich records delegate |
 | TLS | ClientHello/ServerHello metadata (SNI, ALPN, versions, ciphers) | Certificates, session tickets, full record parsing | Hello metadata serves filters/triage; deep TLS delegates |
 | Checksums | IPv4/TCP/UDP validation | N/A | Must be native — operates on raw bytes |
+| HTTP | First-packet method, URI, host, status_code, content_type | Full reassembly, chunked encoding, multipart | First-packet heuristic covers common cases; deep HTTP delegates |
 | Layer spans | Byte offset tracking for hex dump | N/A | Must be native — produced during dissection |
 
 **When to add a native dissector vs delegate to tshark:**
@@ -502,7 +503,7 @@ All ANSI color output, protocol-to-color mapping, hex dump formatting, and times
 | **String filter operators** | Filter language supports `contains` (case-insensitive substring) and `matches` (regex) operators on any field type via string conversion. String-typed fields: `dns.qname`, `tls.sni`. |
 | **No IPv6 CIDR filtering** | IPv4 CIDR (`ip.dst == 10.0.0.0/8`, `src 10.0.0.0/8`) is supported. IPv6 CIDR is not implemented -- only exact IPv6 address matching works. |
 | **No MAC address filtering** | `eth.type` is filterable as an integer, but there is no `eth.src` or `eth.dst` field for MAC address comparison. |
-| **Limited application-layer dissectors** | DNS over UDP port 53 and TLS ClientHello/ServerHello over any TCP port are supported. No HTTP or TCP-based DNS. |
+| **Limited application-layer dissectors** | DNS over UDP port 53, TLS ClientHello/ServerHello over any TCP port, and HTTP first-packet parsing via ASCII signature heuristic are supported. No TCP-based DNS. |
 | **MCP: offline only** | The MCP server loads entire captures into memory (up to 100,000 packets). No streaming, no live capture integration. |
 | **MCP: 8 sessions, 15-min timeout** | Concurrency is capped at 8 sessions. Sessions expire after 15 minutes of inactivity. |
 | **MCP: stdio transport only** | No HTTP, WebSocket, or SSE transport. |
@@ -514,7 +515,7 @@ All ANSI color output, protocol-to-color mapping, hex dump formatting, and times
 Delivered the foundational offline analysis stack:
 
 - **Complete:** pcap/pcapng reading with timestamp and original wire length extraction
-- **Complete:** Protocol dissection for Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello (10 protocols)
+- **Complete:** Protocol dissection for Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello, HTTP (11 protocols)
 - **Complete:** Application-layer dispatch by port number (DNS over UDP port 53) and heuristic dispatch (TLS on any TCP port)
 - **Complete:** DNS response parsing with A/AAAA answer records
 - **Complete:** TLS handshake analysis: SNI extraction, cipher suites, ALPN, supported versions, signature algorithms, key share groups
@@ -540,16 +541,19 @@ Adds backend abstraction, comparison, export, checksum validation, stream reasse
 - Planned: Live capture backends (platform-specific: `libpcap`, `AF_PACKET`, etc.)
 - Planned: BPF compile-time capture filters (distinct from display filters)
 
-### Run (Active -- v0.7)
+### Run (Active -- v0.7 + v0.9)
 
 Enables analyst workflows:
 
 - **Complete:** String filter operators (`contains` for case-insensitive substring, `matches` for regex) on any field type via string conversion
 - **Complete:** String-typed filter fields: `dns.qname`, `tls.sni`
 - **Complete:** Audit profiles (`--profile security|dns|quality` on CLI, `profile` parameter on MCP `audit_capture`)
+- **Complete:** Native HTTP first-packet parser with ASCII signature heuristic dispatch (GET, POST, HTTP/) — extracts method, URI, host, status_code, content_type (v0.9)
+- **Complete:** HTTP filter fields: `http.method`, `http.uri`, `http.host`, `http.status_code`, `http.content_type` (v0.9)
+- **Complete:** Finding escalation: `escalate_finding` MCP tool with notes, `[ESCALATED]` marker in CLI audit, `FindingView.escalated`/`notes` fields (v0.9)
 - Planned: Advanced statistics (IO graphs, flow analysis, RTT estimation)
-- Planned: Application-layer dissectors (HTTP, TCP-based DNS, full TLS record parsing beyond handshake)
+- Planned: Additional application-layer dissectors (TCP-based DNS, full TLS record parsing beyond handshake)
 
 ---
 
-**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.9.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

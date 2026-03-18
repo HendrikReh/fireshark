@@ -62,6 +62,7 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 | `audit_capture` | Run heuristic security analysis (scan detection, suspicious ports, cleartext credential exposure, DNS tunneling detection). Accepts optional `profile` parameter: `"security"`, `"dns"`, or `"quality"`. Default (no profile) runs all heuristics |
 | `list_findings` | List audit findings with severity and evidence |
 | `explain_finding` | Get detailed explanation of a specific finding |
+| `escalate_finding` | Mark a finding as escalated with optional notes for investigation tracking |
 
 ### TLS
 
@@ -87,10 +88,10 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 | `session.rs` | Session lifecycle management |
 | `analysis.rs` | Capture loading and analysis |
 | `query.rs` | Packet query and filtering logic |
-| `audit.rs` | Security heuristic engine (8 heuristics: decode issues, unknown traffic, scan activity, suspicious ports, cleartext credentials, DNS tunneling, NXDOMAIN storm, connection anomalies) |
+| `audit.rs` | Security heuristic engine (8 heuristics: decode issues, unknown traffic, scan activity, suspicious ports, cleartext credentials, DNS tunneling, NXDOMAIN storm, connection anomalies) with finding escalation support |
 | `model.rs` | Serializable view types for MCP responses |
 | `filter.rs` | Shared filter utilities |
 
 ---
 
-**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.9.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

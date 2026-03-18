@@ -2,20 +2,20 @@
 
 ## Project Overview
 
-Fireshark is a packet analyzer built for LLMs and humans, written in Rust. It is library-first and built in phases (crawl/walk/run). Currently in the **walk** phase: 10 protocol dissectors, display filter language with string operators (`contains`, `matches`), TCP/UDP stream tracking, tshark-backed stream reassembly (`follow --payload`, `follow --http`), TLS certificate extraction, checksum validation, 8 security audit heuristics with audit profiles (`--profile security|dns|quality`), 20 MCP tools, 7 CLI commands, JSON export, capture comparison, and an optional tshark backend.
+Fireshark is a packet analyzer built for LLMs and humans, written in Rust. It is library-first and built in phases (crawl/walk/run). Currently in the **walk** phase: 11 protocol dissectors (including native HTTP first-packet parser), display filter language with string operators (`contains`, `matches`), TCP/UDP stream tracking, tshark-backed stream reassembly (`follow --payload`, `follow --http`), TLS certificate extraction, checksum validation, 8 security audit heuristics with audit profiles (`--profile security|dns|quality`), finding escalation via MCP, 21 MCP tools, 7 CLI commands, JSON export, capture comparison, and an optional tshark backend.
 
 ## Workspace Layout
 
 | Crate | Purpose |
 |---|---|
 | `fireshark-core` | Domain types (`Layer`, `Packet`, `Frame`, `Pipeline`, `StreamTracker`, `TrackingPipeline`), summaries, decode issues |
-| `fireshark-dissectors` | Protocol decoders: Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello |
+| `fireshark-dissectors` | Protocol decoders: Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello, HTTP |
 | `fireshark-filter` | Display filter language: lexer, parser, evaluator (including `tcp.stream`/`udp.stream`, `contains`/`matches` string operators, `dns.qname`/`tls.sni` string-typed fields). Depends on `regex` crate |
 | `fireshark-file` | pcap and pcapng file ingestion |
 | `fireshark-cli` | Thin CLI binary (`fireshark`) with 7 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`, `diff`. Supports `--json` flag on `summary`, `stats`, `issues`, `audit`. Audit supports `--profile security|dns|quality` |
 | `fireshark-backend` | Backend abstraction: native pipeline and tshark subprocess adapters |
 | `fireshark-tshark` | tshark subprocess discovery, execution, and output normalization |
-| `fireshark-mcp` | Offline MCP server (20 tools) for LLM-driven capture analysis, security audits, stream reassembly, certificate extraction, and capture comparison |
+| `fireshark-mcp` | Offline MCP server (21 tools) for LLM-driven capture analysis, security audits, stream reassembly, certificate extraction, finding escalation, and capture comparison |
 
 - `fixtures/bytes/` — handcrafted binary blobs used in unit tests
 - `fixtures/smoke/` — small pcap files for integration/CLI tests
@@ -50,6 +50,7 @@ Always run `just check` before considering work complete.
 - `StreamTracker` maps canonical 5-tuples (`StreamKey`) to monotonic stream IDs with per-stream metadata
 - Application-layer protocols (e.g., DNS) are dispatched by port number after transport-layer decoding (UDP port 53 for DNS)
 - TLS uses heuristic dispatch on any TCP port by inspecting the record header bytes (`0x16 0x03`), not port-based dispatch
+- HTTP uses ASCII signature heuristic dispatch on TCP payloads (GET, POST, HTTP/) to extract method, URI, host, status_code, content_type from the first packet without reassembly
 
 ## Dissector Pattern
 
@@ -61,7 +62,7 @@ Each protocol dissector in `fireshark-dissectors/src/` follows this structure:
 4. Returns `DecodeError::Truncated` for short buffers, `DecodeError::Malformed` for invalid fields. Checksum failures produce `DecodeIssueKind::ChecksumMismatch` (zero checksums from NIC offload are skipped)
 5. Network-layer dissectors (IPv4, IPv6) return `NetworkPayload` with payload slice and offset
 6. Link/transport-layer dissectors return `Layer` directly
-7. Application-layer dissectors use port-based (DNS on UDP 53) or heuristic dispatch (TLS on any TCP port via record header inspection)
+7. Application-layer dissectors use port-based (DNS on UDP 53) or heuristic dispatch (TLS on any TCP port via record header inspection, HTTP on any TCP port via ASCII signature heuristic)
 
 ## Testing
 

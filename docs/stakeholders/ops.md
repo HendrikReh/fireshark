@@ -118,7 +118,7 @@ Connect from any MCP-compatible client (e.g., Claude Desktop, an LLM agent) by w
 
 A session is created by calling `open_capture` with a file path. The server returns a `session_id` that must be passed to all subsequent queries. Sessions are closed explicitly with `close_capture` or automatically after 15 minutes of inactivity.
 
-### MCP Tool Families (20 tools)
+### MCP Tool Families (21 tools)
 
 | Family | Tools |
 |--------|-------|
@@ -127,7 +127,7 @@ A session is created by calling `open_capture` with a file path. The server retu
 | Streams | `list_streams`, `get_stream`, `get_stream_payload` |
 | Capture overview | `summarize_capture` |
 | Comparison | `compare_captures` |
-| Audit | `audit_capture`, `list_findings`, `explain_finding` |
+| Audit | `audit_capture`, `list_findings`, `explain_finding`, `escalate_finding` |
 | TLS | `get_certificates` |
 
 ## Resource Usage
@@ -152,7 +152,7 @@ No temporary files. No log files. No cache. The only disk access is reading the 
 |------------|--------|
 | Offline only | No live capture support. Fireshark reads pcap and pcapng files only. |
 | Ethernet only | Only the Ethernet link layer is supported. Wi-Fi (radiotap), PPP, raw IP, and other link types are rejected. |
-| Protocol coverage | Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS (ClientHello/ServerHello). No HTTP. |
+| Protocol coverage | Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS (ClientHello/ServerHello), HTTP (first-packet parsing). |
 | No native reassembly | TCP/UDP stream tracking (conversation identity by 5-tuple) is supported natively, but native byte-level TCP stream reassembly or IP fragment reassembly is not implemented. The tshark backend provides TCP stream reassembly (`follow --payload`, `follow --http`) and TLS certificate extraction (`get_certificates`). These features require tshark to be installed. |
 | Packet limit | The MCP server rejects captures with more than 100,000 packets. The CLI has no hard limit but memory scales linearly. |
 | No GUI | CLI and MCP server only. No graphical interface. |
@@ -212,4 +212,4 @@ The file does not have a valid pcap or pcapng magic number. Ensure the file is n
 
 ---
 
-**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.9.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

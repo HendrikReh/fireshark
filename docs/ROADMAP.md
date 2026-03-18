@@ -16,8 +16,8 @@ Fireshark is an MCP-first packet analyzer. The LLM is the analyst — the MCP se
 4. **v0.6.0:** Backend abstraction — tshark as optional oracle, differential testing
 5. **v0.6:** Security analyst platform — comparison, export, checksums, certificates
 6. **v0.7:** Content intelligence — string filters, audit profiles
-7. **v0.8 (current):** Stream reassembly — tshark-backed payload reassembly, TLS certificate extraction
-8. **v0.9:** Application intelligence — HTTP, advanced statistics
+7. **v0.8:** Stream reassembly — tshark-backed payload reassembly, TLS certificate extraction
+8. **v0.9 (current):** Application intelligence — HTTP first-packet parser, finding escalation
 9. **v1.0:** Real-time intelligence — live capture
 
 ---
@@ -103,12 +103,17 @@ JSON export, checksum validation, and capture comparison delivered. Certificate 
 | `supports_reassembly` capability in `BackendCapabilities` | **Done** |
 | `follow_stream` method on backend for reassembly support | **Done** |
 
-## v0.9 — Application intelligence
+## v0.9 — Application intelligence (COMPLETE)
 
-| Feature | MCP impact | CLI impact |
-|---------|-----------|------------|
-| HTTP basic dissector (requires stream tracking) | `get_packet` returns method, URI, Host, status | `detail` shows HTTP |
-| Finding escalation | `escalate_finding(finding_id, notes)` — builds investigation log | Investigation workflow |
+| Feature | Status |
+|---------|--------|
+| Native HTTP first-packet parser with ASCII signature heuristic dispatch (GET, POST, HTTP/) — extracts method, URI, host, status_code, content_type from first TCP packet without reassembly | **Done** |
+| HTTP filter fields: `http.method`, `http.uri`, `http.host`, `http.status_code`, `http.content_type` (all support `contains`/`matches`) | **Done** |
+| HTTP color: BrightCyan in CLI summary output | **Done** |
+| `http` protocol keyword in display filter language | **Done** |
+| Finding escalation: `escalate_finding` MCP tool with notes parameter | **Done** |
+| `[ESCALATED]` marker in CLI audit output for escalated findings | **Done** |
+| `FindingView` gains `escalated` and `notes` fields in MCP responses | **Done** |
 
 ## v1.0 — Walk phase: live capture
 
@@ -135,15 +140,15 @@ JSON export, checksum validation, and capture comparison delivered. Certificate 
 
 | Metric | Value |
 |--------|-------|
-| Protocols | 10 (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello) |
-| Tests | 439 |
+| Protocols | 11 (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello, HTTP) |
+| Tests | 469 |
 | Source lines | ~9,500 |
 | Crates | 8 (fireshark-core, fireshark-file, fireshark-dissectors, fireshark-filter, fireshark-cli, fireshark-mcp, fireshark-backend, fireshark-tshark) |
-| MCP tools | 20 |
+| MCP tools | 21 |
 | CLI commands | 7 (summary, detail, follow, stats, issues, audit, diff) |
 | Filter fields | 50+ |
 | Audit heuristics | 8 |
 
 ---
 
-**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.9.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

@@ -25,6 +25,7 @@ udp
 arp
 dns
 tls
+http
 not icmp
 ```
 
@@ -82,6 +83,7 @@ not arp
 | ARP | `arp.opcode`, `arp.spa`, `arp.tpa` |
 | DNS | `dns.id`, `dns.qr`, `dns.opcode`, `dns.rcode`, `dns.qcount`, `dns.acount`, `dns.qtype`, `dns.qname` (string) |
 | TLS | `tls.handshake.type`, `tls.record_version`, `tls.client_version`, `tls.selected_version`, `tls.cipher_suite`, `tls.sni` (string) |
+| HTTP | `http.method` (string), `http.uri` (string), `http.host` (string), `http.status_code` (integer), `http.content_type` (string) |
 | Ethernet | `eth.type` |
 
 ## Architecture
@@ -97,4 +99,4 @@ input string -> lexer -> tokens -> parser -> AST -> evaluator(packet) -> bool
 
 ---
 
-**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.9.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

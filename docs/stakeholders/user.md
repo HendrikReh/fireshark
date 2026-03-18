@@ -165,7 +165,7 @@ fireshark supports two analysis backends. The choice affects which features are 
 
 The native backend uses fireshark's built-in Rust dissectors. This is the default and provides the full feature set:
 
-- Deep protocol analysis with typed field extraction (10 protocols)
+- Deep protocol analysis with typed field extraction (11 protocols)
 - Security audit heuristics (scan detection, DNS tunneling, cleartext credentials, etc.)
 - TCP/UDP stream tracking with `follow` command and `tcp.stream`/`udp.stream` filters
 - Display filter evaluation on all supported fields (`tcp.flags.syn and ip.ttl > 64`)
@@ -247,6 +247,7 @@ Match packets containing a specific protocol:
 | `icmp` | Any packet with an ICMP layer |
 | `dns` | Any packet with a DNS layer |
 | `tls` | Any packet with a TLS layer (ClientHello or ServerHello) |
+| `http` | Any packet with an HTTP layer |
 | `ipv4` | Any packet with an IPv4 layer |
 | `ipv6` | Any packet with an IPv6 layer |
 | `ethernet` | Any packet with an Ethernet layer |
@@ -418,6 +419,16 @@ fireshark summary capture.pcap -f 'ip.src contains "192.168"'
 | `tls.cipher_suite` | integer | Selected cipher suite (ServerHello only) |
 | `tls.sni` | string | Server Name Indication (ClientHello only) |
 
+**HTTP fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `http.method` | string | HTTP method (GET, POST, etc.) |
+| `http.uri` | string | Request URI |
+| `http.host` | string | Host header value |
+| `http.status_code` | integer | Response status code |
+| `http.content_type` | string | Content-Type header value |
+
 **ARP fields:**
 
 | Field | Type | Description |
@@ -460,6 +471,7 @@ Summary output is color-coded by the highest-layer protocol:
 | ICMP | Cyan |
 | DNS | Magenta |
 | TLS | Bright Green |
+| HTTP | Bright Cyan |
 | Ethernet, IPv4, IPv6 | White |
 | Unknown / other | Red |
 
@@ -491,6 +503,7 @@ Each decoded protocol layer is shown with all extracted fields:
 - **DNS** -- transaction ID, query/response, opcode, question count, answer count, query name, query type, A/AAAA answer records
 - **TLS ClientHello** -- record version, client version, cipher suites, SNI, ALPN, supported versions, signature algorithms, key share groups
 - **TLS ServerHello** -- record version, server version, cipher suite, selected version, ALPN, key share group
+- **HTTP** -- method, URI, host, status code, content type
 
 ### Decode Issue Indicators
 
@@ -577,7 +590,8 @@ A typical LLM-driven session through MCP:
 4. `get_packet({ session_id, packet_index: 42 })` → full layer decode
 5. `list_packets({ session_id, filter: "tls and tls.handshake.type == 1" })` → TLS ClientHellos
 6. `get_stream({ session_id, stream_id: 5 })` → follow a conversation
-7. `close_capture({ session_id })` → free resources
+7. `escalate_finding({ session_id, finding_id: "f1", notes: "confirmed C2 beacon" })` → mark finding for review
+8. `close_capture({ session_id })` → free resources
 
 ### Generic MCP Clients
 
@@ -631,6 +645,7 @@ Any MCP-compatible client can connect by spawning the binary as a subprocess ove
 | `audit_capture` | `session_id`, optional `profile` (`"security"`, `"dns"`, `"quality"`) | Heuristic security analysis results (filtered by profile if specified) |
 | `list_findings` | `session_id` | Audit findings with severity and evidence |
 | `explain_finding` | `session_id`, `finding_id` | Detailed explanation of a specific finding |
+| `escalate_finding` | `session_id`, `finding_id`, optional `notes` | Mark a finding as escalated with investigation notes |
 
 #### TLS
 
@@ -786,6 +801,36 @@ fireshark summary capture.pcap -f "ip.flags.mf == true"
 fireshark summary capture.pcap -f "udp and not port 53"
 ```
 
+### HTTP Traffic
+
+```bash
+fireshark summary capture.pcap -f "http"
+```
+
+### HTTP POST Requests
+
+```bash
+fireshark summary capture.pcap -f 'http.method contains "POST"'
+```
+
+### HTTP by Host
+
+```bash
+fireshark summary capture.pcap -f 'http.host contains "example.com"'
+```
+
+### HTTP by URI
+
+```bash
+fireshark summary capture.pcap -f 'http.uri contains "/api"'
+```
+
+### HTTP by Status Code
+
+```bash
+fireshark summary capture.pcap -f "http.status_code == 200"
+```
+
 ### Show All TLS Handshakes
 
 ```bash
@@ -857,4 +902,4 @@ fireshark audit --profile quality capture.pcap
 
 ---
 
-**Version:** 0.8.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.9.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
