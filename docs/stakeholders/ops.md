@@ -99,7 +99,7 @@ Decode warnings (truncated/malformed packets) are printed to stderr but do not c
 
 ## MCP Server Operation
 
-The MCP server runs over stdio transport. It does not listen on a network socket.
+The MCP server runs over stdio transport. It does not listen on a network socket. For installation and tool reference, see [MCP Server Reference](../references/mcp-server.md).
 
 ```bash
 fireshark-mcp

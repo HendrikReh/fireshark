@@ -70,6 +70,8 @@ The server speaks MCP over stdin/stdout. Connect with any MCP-compatible client.
 |------|-------------|
 | `get_certificates` | Extract TLS certificate details: subject CN, SAN DNS names, organization (requires tshark backend) |
 
+For complete tool documentation including parameters and examples, see [MCP Server Reference](../../docs/references/mcp-server.md).
+
 ## Constraints
 
 - Stdio transport only (no HTTP/WebSocket)

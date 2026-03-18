@@ -125,7 +125,7 @@ fireshark-mcp ──┬── fireshark-dissectors
                 └── fireshark-core
 ```
 
-Key rule: **MCP types stay in `fireshark-mcp`** -- no serde/schemars/MCP leakage into core crates.
+Key rule: **MCP types stay in `fireshark-mcp`** -- no serde/schemars/MCP leakage into core crates. For the full MCP tool API, see [MCP Server Reference](../references/mcp-server.md).
 
 ### What lives where
 

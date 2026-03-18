@@ -23,6 +23,7 @@ Packet analyzer built for LLMs and humans. Rust-native protocol dissection with 
 - [Phases](#phases)
 - [Design Rules](#design-rules)
 - [Documentation](#documentation)
+  - [MCP Server Reference](docs/references/mcp-server.md)
 - [License](#license)
 
 ## Elevator Pitch
@@ -297,7 +298,7 @@ Other directories:
 
 ## MCP Server
 
-Offline MCP server for LLM-driven packet analysis and security audits. Stateful: open a capture once, get a `session_id`, reuse it for queries.
+Offline MCP server for LLM-driven packet analysis and security audits. Stateful: open a capture once, get a `session_id`, reuse it for queries. For complete tool reference, see [MCP Server Reference](docs/references/mcp-server.md).
 
 ```bash
 cargo run -p fireshark-mcp
@@ -455,6 +456,7 @@ Detailed documentation by audience:
 | [Tester Guide](docs/stakeholders/tester.md) | Test architecture, fixtures, coverage by crate, fuzz workflow |
 | [DevOps Guide](docs/stakeholders/devops.md) | CI pipeline, release checklist, dependency inventory |
 | [Ops Guide](docs/stakeholders/ops.md) | Deployment, MCP server operation, runtime requirements, troubleshooting |
+| [MCP Server Reference](docs/references/mcp-server.md) | MCP installation, all 21 tools with parameters, example workflow |
 | [Roadmap](docs/ROADMAP.md) | Version history, planned features, current metrics |
 
 ## License

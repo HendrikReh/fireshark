@@ -234,6 +234,8 @@ MCP client
 | `model.rs` | Serializable view types for MCP JSON-RPC responses |
 | `filter.rs` | Shared filter utilities |
 
+Tool API reference: [docs/references/mcp-server.md](../references/mcp-server.md)
+
 **MCP Tools (21 total):**
 
 | Family | Tools |

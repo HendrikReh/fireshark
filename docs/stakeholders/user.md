@@ -525,7 +525,7 @@ A 16-bytes-per-line hex dump with:
 
 ## MCP Server
 
-The MCP server provides LLM-driven capture analysis over stdio transport.
+The MCP server provides LLM-driven capture analysis over stdio transport. For the complete MCP tool reference with all parameters, see [MCP Server Reference](../references/mcp-server.md).
 
 ### Starting the Server
 
