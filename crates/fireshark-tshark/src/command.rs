@@ -125,9 +125,7 @@ pub fn run_with_timeout(mut cmd: Command, timeout: Duration) -> Result<Output, T
     }
 }
 
-fn join_output(
-    handle: Option<thread::JoinHandle<Vec<u8>>>,
-) -> Result<Vec<u8>, TsharkError> {
+fn join_output(handle: Option<thread::JoinHandle<Vec<u8>>>) -> Result<Vec<u8>, TsharkError> {
     match handle {
         Some(handle) => handle
             .join()
