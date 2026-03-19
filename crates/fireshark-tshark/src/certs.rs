@@ -19,6 +19,9 @@ pub fn extract_certificates(
     capture_path: &Path,
 ) -> Result<Vec<TlsCertInfo>, TsharkError> {
     let mut cmd = Command::new(tshark_path);
+    // Only extract fields that are portable across tshark versions.
+    // x509sat.OrganizationName is not recognized by all versions, so we
+    // omit it and leave organization as None.
     cmd.arg("-r")
         .arg(capture_path)
         .arg("-Y")
@@ -31,8 +34,6 @@ pub fn extract_certificates(
         .arg("x509sat.printableString")
         .arg("-e")
         .arg("x509ce.dNSName")
-        .arg("-e")
-        .arg("x509sat.OrganizationName")
         .arg("-E")
         .arg("separator=\t");
 

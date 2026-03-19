@@ -1,4 +1,5 @@
 mod audit;
+mod certificates;
 mod color;
 mod detail;
 mod diff;
@@ -7,6 +8,7 @@ mod hexdump;
 mod issues;
 mod json;
 mod render;
+mod search;
 mod stats;
 mod summary;
 
@@ -107,6 +109,46 @@ enum Command {
         /// Show HTTP request/response (requires tshark backend)
         #[arg(long = "http")]
         http: bool,
+    },
+    /// Search packets by protocol, address, port, or text
+    Search {
+        /// Path to a pcap or pcapng capture file
+        path: PathBuf,
+        /// Filter by protocol name (case-insensitive substring)
+        #[arg(long)]
+        protocol: Option<String>,
+        /// Filter by source address (case-insensitive substring)
+        #[arg(long)]
+        source: Option<String>,
+        /// Filter by destination address (case-insensitive substring)
+        #[arg(long)]
+        destination: Option<String>,
+        /// Filter by port number (source or destination)
+        #[arg(long)]
+        port: Option<u16>,
+        /// Filter by text (searches protocol, addresses, layer names)
+        #[arg(long)]
+        text: Option<String>,
+        /// Show only packets with decode issues
+        #[arg(long)]
+        has_issues: bool,
+        /// Display filter expression (combined with search criteria)
+        #[arg(short = 'f', long = "filter")]
+        filter: Option<String>,
+        /// Analysis backend: native (default) or tshark
+        #[arg(long = "backend", default_value = "native")]
+        backend: String,
+        /// Output as JSONL (one JSON object per line)
+        #[arg(long = "json")]
+        json: bool,
+    },
+    /// Extract TLS certificates from a capture file (requires tshark)
+    Certificates {
+        /// Path to a pcap or pcapng capture file
+        path: PathBuf,
+        /// Output as JSONL (one JSON object per line)
+        #[arg(long = "json")]
+        json: bool,
     },
     /// Compare two capture files and show differences
     Diff {
@@ -211,6 +253,33 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 follow::run(&path, stream)?;
             }
+        }
+        Command::Search {
+            path,
+            protocol,
+            source,
+            destination,
+            port,
+            text,
+            has_issues,
+            filter,
+            backend,
+            json,
+        } => {
+            require_native(&backend, "search")?;
+            let criteria = search::SearchCriteria {
+                protocol: protocol.as_deref(),
+                source: source.as_deref(),
+                destination: destination.as_deref(),
+                port,
+                text: text.as_deref(),
+                has_issues,
+                filter: filter.as_deref(),
+            };
+            search::run(&path, &criteria, json)?;
+        }
+        Command::Certificates { path, json } => {
+            certificates::run(&path, json)?;
         }
         Command::Diff {
             path_a,
