@@ -1,8 +1,6 @@
 # RFC Compliance Audit Reference
 
-This document captures the RFC-level protocol compliance audit that was completed on 2026-03-19 under `fireshark-stf`.
-
-The original issue-scoped review artifact is in `docs/reviews/2026-03-19-rfc-compliance-audit.md`. This reference version is intended to be the stable maintainer-facing summary.
+This document captures the RFC-level protocol compliance audit that was completed on 2026-03-19 under `fireshark-stf` and serves as the canonical maintainer-facing report.
 
 ## Scope
 
