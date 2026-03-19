@@ -86,7 +86,8 @@ pub fn parse(bytes: &[u8], layer_offset: usize) -> Result<NetworkPayload<'_>, De
             let frag_offset_flags =
                 u16::from_be_bytes([bytes[ext_offset + 2], bytes[ext_offset + 3]]);
             let fragment_offset = frag_offset_flags >> 3;
-            is_fragmented = true;
+            let more_fragments = (frag_offset_flags & 0x1) != 0;
+            is_fragmented = fragment_offset != 0 || more_fragments;
             if fragment_offset != 0 {
                 is_non_initial_fragment = true;
             }

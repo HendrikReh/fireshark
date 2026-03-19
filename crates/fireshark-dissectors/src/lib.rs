@@ -45,9 +45,10 @@ pub(crate) struct NetworkPayload<'a> {
     /// IPv6 Fragment header with offset > 0). Transport decode should be
     /// suppressed because the payload is fragment data, not a transport header.
     pub(crate) is_non_initial_fragment: bool,
-    /// True if this packet is any fragment (initial or not). Transport checksum
-    /// validation should be skipped because the checksum covers the full
-    /// reassembled upper-layer packet, not individual fragments.
+    /// True if this packet is part of a fragmented upper-layer packet whose
+    /// transport checksum cannot be validated from the carried bytes alone.
+    /// Atomic IPv6 fragments (offset=0, M=0) are excluded because they carry
+    /// the complete upper-layer payload and are processed in isolation.
     pub(crate) is_fragmented: bool,
 }
 
@@ -284,9 +285,9 @@ fn append_network_layer(
                 offset: layer_offset,
                 len: payload_offset - layer_offset,
             };
-            // Skip checksum validation on any fragment (initial or not)
-            // because the transport checksum covers the full reassembled
-            // upper-layer packet, not individual fragment payloads.
+            // Skip checksum validation only when this packet carries an
+            // incomplete upper-layer payload. Atomic IPv6 fragments are
+            // processed in isolation and still validate checksums.
             let checksum_addrs: Option<ChecksumAddrs> = if is_fragmented {
                 None
             } else {

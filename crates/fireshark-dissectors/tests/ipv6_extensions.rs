@@ -125,6 +125,32 @@ fn ipv6_first_fragment_skips_checksum_validation() {
 }
 
 #[test]
+fn ipv6_atomic_fragment_validates_checksum() {
+    // Atomic fragment: offset=0, MF=0.
+    // RFC 6946 says it is processed in isolation, so transport checksum
+    // validation should still run on the full payload it carries.
+    let mut ext_and_payload = Vec::new();
+    ext_and_payload.push(17); // next_header = UDP
+    ext_and_payload.push(0); // reserved
+    ext_and_payload.extend_from_slice(&0x0000u16.to_be_bytes()); // offset=0, MF=0
+    ext_and_payload.extend_from_slice(&0u32.to_be_bytes()); // identification
+    ext_and_payload.extend_from_slice(&udp_header(1234, 53));
+
+    let frame = build_ipv6_frame(44, &ext_and_payload);
+    let packet = decode_packet(&frame).unwrap();
+
+    assert!(packet.layer_names().contains(&"UDP"));
+    let has_checksum_issue = packet
+        .issues()
+        .iter()
+        .any(|i| matches!(i.kind(), DecodeIssueKind::ChecksumMismatch));
+    assert!(
+        has_checksum_issue,
+        "atomic fragment should still validate the UDP checksum"
+    );
+}
+
+#[test]
 fn ipv6_non_initial_fragment_skips_transport_decode() {
     // Fragment header with offset=185 (non-zero), MF=1.
     // Transport decode should be suppressed entirely.
