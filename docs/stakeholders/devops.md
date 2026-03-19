@@ -31,7 +31,7 @@ This runs three stages sequentially -- if any stage fails, the pipeline stops:
 | `just fmt` | `cargo fmt --all` | Auto-format before committing |
 | `just fmt-check` | `cargo fmt --all -- --check` | CI gate: fail if unformatted |
 | `just clippy` | `cargo clippy --workspace --all-targets -- -D warnings` | CI gate: all warnings are errors |
-| `just test` | `cargo test --workspace` | CI gate: run all 500 tests |
+| `just test` | `cargo test --workspace` | CI gate: run all 508 tests |
 | `just check` | All three above in sequence | Full CI gate |
 
 ### Raw Commands (Without `just`)

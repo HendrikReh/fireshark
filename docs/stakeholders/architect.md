@@ -216,7 +216,7 @@ MCP client
 
 ### fireshark-cli
 
-**Responsibility:** Thin CLI binary (`fireshark`) with 7 subcommands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`, `diff`. Supports `--json` flag on `summary`, `stats`, `issues`, `audit` for JSONL output. All presentation logic (color, formatting, hex dump) is confined here.
+**Responsibility:** Thin CLI binary (`fireshark`) with 9 subcommands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`, `diff`, `search`, `certificates`. Supports `--json` flag on `summary`, `stats`, `issues`, `audit`, `search`, `certificates` for JSONL output. All presentation logic (color, formatting, hex dump) is confined here.
 
 **Modules:**
 
@@ -229,6 +229,8 @@ MCP client
 | `issues.rs` | Decode issue listing |
 | `audit.rs` | Security audit heuristics |
 | `diff.rs` | Capture comparison: new/missing hosts, protocols, ports |
+| `search.rs` | Multi-criteria packet search (protocol, address, port, text, issues) |
+| `certificates.rs` | TLS certificate extraction via tshark |
 | `hexdump.rs` | Color-coded hex dump using `LayerSpan` data |
 | `color.rs` | Protocol-to-ANSI-color mapping |
 

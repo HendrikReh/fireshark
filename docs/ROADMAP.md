@@ -143,11 +143,11 @@ JSON export, checksum validation, and capture comparison delivered. Certificate 
 | Metric | Value |
 |--------|-------|
 | Protocols | 11 (Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS ClientHello, TLS ServerHello, HTTP) |
-| Tests | 500 |
+| Tests | 508 |
 | Source lines | ~9,500 |
 | Crates | 8 (fireshark-core, fireshark-file, fireshark-dissectors, fireshark-filter, fireshark-cli, fireshark-mcp, fireshark-backend, fireshark-tshark) |
 | MCP tools | 21 |
-| CLI commands | 7 (summary, detail, follow, stats, issues, audit, diff) |
+| CLI commands | 9 (summary, detail, follow, stats, issues, audit, diff) |
 | Filter fields | 50+ |
 | Audit heuristics | 8 |
 

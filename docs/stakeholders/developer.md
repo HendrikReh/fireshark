@@ -111,7 +111,7 @@ fireshark/
     fireshark-dissectors/  # Protocol decoders: Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS, HTTP (11 protocols)
     fireshark-file/       # pcap and pcapng file ingestion (CaptureReader)
     fireshark-filter/     # Display filter parser and evaluator (including tcp.stream/udp.stream)
-    fireshark-cli/        # CLI binary ("fireshark") with 7 commands: summary, detail, stats, issues, audit, follow, diff. Supports --json on summary, stats, issues, audit
+    fireshark-cli/        # CLI binary ("fireshark") with 9 commands: summary, detail, stats, issues, audit, follow, diff. Supports --json on summary, stats, issues, audit
     fireshark-mcp/        # MCP server binary (21 tools) for LLM-driven capture analysis, stream reassembly, certificate extraction, finding escalation, and capture comparison
   fixtures/
     bytes/                # Handcrafted binary blobs for unit tests

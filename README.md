@@ -1,8 +1,8 @@
 # Fireshark
 
-[![Version](https://img.shields.io/badge/version-0.9.0-blue)]()
+[![Version](https://img.shields.io/badge/version-0.10.0-blue)]()
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange?logo=rust)](https://www.rust-lang.org/)
-[![Tests](https://img.shields.io/badge/tests-500%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-508%20passing-brightgreen)]()
 [![Status](https://img.shields.io/badge/phase-walk-blue)]()
 
 Packet analyzer built for LLMs and humans. Rust-native protocol dissection with an MCP server that lets an AI assistant perform security audits, and a color-coded CLI for direct analysis.
@@ -457,7 +457,8 @@ Detailed documentation by audience:
 | [DevOps Guide](docs/stakeholders/devops.md) | CI pipeline, release checklist, dependency inventory |
 | [Ops Guide](docs/stakeholders/ops.md) | Deployment, MCP server operation, runtime requirements, troubleshooting |
 | [MCP Server Reference](docs/references/mcp-server.md) | MCP installation, all 21 tools with parameters, example workflow |
-| [RFC Compliance Audit Reference](docs/references/rfc-compliance-audit.md) | Canonical RFC-level protocol compliance audit summary and source list |
+| [CLI / MCP Feature Parity](docs/references/feature-parity.md) | Side-by-side comparison of CLI and MCP capabilities |
+| [RFC Compliance Audit](docs/references/rfc-compliance-audit.md) | Canonical RFC-level protocol compliance audit summary and source list |
 | [Roadmap](docs/ROADMAP.md) | Version history, planned features, current metrics |
 
 ## License
@@ -467,4 +468,4 @@ Copyright 2026 Hendrik Reh <hendrik.reh@blacksmith-consulting.ai>. See [`COPYRIG
 
 ---
 
-**Version:** 0.9.0 | **Last updated:** 2026-03-19 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.10.0 | **Last updated:** 2026-03-19 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

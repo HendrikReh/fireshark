@@ -18,6 +18,8 @@ Audience-specific guides covering the same product from different perspectives.
 | Document | Contents |
 |----------|----------|
 | [MCP Server Reference](references/mcp-server.md) | Full MCP tool API with parameters and return types |
+| [CLI / MCP Feature Parity](references/feature-parity.md) | Side-by-side comparison of CLI and MCP capabilities |
+| [RFC Compliance Audit](references/rfc-compliance-audit.md) | Protocol compliance audit summary and RFC source list |
 
 ## Other
 
@@ -28,4 +30,4 @@ Audience-specific guides covering the same product from different perspectives.
 
 ---
 
-**Version:** 0.9.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.10.0 | **Last updated:** 2026-03-19 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
