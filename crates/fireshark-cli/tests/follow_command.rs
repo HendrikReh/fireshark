@@ -19,7 +19,7 @@ fn follow_command_fails_for_invalid_stream() {
     let fixture = support::repo_root().join("fixtures/smoke/minimal.pcap");
     let mut cmd = Command::cargo_bin("fireshark").unwrap();
     cmd.arg("follow").arg(&fixture).arg("999");
-    cmd.assert().failure();
+    cmd.assert().failure().stderr(contains("valid IDs: 0.."));
 }
 
 #[test]

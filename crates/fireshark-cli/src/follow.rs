@@ -35,11 +35,13 @@ pub fn run(path: &Path, stream_id: u32) -> Result<(), Box<dyn std::error::Error>
     let meta = match tracker.get(stream_id) {
         Some(meta) => meta,
         None => {
-            return Err(format!(
-                "stream {stream_id} not found (capture has {} streams)",
-                tracker.stream_count()
-            )
-            .into());
+            let count = tracker.stream_count();
+            let hint = if count == 0 {
+                "capture has no streams".to_string()
+            } else {
+                format!("valid IDs: 0..{}", count - 1)
+            };
+            return Err(format!("stream {stream_id} not found ({hint})").into());
         }
     };
 
