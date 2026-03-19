@@ -5,7 +5,7 @@
 [![Tests](https://img.shields.io/badge/tests-508%20passing-brightgreen)]()
 [![Status](https://img.shields.io/badge/phase-walk-blue)]()
 
-Packet analyzer built for LLMs and humans. Rust-native protocol dissection with an MCP server that lets an AI assistant perform security audits, and a color-coded CLI for direct analysis.
+Packet analyzer built for LLMs and humans. Rust-native protocol dissection with an MCP server for AI-driven security audits and a color-coded CLI for direct analysis.
 
 ## Table of Contents
 
@@ -16,19 +16,15 @@ Packet analyzer built for LLMs and humans. Rust-native protocol dissection with 
 - [Quick Start](#quick-start)
 - [Workspace Layout](#workspace-layout)
 - [MCP Server](#mcp-server)
-  - [Connecting to Claude Code](#connecting-to-claude-code)
-  - [Connecting to Codex](#connecting-to-codex)
-  - [Example LLM Workflow](#example-llm-workflow)
 - [Development](#development)
 - [Phases](#phases)
 - [Design Rules](#design-rules)
 - [Documentation](#documentation)
-  - [MCP Server Reference](docs/references/mcp-server.md)
 - [License](#license)
 
 ## Elevator Pitch
 
-Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wireshark — packet queries, protocol decoding, display filters, stream tracking, stream reassembly, certificate extraction, finding escalation, and security audit heuristics — through structured MCP tool calls. For humans, it's a fast, color-coded CLI that decodes 11 protocols, follows TCP/UDP conversations with payload reassembly, runs 8 automated security checks, validates checksums, and exports results as JSON. Everything is library-first: one Rust workspace, 8 crates, 469 tests, zero unsafe code.
+Fireshark gives an LLM the same analytical toolkit a human analyst gets from Wireshark — packet queries, protocol decoding, display filters, stream tracking, stream reassembly, certificate extraction, finding escalation, and security audit heuristics — through structured MCP tool calls. For humans, it's a fast, color-coded CLI with 9 commands that decodes 11 protocols, follows TCP/UDP conversations with payload reassembly, runs 8 automated security checks, validates checksums (IPv4 and IPv6), and exports results as JSON. Everything is library-first: one Rust workspace, 8 crates, 508 tests, zero unsafe code.
 
 ## Why native dissectors when tshark exists?
 
@@ -118,19 +114,21 @@ tshark --version   # must be >= 3.0.0
 
 - **Capture file reading** — pcap and pcapng with timestamps and original wire length
 - **Protocol dissection** — Ethernet, ARP, IPv4, IPv6, TCP, UDP, ICMP, DNS, TLS (ClientHello + ServerHello), HTTP with full RFC field extraction
-- **Checksum validation** — IPv4 header, TCP, and UDP checksums verified during dissection; zero checksums (NIC offload) are skipped
+- **Checksum validation** — IPv4 header, TCP, and UDP checksums verified for both IPv4 and IPv6; zero checksums skipped for NIC offload (IPv4) or flagged as invalid (IPv6 UDP per RFC 8200)
+- **IPv6 extension headers** — Hop-by-Hop, Routing, Fragment, and Destination Options headers are skipped to reach transport; AH/ESP stop the walk (IPsec not decoded)
 - **TLS handshake analysis** — heuristic dispatch on any TCP port, SNI extraction, cipher suites, ALPN, supported versions, signature algorithms, key share groups
-- **DNS response parsing** — A/AAAA answer records with typed answer data
+- **DNS response parsing** — A/AAAA answer records with typed answer data; RFC 1035 compression pointer following with loop detection
 - **Stream tracking** — TCP/UDP conversation tracking with canonical 5-tuple keys, stream IDs, and per-stream statistics
 - **Color-coded CLI** — Wireshark-style protocol coloring in summary output
 - **Packet detail view** — decoded layer tree with color-coded hex dump (`fireshark detail`)
 - **Follow stream** — `fireshark follow` shows all packets in a conversation by stream ID, with `--payload` for reassembled TCP payload hex dump and `--http` for HTTP request/response (requires tshark backend)
 - **Stream reassembly** — tshark-backed TCP stream reassembly via `follow --payload` and `follow --http`
-- **TLS certificate extraction** — extract subject CN, SAN DNS names, and organization from TLS handshakes via `get_certificates` MCP tool (requires tshark backend)
-- **Display filters** — Wireshark-style expression language (`-f "tcp and port 443"`, `tcp.stream == 0`) with string operators (`contains`, `matches` for regex)
-- **JSON export** — `--json` flag on `summary`, `stats`, `issues`, `audit` for JSONL output (one JSON object per line, no color codes)
+- **TLS certificate extraction** — `fireshark certificates` CLI command and `get_certificates` MCP tool extract subject CN, SAN DNS names from TLS handshakes (requires tshark)
+- **Multi-criteria search** — `fireshark search` with `--protocol`, `--source`, `--destination`, `--port`, `--text`, `--has-issues` flags, combinable with display filters
+- **Display filters** — Wireshark-style expression language (`-f "tcp and port 443"`, `tcp.stream == 0`) with string operators (`contains`, `matches` for regex) and field name typo detection
+- **JSON export** — `--json` flag on `summary`, `stats`, `issues`, `audit`, `search`, `certificates` for JSONL output (one JSON object per line, no color codes)
 - **Capture comparison** — `fireshark diff <file1> <file2>` shows new/missing hosts, protocols, and ports between two captures
-- **MCP server** — offline capture analysis for LLM-driven workflows and security audits, including stream, summary, and comparison tools
+- **MCP server** — offline capture analysis for LLM-driven workflows and security audits with 21 tools across sessions, packets, streams, audit, comparison, and TLS
 - **Fuzz testing** — cargo-fuzz infrastructure with two fuzz targets
 
 ## Quick Start
@@ -169,14 +167,21 @@ cargo run -p fireshark-cli -- audit --profile security your-capture.pcap
 # Security audit with custom packet limit
 cargo run -p fireshark-cli -- audit --max-packets 500000 large-capture.pcap
 
+# Multi-criteria search (combinable flags)
+cargo run -p fireshark-cli -- search your-capture.pcap --protocol TCP --port 443
+cargo run -p fireshark-cli -- search your-capture.pcap --source 192.168.1.0 --has-issues
+cargo run -p fireshark-cli -- search your-capture.pcap --text "example.com"
+
+# TLS certificate extraction (requires tshark)
+cargo run -p fireshark-cli -- certificates your-capture.pcap
+
 # Compare two captures (new/missing hosts, protocols, ports)
 cargo run -p fireshark-cli -- diff baseline.pcap suspect.pcap
 
 # JSON export (JSONL: one JSON object per line, no color codes)
 cargo run -p fireshark-cli -- summary your-capture.pcap --json
-cargo run -p fireshark-cli -- stats your-capture.pcap --json
-cargo run -p fireshark-cli -- issues your-capture.pcap --json
-cargo run -p fireshark-cli -- audit your-capture.pcap --json
+cargo run -p fireshark-cli -- search your-capture.pcap --protocol DNS --json
+cargo run -p fireshark-cli -- certificates your-capture.pcap --json
 
 # Use tshark backend for broader protocol coverage
 cargo run -p fireshark-cli -- summary --backend tshark your-capture.pcap
@@ -285,8 +290,8 @@ Shows a decoded layer tree with field values and a color-coded hex dump where ea
 | `fireshark-file` | pcap and pcapng ingestion with timestamp/length extraction |
 | `fireshark-dissectors` | Protocol decoders (11 protocols) with full RFC field extraction |
 | `fireshark-filter` | Display filter language: lexer, parser, evaluator (including `tcp.stream`/`udp.stream`, `contains`/`matches` string operators) |
-| `fireshark-cli` | CLI with 7 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`, `diff` |
-| `fireshark-backend` | Backend abstraction: native pipeline and tshark subprocess adapters |
+| `fireshark-cli` | CLI with 9 commands: `summary`, `detail`, `stats`, `issues`, `audit`, `follow`, `diff`, `search`, `certificates` |
+| `fireshark-backend` | Backend abstraction, `AnalyzedCapture`, `AuditEngine`, native pipeline and tshark subprocess adapters |
 | `fireshark-tshark` | tshark subprocess discovery, execution, and output normalization |
 | `fireshark-mcp` | Offline MCP server (21 tools) for LLM-driven capture analysis, security audits, stream reassembly, certificate extraction, finding escalation, and capture comparison |
 
@@ -389,7 +394,7 @@ A typical analysis session through MCP:
 
 | Surface | Packet limit | Behavior |
 |---------|-------------|----------|
-| `summary`, `detail`, `stats`, `issues`, `follow` | None -- streaming | Processes any capture size |
+| `summary`, `detail`, `stats`, `issues`, `follow`, `search` | None -- streaming | Processes any capture size |
 | `audit` | 100,000 (configurable via `--max-packets`) | Rejects capture if exceeded |
 | MCP tools | 100,000 (configurable via `max_packets` parameter in `open_capture`) | Rejects capture if exceeded |
 | tshark backend | None | Loads whatever tshark outputs |
@@ -433,8 +438,9 @@ cargo fuzz run fuzz_capture_reader -- -max_total_time=60
 | Phase | Focus | Status |
 |-------|-------|--------|
 | **Crawl** | Offline capture parsing, dissection, CLI, MCP server, display filters, stream tracking | Complete |
-| **Walk** | tshark backend, capture comparison, JSON export, checksum validation, tshark stream reassembly, TLS certificate extraction, live capture backends | Active |
-| **Run** | String filters (contains/matches), audit profiles, HTTP dissector, finding escalation, advanced statistics | Active |
+| **Walk** | tshark backend, capture comparison, JSON export, checksum validation (IPv4+IPv6), tshark stream reassembly, TLS certificate extraction | Complete |
+| **Run** | String filters, audit profiles, HTTP dissector, finding escalation, IPv6 extension headers, DNS compression pointers, RFC compliance hardening, CLI/MCP feature parity | Complete |
+| **v1.0** | Live capture backends (libpcap, AF_PACKET), BPF capture filters | Planned |
 
 ## Design Rules
 
@@ -442,7 +448,8 @@ cargo fuzz run fuzz_capture_reader -- -max_total_time=60
 - Decoding favors explicit, typed layers over ad hoc byte inspection
 - APIs support streaming/iteration instead of forcing full-file loading
 - Features are added in vertical slices, not as large speculative frameworks
-- MCP types stay in `fireshark-mcp` — no protocol leakage into core crates
+- MCP view types stay in `fireshark-mcp` — domain logic (audit, analysis) lives in `fireshark-backend`
+- CLI does not depend on MCP — shared logic accessed via `fireshark-backend`
 
 ## Documentation
 
