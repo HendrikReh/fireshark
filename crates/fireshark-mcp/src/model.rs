@@ -181,6 +181,34 @@ pub struct FindingEvidenceView {
     pub description: String,
 }
 
+impl From<fireshark_backend::Finding> for FindingView {
+    fn from(f: fireshark_backend::Finding) -> Self {
+        Self {
+            id: f.id,
+            severity: f.severity,
+            category: f.category,
+            title: f.title,
+            summary: f.summary,
+            evidence: f
+                .evidence
+                .into_iter()
+                .map(FindingEvidenceView::from)
+                .collect(),
+            escalated: f.escalated,
+            notes: f.notes,
+        }
+    }
+}
+
+impl From<fireshark_backend::FindingEvidence> for FindingEvidenceView {
+    fn from(e: fireshark_backend::FindingEvidence) -> Self {
+        Self {
+            packet_indexes: e.packet_indexes,
+            description: e.description,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct OpenCaptureResponse {
     pub session_id: String,

@@ -5,8 +5,6 @@ use tokio::sync::Mutex;
 
 use thiserror::Error;
 
-use crate::analysis::{AnalyzedCapture, DEFAULT_MAX_PACKETS};
-use crate::audit::{AuditEngine, VALID_PROFILES};
 use crate::filter::matches_filter;
 use crate::model::{
     CaptureComparisonView, CaptureDescriptionView, CaptureSummaryView, CloseCaptureResponse,
@@ -19,6 +17,7 @@ use crate::query::{
     list_streams, search_packets, summarize_protocols, top_endpoints,
 };
 use crate::session::{SessionError, SessionManager};
+use fireshark_backend::{AnalyzedCapture, AuditEngine, DEFAULT_MAX_PACKETS, VALID_PROFILES};
 
 const DEFAULT_MAX_SESSIONS: usize = 8;
 
@@ -285,7 +284,11 @@ impl ToolService {
         }
 
         let capture = self.acquire_capture(session_id).await?;
-        Ok(AuditEngine::audit_with_profile(&capture, profile))
+        let findings = AuditEngine::audit_with_profile(&capture, profile)
+            .into_iter()
+            .map(FindingView::from)
+            .collect();
+        Ok(findings)
     }
 
     pub async fn list_findings(

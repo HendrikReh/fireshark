@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use colored::Colorize;
-use fireshark_mcp::{AnalyzedCapture, AuditEngine, VALID_PROFILES};
+use fireshark_backend::{AnalyzedCapture, AuditEngine, VALID_PROFILES};
 
 use crate::json::FindingJson;
 

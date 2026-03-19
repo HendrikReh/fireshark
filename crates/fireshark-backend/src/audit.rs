@@ -3,7 +3,26 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use fireshark_core::Layer;
 
 use crate::analysis::AnalyzedCapture;
-use crate::model::{FindingEvidenceView, FindingView};
+
+/// A security audit finding with evidence.
+#[derive(Debug, Clone)]
+pub struct Finding {
+    pub id: String,
+    pub severity: String,
+    pub category: String,
+    pub title: String,
+    pub summary: String,
+    pub evidence: Vec<FindingEvidence>,
+    pub escalated: bool,
+    pub notes: Option<String>,
+}
+
+/// Evidence supporting a finding.
+#[derive(Debug, Clone)]
+pub struct FindingEvidence {
+    pub packet_indexes: Vec<usize>,
+    pub description: String,
+}
 
 const ISSUE_RATIO_THRESHOLD: f64 = 0.5;
 const UNKNOWN_RATIO_THRESHOLD: f64 = 0.5;
@@ -39,14 +58,11 @@ pub const VALID_PROFILES: &[&str] = &["security", "dns", "quality"];
 pub struct AuditEngine;
 
 impl AuditEngine {
-    pub fn audit(capture: &AnalyzedCapture) -> Vec<FindingView> {
+    pub fn audit(capture: &AnalyzedCapture) -> Vec<Finding> {
         Self::audit_with_profile(capture, None)
     }
 
-    pub fn audit_with_profile(
-        capture: &AnalyzedCapture,
-        profile: Option<&str>,
-    ) -> Vec<FindingView> {
+    pub fn audit_with_profile(capture: &AnalyzedCapture, profile: Option<&str>) -> Vec<Finding> {
         let mut findings = Vec::new();
 
         let run_all = profile.is_none();
@@ -82,7 +98,7 @@ impl AuditEngine {
     }
 }
 
-fn audit_decode_issues(capture: &AnalyzedCapture) -> Option<FindingView> {
+fn audit_decode_issues(capture: &AnalyzedCapture) -> Option<Finding> {
     let all_affected = capture
         .packets()
         .iter()
@@ -108,7 +124,7 @@ fn audit_decode_issues(capture: &AnalyzedCapture) -> Option<FindingView> {
     )
 }
 
-fn audit_unknown_traffic(capture: &AnalyzedCapture) -> Option<FindingView> {
+fn audit_unknown_traffic(capture: &AnalyzedCapture) -> Option<Finding> {
     let all_affected = capture
         .packets()
         .iter()
@@ -136,7 +152,7 @@ fn audit_unknown_traffic(capture: &AnalyzedCapture) -> Option<FindingView> {
     )
 }
 
-fn audit_scan_activity(capture: &AnalyzedCapture) -> Vec<FindingView> {
+fn audit_scan_activity(capture: &AnalyzedCapture) -> Vec<Finding> {
     let mut source_targets = BTreeMap::<String, BTreeMap<String, Vec<usize>>>::new();
 
     for (index, packet) in capture.packets().iter().enumerate() {
@@ -166,7 +182,7 @@ fn audit_scan_activity(capture: &AnalyzedCapture) -> Vec<FindingView> {
 
             let packet_indexes = scan_activity_evidence(&targets);
 
-            Some(FindingView {
+            Some(Finding {
                 id: format!("scan-activity-{source}"),
                 severity: String::from("high"),
                 category: String::from("scan_activity"),
@@ -175,7 +191,7 @@ fn audit_scan_activity(capture: &AnalyzedCapture) -> Vec<FindingView> {
                     "{source} contacted {} distinct destinations in a single capture.",
                     targets.len()
                 ),
-                evidence: vec![FindingEvidenceView {
+                evidence: vec![FindingEvidence {
                     packet_indexes,
                     description: format!(
                         "Observed fan-out to {} unique destination hosts.",
@@ -210,7 +226,7 @@ fn scan_activity_evidence(targets: &BTreeMap<String, Vec<usize>>) -> Vec<usize> 
     packet_indexes
 }
 
-fn audit_suspicious_ports(capture: &AnalyzedCapture) -> Vec<FindingView> {
+fn audit_suspicious_ports(capture: &AnalyzedCapture) -> Vec<Finding> {
     let suspicious_ports = BTreeSet::from(SUSPICIOUS_PORTS);
     let mut ports = BTreeMap::<u16, Vec<usize>>::new();
 
@@ -229,7 +245,7 @@ fn audit_suspicious_ports(capture: &AnalyzedCapture) -> Vec<FindingView> {
 
     ports
         .into_iter()
-        .map(|(port, packet_indexes)| FindingView {
+        .map(|(port, packet_indexes)| Finding {
             id: format!("suspicious-port-{port}"),
             severity: String::from("medium"),
             category: String::from("suspicious_ports"),
@@ -237,7 +253,7 @@ fn audit_suspicious_ports(capture: &AnalyzedCapture) -> Vec<FindingView> {
             summary: format!(
                 "The capture includes packets targeting destination port {port}, which commonly appears in audit findings."
             ),
-            evidence: vec![FindingEvidenceView {
+            evidence: vec![FindingEvidence {
                 packet_indexes,
                 description: format!("Packets targeted destination port {port}."),
             }],
@@ -247,7 +263,7 @@ fn audit_suspicious_ports(capture: &AnalyzedCapture) -> Vec<FindingView> {
         .collect()
 }
 
-fn audit_cleartext_credentials(capture: &AnalyzedCapture) -> Vec<FindingView> {
+fn audit_cleartext_credentials(capture: &AnalyzedCapture) -> Vec<Finding> {
     let cleartext_ports = BTreeMap::from(CLEARTEXT_PORTS);
     let mut ports = BTreeMap::<u16, Vec<usize>>::new();
 
@@ -269,7 +285,7 @@ fn audit_cleartext_credentials(capture: &AnalyzedCapture) -> Vec<FindingView> {
         .map(|(port, packet_indexes)| {
             let name = cleartext_ports[&port];
             let lower_name = name.to_lowercase();
-            FindingView {
+            Finding {
                 id: format!("cleartext-{lower_name}"),
                 severity: String::from("high"),
                 category: String::from("cleartext_credentials"),
@@ -279,7 +295,7 @@ fn audit_cleartext_credentials(capture: &AnalyzedCapture) -> Vec<FindingView> {
                      and other sensitive information sent over port {port} can be intercepted \
                      by anyone with network access."
                 ),
-                evidence: vec![FindingEvidenceView {
+                evidence: vec![FindingEvidence {
                     packet_indexes,
                     description: format!("Packets targeted {name} destination port {port}."),
                 }],
@@ -290,7 +306,7 @@ fn audit_cleartext_credentials(capture: &AnalyzedCapture) -> Vec<FindingView> {
         .collect()
 }
 
-fn audit_dns_tunneling(capture: &AnalyzedCapture) -> Vec<FindingView> {
+fn audit_dns_tunneling(capture: &AnalyzedCapture) -> Vec<Finding> {
     struct SourceStats {
         unique_names: HashSet<String>,
         long_label_count: usize,
@@ -372,7 +388,7 @@ fn audit_dns_tunneling(capture: &AnalyzedCapture) -> Vec<FindingView> {
                 return None;
             }
 
-            Some(FindingView {
+            Some(Finding {
                 id: format!("dns-tunneling-{source}"),
                 severity: String::from("high"),
                 category: String::from("dns_tunneling"),
@@ -381,7 +397,7 @@ fn audit_dns_tunneling(capture: &AnalyzedCapture) -> Vec<FindingView> {
                     "DNS traffic from {source} exhibits indicators of tunneling: {}.",
                     indicators.join("; ")
                 ),
-                evidence: vec![FindingEvidenceView {
+                evidence: vec![FindingEvidence {
                     packet_indexes: stats.packet_indexes,
                     description: format!("DNS queries from {source} with tunneling indicators."),
                 }],
@@ -392,7 +408,7 @@ fn audit_dns_tunneling(capture: &AnalyzedCapture) -> Vec<FindingView> {
         .collect()
 }
 
-fn audit_nxdomain_storm(capture: &AnalyzedCapture) -> Option<FindingView> {
+fn audit_nxdomain_storm(capture: &AnalyzedCapture) -> Option<Finding> {
     let mut nxdomain_count = 0usize;
     let packet_indexes: Vec<usize> = capture
         .packets()
@@ -417,7 +433,7 @@ fn audit_nxdomain_storm(capture: &AnalyzedCapture) -> Option<FindingView> {
         return None;
     }
 
-    Some(FindingView {
+    Some(Finding {
         id: String::from("nxdomain-storm"),
         severity: String::from("high"),
         category: String::from("dns_anomaly"),
@@ -431,7 +447,7 @@ fn audit_nxdomain_storm(capture: &AnalyzedCapture) -> Option<FindingView> {
              malware beaconing to non-existent domains, or DNS enumeration.",
             nxdomain_count
         ),
-        evidence: vec![FindingEvidenceView {
+        evidence: vec![FindingEvidence {
             packet_indexes,
             description: format!("{nxdomain_count} NXDOMAIN responses observed."),
         }],
@@ -440,7 +456,7 @@ fn audit_nxdomain_storm(capture: &AnalyzedCapture) -> Option<FindingView> {
     })
 }
 
-fn audit_connection_anomalies(capture: &AnalyzedCapture) -> Vec<FindingView> {
+fn audit_connection_anomalies(capture: &AnalyzedCapture) -> Vec<Finding> {
     let mut findings = Vec::new();
 
     for meta in capture.streams() {
@@ -456,7 +472,7 @@ fn audit_connection_anomalies(capture: &AnalyzedCapture) -> Vec<FindingView> {
         // Incomplete handshake: SYN seen but no SYN+ACK packet observed.
         if meta.tcp_flags_seen & SYN_FLAG != 0 && !meta.syn_ack_seen {
             let packet_indexes = stream_evidence_indexes(capture, id);
-            findings.push(FindingView {
+            findings.push(Finding {
                 id: format!("incomplete-handshake-{id}"),
                 severity: String::from("medium"),
                 category: String::from("connection_anomaly"),
@@ -467,7 +483,7 @@ fn audit_connection_anomalies(capture: &AnalyzedCapture) -> Vec<FindingView> {
                     "Stream {id} contains a SYN but no SYN+ACK was observed, \
                      indicating an incomplete TCP handshake."
                 ),
-                evidence: vec![FindingEvidenceView {
+                evidence: vec![FindingEvidence {
                     packet_indexes,
                     description: format!("Packets from stream {id} with incomplete handshake."),
                 }],
@@ -479,7 +495,7 @@ fn audit_connection_anomalies(capture: &AnalyzedCapture) -> Vec<FindingView> {
         // RST storm: many RST packets on the same stream.
         if meta.rst_count >= RST_STORM_THRESHOLD {
             let packet_indexes = stream_evidence_indexes(capture, id);
-            findings.push(FindingView {
+            findings.push(Finding {
                 id: format!("rst-storm-{id}"),
                 severity: String::from("medium"),
                 category: String::from("connection_anomaly"),
@@ -489,7 +505,7 @@ fn audit_connection_anomalies(capture: &AnalyzedCapture) -> Vec<FindingView> {
                      a connection teardown storm or port scanning.",
                     meta.rst_count
                 ),
-                evidence: vec![FindingEvidenceView {
+                evidence: vec![FindingEvidence {
                     packet_indexes,
                     description: format!("Packets from stream {id} exhibiting RST storm behavior."),
                 }],
@@ -506,7 +522,7 @@ fn audit_connection_anomalies(capture: &AnalyzedCapture) -> Vec<FindingView> {
             && meta.packet_count >= HALF_OPEN_PACKET_THRESHOLD
         {
             let packet_indexes = stream_evidence_indexes(capture, id);
-            findings.push(FindingView {
+            findings.push(Finding {
                 id: format!("half-open-{id}"),
                 severity: String::from("low"),
                 category: String::from("connection_anomaly"),
@@ -519,7 +535,7 @@ fn audit_connection_anomalies(capture: &AnalyzedCapture) -> Vec<FindingView> {
                      but was never closed with FIN or RST.",
                     meta.packet_count
                 ),
-                evidence: vec![FindingEvidenceView {
+                evidence: vec![FindingEvidence {
                     packet_indexes,
                     description: format!("Packets from stream {id} with no connection teardown."),
                 }],
@@ -557,7 +573,7 @@ fn finding_for_ratio(
     packet_count: usize,
     affected_count: usize,
     packet_indexes: Vec<usize>,
-) -> Option<FindingView> {
+) -> Option<Finding> {
     if packet_count == 0 {
         return None;
     }
@@ -567,13 +583,13 @@ fn finding_for_ratio(
         return None;
     }
 
-    Some(FindingView {
+    Some(Finding {
         id: spec.id.to_string(),
         severity: spec.severity.to_string(),
         category: spec.category.to_string(),
         title: spec.title.to_string(),
         summary: spec.summary.to_string(),
-        evidence: vec![FindingEvidenceView {
+        evidence: vec![FindingEvidence {
             packet_indexes,
             description: format!(
                 "{} affected {:.0}% of packets in the capture.",

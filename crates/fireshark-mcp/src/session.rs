@@ -5,9 +5,8 @@ use std::time::{Duration, Instant};
 
 use thiserror::Error;
 
-use crate::analysis::{AnalysisError, AnalyzedCapture};
-use crate::audit::AuditEngine;
 use crate::model::FindingView;
+use fireshark_backend::{AnalysisError, AnalyzedCapture, AuditEngine};
 
 const DEFAULT_IDLE_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
@@ -80,7 +79,12 @@ impl CaptureSession {
 
     pub fn findings(&mut self) -> &[FindingView] {
         self.findings
-            .get_or_insert_with(|| AuditEngine::audit(&self.capture))
+            .get_or_insert_with(|| {
+                AuditEngine::audit(&self.capture)
+                    .into_iter()
+                    .map(FindingView::from)
+                    .collect()
+            })
             .as_slice()
     }
 

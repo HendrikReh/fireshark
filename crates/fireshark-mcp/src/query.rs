@@ -1,12 +1,12 @@
 use fireshark_core::DecodedFrame;
 use fireshark_filter::CompiledFilter;
 
-use crate::analysis::AnalyzedCapture;
 use crate::filter::matches_filter;
 use crate::model::{
     DecodeIssueEntryView, DecodeIssueView, EndpointCountView, LayerView, PacketDetailView,
     PacketSummaryView, ProtocolCountView, StreamView, format_issue_kind,
 };
+use fireshark_backend::AnalyzedCapture;
 
 pub const MAX_PAGE_SIZE: usize = 1_000;
 
