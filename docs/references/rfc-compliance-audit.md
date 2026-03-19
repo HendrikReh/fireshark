@@ -65,3 +65,7 @@ All audit findings above were fixed and tracked through child issues of `firesha
 
 - ICMPv6 parsing remains intentionally shallow relative to RFC 4443; the audit did not treat that as a misleading standards bug in the current product scope.
 - Narrow, explicit scope limits such as ARP support being focused on Ethernet/IPv4 were not filed as compliance bugs when the implementation was clear about that scope.
+
+---
+
+**Version:** 0.9.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
