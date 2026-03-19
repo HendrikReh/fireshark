@@ -32,24 +32,28 @@ The crawl phase is complete. Walk phase is active — stream tracking, display f
 
 ```
                        +-----------------+
-                       | fireshark-core  |  (zero dependencies)
+                       | fireshark-core  |  (zero external dependencies)
                        +-----------------+
                         /    |    |     \
                        /     |    |      \
                       v      v    v       v
-           +--------+  +----------+  +----------+
-           | -file  |  | -dissect |  | -filter  |
-           +--------+  +----------+  +----------+
-               |             |             |
-               |   depends   |   depends   |  depends
-               |   on core   |   on core   |  on core
-               +------+------+------+------+
-                      |             |
-                      v             v
-               +----------+  +----------+
-               | -cli     |  | -mcp     |  (both depend on -file, -dissect, -filter, core)
-               +----------+  +----------+
+           +--------+  +----------+  +----------+  +----------+
+           | -file  |  | -dissect |  | -filter  |  | -tshark  |
+           +--------+  +----------+  +----------+  +----------+
+               \             |                          /
+                \            |                         /
+                 v           v                        v
+               +----------------------------------+
+               |        fireshark-backend         |  (analysis, audit, compare, native/tshark adapters)
+               +----------------------------------+
+                      /                     \
+                     v                       v
+               +----------+           +----------+
+               | -cli     |           | -mcp     |
+               +----------+           +----------+
 ```
+
+Key change from earlier: `fireshark-backend` now hosts `AnalyzedCapture` (capture loading + aggregation) and `AuditEngine` (8 security heuristics), making them available to both CLI and MCP without the CLI depending on the MCP server crate.
 
 ### Exact Dependency Edges
 
@@ -58,9 +62,13 @@ fireshark-core       -> (none)
 fireshark-file       -> fireshark-core, pcap-file, thiserror
 fireshark-dissectors -> fireshark-core, thiserror
 fireshark-filter     -> fireshark-core, thiserror, regex
-fireshark-cli        -> fireshark-core, fireshark-file, fireshark-dissectors, fireshark-filter, clap, colored
-fireshark-mcp        -> fireshark-core, fireshark-file, fireshark-dissectors, fireshark-filter, rmcp, schemars, serde, serde_json, thiserror, tokio
+fireshark-backend    -> fireshark-core, fireshark-file, fireshark-dissectors, fireshark-tshark, thiserror
+fireshark-cli        -> fireshark-core, fireshark-file, fireshark-dissectors, fireshark-filter, fireshark-backend, fireshark-tshark, clap, colored, serde, serde_json
+fireshark-mcp        -> fireshark-core, fireshark-filter, fireshark-backend, fireshark-tshark, rmcp, schemars, serde, serde_json, thiserror, tokio
+fireshark-tshark     -> thiserror
 ```
+
+Key observation: `fireshark-cli` does **not** depend on `fireshark-mcp`. The audit engine and capture analysis logic live in `fireshark-backend`, shared by both CLI and MCP.
 
 Key observation: `fireshark-core` has **zero external dependencies**. It defines only domain types using `std`. The three middle crates (`-file`, `-dissectors`, `-filter`) depend only on `fireshark-core` (plus minimal external deps) and do not depend on each other. `fireshark-filter` added a `regex` dependency in v0.7 for the `matches` string operator. The two leaf crates (`-cli`, `-mcp`) compose the middle crates into user-facing applications.
 
@@ -223,9 +231,10 @@ MCP client
 | `diff.rs` | Capture comparison: new/missing hosts, protocols, ports |
 | `hexdump.rs` | Color-coded hex dump using `LayerSpan` data |
 | `color.rs` | Protocol-to-ANSI-color mapping |
-| `timestamp.rs` | ISO 8601 UTC formatting via Hinnant `civil_from_days` (no `chrono`) |
 
-**Depends on:** `fireshark-core`, `fireshark-file`, `fireshark-dissectors`, `fireshark-filter`, `clap`, `colored`
+**Depends on:** `fireshark-core`, `fireshark-file`, `fireshark-dissectors`, `fireshark-filter`, `fireshark-backend`, `fireshark-tshark`, `clap`, `colored`, `serde`, `serde_json`
+
+Note: the CLI does **not** depend on `fireshark-mcp`. The audit command uses `AuditEngine` from `fireshark-backend`.
 
 **Source:** `crates/fireshark-cli/src/main.rs`
 
@@ -240,11 +249,11 @@ MCP client
 | `server.rs` | `FiresharkMcpServer` implementing `ServerHandler` with `#[tool_router]` macro |
 | `tools.rs` | `ToolService` bridging MCP tool calls to session/query/audit logic |
 | `session.rs` | `SessionManager` with `CaptureSession`, idle expiration, max-session cap |
-| `analysis.rs` | `AnalyzedCapture` loading captures via `Pipeline`, pre-computing protocol/endpoint counts |
 | `query.rs` | Packet listing, search, decode issue listing, protocol summary, top endpoints |
-| `audit.rs` | `AuditEngine` with 8 heuristic checks: decode issues, unknown traffic, scan fan-out, suspicious ports, cleartext credential exposure, DNS tunneling detection, NXDOMAIN storm, connection anomalies |
-| `model.rs` | Serializable view types for MCP JSON-RPC responses |
+| `model.rs` | Serializable view types (`*View` structs with serde + JsonSchema) for MCP JSON-RPC responses |
 | `filter.rs` | Shared filter utilities |
+
+Note: `AnalyzedCapture` and `AuditEngine` live in `fireshark-backend`, not here. The MCP crate re-exports them for backward compatibility but does not own the analysis or audit logic.
 
 Tool API reference: [docs/references/mcp-server.md](../references/mcp-server.md)
 
@@ -260,7 +269,7 @@ Tool API reference: [docs/references/mcp-server.md](../references/mcp-server.md)
 | Audit | `audit_capture`, `list_findings`, `explain_finding`, `escalate_finding` |
 | TLS | `get_certificates` |
 
-**Depends on:** `fireshark-core`, `fireshark-file`, `fireshark-dissectors`, `fireshark-filter`, `rmcp`, `schemars`, `serde`, `serde_json`, `thiserror`, `tokio`
+**Depends on:** `fireshark-core`, `fireshark-filter`, `fireshark-backend`, `fireshark-tshark`, `rmcp`, `schemars`, `serde`, `serde_json`, `thiserror`, `tokio`
 
 **Source:** `crates/fireshark-mcp/src/lib.rs`
 

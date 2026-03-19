@@ -126,18 +126,26 @@ fireshark/
 ### Crate dependency graph
 
 ```
-fireshark-cli ──┬── fireshark-dissectors ── fireshark-core
-                ├── fireshark-file ──────── fireshark-core
-                ├── fireshark-filter ────── fireshark-core
+fireshark-backend ──┬── fireshark-dissectors ── fireshark-core
+                    ├── fireshark-file ──────── fireshark-core
+                    ├── fireshark-tshark
+                    └── fireshark-core
+
+fireshark-cli ──┬── fireshark-backend (analysis, audit, compare)
+                ├── fireshark-filter
                 └── fireshark-core
 
-fireshark-mcp ──┬── fireshark-dissectors
-                ├── fireshark-file
+fireshark-mcp ──┬── fireshark-backend (analysis, audit, compare)
                 ├── fireshark-filter
                 └── fireshark-core
 ```
 
-Key rule: **MCP types stay in `fireshark-mcp`** -- no serde/schemars/MCP leakage into core crates. For the full MCP tool API, see [MCP Server Reference](../references/mcp-server.md).
+Key rules:
+- **MCP view types stay in `fireshark-mcp`** -- no serde/schemars leakage into core or backend crates.
+- **Domain logic lives in `fireshark-backend`** -- `AnalyzedCapture`, `AuditEngine`, and capture comparison are shared by both CLI and MCP.
+- **The CLI does not depend on `fireshark-mcp`.**
+
+For the full MCP tool API, see [MCP Server Reference](../references/mcp-server.md).
 
 ### What lives where
 
@@ -412,7 +420,7 @@ Fireshark has two analysis backends: a native Rust pipeline and an optional tsha
 
 ### Add a native dissector when:
 
-- **The protocol needs typed fields for audit heuristics.** The security audit engine (`fireshark-mcp/src/audit.rs`) pattern-matches on typed `Layer` fields. For example, scan detection inspects `TcpLayer.flags`, and DNS tunneling detection inspects `DnsLayer` payload sizes. If your protocol has security-relevant patterns, those patterns need typed fields to be detectable.
+- **The protocol needs typed fields for audit heuristics.** The security audit engine (`fireshark-backend/src/audit.rs`) pattern-matches on typed `Layer` fields. For example, scan detection inspects `TcpLayer.flags`, and DNS tunneling detection inspects `DnsLayer` payload sizes. If your protocol has security-relevant patterns, those patterns need typed fields to be detectable.
 - **The protocol needs typed fields for filter evaluation.** The display filter evaluator (`fireshark-filter/src/evaluate.rs`) resolves field names like `tcp.flags.syn` against concrete `Layer` variants. If users need to filter on specific fields of your protocol, those fields must exist as struct members.
 - **The protocol needs typed fields for MCP tool results.** The MCP server returns structured JSON with per-field data (`LayerView` in `fireshark-mcp/src/model.rs`). An LLM client expects typed, named fields -- not opaque strings.
 - **The protocol participates in stream tracking.** `StreamTracker` extracts 5-tuples from typed `Ipv4Layer`/`Ipv6Layer` + `TcpLayer`/`UdpLayer` fields. Any protocol that needs conversation tracking must have native layers.

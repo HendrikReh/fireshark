@@ -303,6 +303,7 @@ cargo +nightly fuzz run fuzz_capture_reader -- -max_total_time=60
 - BackendPacket: summary, layers, issues normalization
 - Differential tests: native vs tshark output comparison for stable packet facts
 - Capture comparison: identical captures, different captures, asymmetry (new/missing swap when A and B are reversed)
+- Hosts `AnalyzedCapture` and `AuditEngine` (audit tests in fireshark-mcp test suite)
 
 ### fireshark-tshark (10 tests)
 
