@@ -124,6 +124,11 @@ pub fn parse_follow_ascii(output: &str, stream_id: u32) -> Result<StreamPayload,
 
 /// Extract the header fields (Node 0, Node 1) and the data lines from
 /// tshark follow output. Returns `(client, server, data_lines)`.
+///
+/// Handles two tshark output formats:
+/// - 3 `===` separators: `[pre] === [header] === [data] ===`
+/// - 2 `===` separators: `=== [header + data] ===` (header lines like
+///   "Follow:", "Filter:", "Node 0:", "Node 1:" are mixed with data lines)
 fn parse_follow_header_and_data(output: &str) -> Result<(String, String, Vec<&str>), TsharkError> {
     let separator = "===";
     let mut sections: Vec<Vec<&str>> = Vec::new();
@@ -136,34 +141,46 @@ fn parse_follow_header_and_data(output: &str) -> Result<(String, String, Vec<&st
             current.push(line);
         }
     }
-    // Push any remaining lines after the last separator.
     if !current.is_empty() {
         sections.push(current);
     }
 
-    // We expect at least: [pre-header], [header], [data], [trailing]
-    // sections[0] = lines before first ===  (usually empty)
-    // sections[1] = header lines (Follow, Filter, Node 0, Node 1)
-    // sections[2] = data lines
-    if sections.len() < 3 {
+    if sections.len() < 2 {
         return Err(TsharkError::ParseOutput(
             "follow output missing expected === delimiters".into(),
         ));
     }
 
-    let header_lines = &sections[1];
+    // Find the content section (first non-empty section after a ===).
+    let content = if sections.len() >= 3 {
+        // 3+ separators: sections[1] = header, sections[2] = data
+        // Merge them and split below.
+        let mut merged = sections[1].clone();
+        merged.extend_from_slice(&sections[2]);
+        merged
+    } else {
+        // 2 separators: sections[1] has header + data mixed
+        sections[1].clone()
+    };
+
+    // Split content into header lines (Follow, Filter, Node) and data lines.
     let mut client = String::new();
     let mut server = String::new();
+    let mut data_start = 0;
 
-    for line in header_lines {
+    for (i, line) in content.iter().enumerate() {
         if let Some(addr) = line.strip_prefix("Node 0: ") {
             client = addr.trim().to_string();
+            data_start = i + 1;
         } else if let Some(addr) = line.strip_prefix("Node 1: ") {
             server = addr.trim().to_string();
+            data_start = i + 1;
+        } else if line.starts_with("Follow:") || line.starts_with("Filter:") {
+            data_start = i + 1;
         }
     }
 
-    let data_lines = sections[2].clone();
+    let data_lines = content[data_start..].to_vec();
 
     Ok((client, server, data_lines))
 }
