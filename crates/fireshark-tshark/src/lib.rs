@@ -5,7 +5,7 @@
 //! [`TsharkCapture`] is converted to backend-neutral types by `fireshark-backend`.
 
 pub mod certs;
-mod command;
+pub(crate) mod command;
 mod error;
 pub mod follow;
 mod normalize;

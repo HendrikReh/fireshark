@@ -3,6 +3,7 @@
 use std::path::Path;
 use std::process::Command;
 
+use crate::command::{DEFAULT_TIMEOUT, run_with_timeout};
 use crate::reassembly::TlsCertInfo;
 
 use crate::TsharkError;
@@ -17,8 +18,8 @@ pub fn extract_certificates(
     tshark_path: &Path,
     capture_path: &Path,
 ) -> Result<Vec<TlsCertInfo>, TsharkError> {
-    let output = Command::new(tshark_path)
-        .arg("-r")
+    let mut cmd = Command::new(tshark_path);
+    cmd.arg("-r")
         .arg(capture_path)
         .arg("-Y")
         .arg("tls.handshake.type == 11")
@@ -33,18 +34,9 @@ pub fn extract_certificates(
         .arg("-e")
         .arg("x509sat.OrganizationName")
         .arg("-E")
-        .arg("separator=\t")
-        .output()
-        .map_err(|e| TsharkError::Execution(format!("failed to spawn tshark: {e}")))?;
+        .arg("separator=\t");
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(TsharkError::Execution(format!(
-            "tshark exited with {}: {}",
-            output.status,
-            stderr.trim()
-        )));
-    }
+    let output = run_with_timeout(cmd, DEFAULT_TIMEOUT)?;
 
     let stdout = String::from_utf8(output.stdout)
         .map_err(|e| TsharkError::ParseOutput(format!("tshark output is not valid UTF-8: {e}")))?;

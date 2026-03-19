@@ -1,5 +1,7 @@
 # Agent Instructions
 
+@CLAUDE.md
+
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
 
 ## Quick Reference
@@ -9,7 +11,6 @@ bd ready              # Find available work
 bd show <id>          # View issue details
 bd update <id> --claim  # Claim work atomically
 bd close <id>         # Complete work
-bd sync               # Sync with git
 ```
 
 ## Non-Interactive Shell Commands
@@ -108,6 +109,29 @@ bd automatically syncs with git:
 - Exports to `.beads/issues.jsonl` after changes (5s debounce)
 - Imports from JSONL when newer (e.g., after `git pull`)
 - No manual export/import needed!
+
+### Dolt Remote Bootstrap (Fresh Clones)
+
+After a fresh `git clone`, the Dolt remote for beads is not configured.
+To set it up:
+
+```bash
+cd .beads/dolt
+dolt remote add origin file://$PWD/../dolt-remote
+dolt pull origin main
+```
+
+If the `dolt-remote` directory does not exist, initialize it:
+
+```bash
+cd .beads
+mkdir -p dolt-remote
+cd dolt-remote
+dolt init
+cd ../dolt
+dolt remote add origin file://$PWD/../dolt-remote
+dolt push origin main
+```
 
 ### Important Rules
 

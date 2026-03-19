@@ -1,7 +1,11 @@
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Output};
+use std::time::Duration;
 
 use crate::TsharkError;
+
+/// Default timeout for tshark subprocess execution (5 minutes).
+pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(300);
 
 /// The tshark fields extracted via `-T fields`.
 ///
@@ -43,19 +47,78 @@ pub fn run_fields(tshark_path: &Path, capture_path: &Path) -> Result<String, Tsh
         cmd.arg("-e").arg(field);
     }
 
-    let output = cmd
-        .output()
-        .map_err(|e| TsharkError::Execution(format!("failed to spawn tshark: {e}")))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(TsharkError::Execution(format!(
-            "tshark exited with {}: {}",
-            output.status,
-            stderr.trim()
-        )));
-    }
+    let output = run_with_timeout(cmd, DEFAULT_TIMEOUT)?;
 
     String::from_utf8(output.stdout)
         .map_err(|e| TsharkError::ParseOutput(format!("tshark output is not valid UTF-8: {e}")))
+}
+
+/// Spawn a command with a timeout. Kills the child if it exceeds the deadline.
+pub fn run_with_timeout(mut cmd: Command, timeout: Duration) -> Result<Output, TsharkError> {
+    let mut child = cmd
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| TsharkError::Execution(format!("failed to spawn tshark: {e}")))?;
+
+    let deadline = std::time::Instant::now() + timeout;
+    let poll_interval = Duration::from_millis(100);
+
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                // Process exited — collect output.
+                let stdout = child
+                    .stdout
+                    .take()
+                    .map(|mut r| {
+                        let mut buf = Vec::new();
+                        std::io::Read::read_to_end(&mut r, &mut buf).ok();
+                        buf
+                    })
+                    .unwrap_or_default();
+                let stderr = child
+                    .stderr
+                    .take()
+                    .map(|mut r| {
+                        let mut buf = Vec::new();
+                        std::io::Read::read_to_end(&mut r, &mut buf).ok();
+                        buf
+                    })
+                    .unwrap_or_default();
+
+                if !status.success() {
+                    let stderr_str = String::from_utf8_lossy(&stderr);
+                    return Err(TsharkError::Execution(format!(
+                        "tshark exited with {}: {}",
+                        status,
+                        stderr_str.trim()
+                    )));
+                }
+
+                return Ok(Output {
+                    status,
+                    stdout,
+                    stderr,
+                });
+            }
+            Ok(None) => {
+                // Still running — check deadline.
+                if std::time::Instant::now() >= deadline {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(TsharkError::Execution(format!(
+                        "tshark timed out after {}s",
+                        timeout.as_secs()
+                    )));
+                }
+                std::thread::sleep(poll_interval);
+            }
+            Err(e) => {
+                return Err(TsharkError::Execution(format!(
+                    "failed to wait for tshark: {e}"
+                )));
+            }
+        }
+    }
 }

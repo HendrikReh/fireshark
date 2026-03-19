@@ -3,6 +3,7 @@
 use std::path::Path;
 use std::process::Command;
 
+use crate::command::{DEFAULT_TIMEOUT, run_with_timeout};
 use crate::reassembly::{Direction, FollowMode, StreamPayload, StreamSegment};
 
 use crate::TsharkError;
@@ -27,23 +28,14 @@ pub fn follow_stream(
         FollowMode::Http => format!("follow,http,ascii,{stream_id}"),
     };
 
-    let output = Command::new(tshark_path)
-        .arg("-r")
+    let mut cmd = Command::new(tshark_path);
+    cmd.arg("-r")
         .arg(capture_path)
         .arg("-z")
         .arg(&follow_arg)
-        .arg("-q")
-        .output()
-        .map_err(|e| TsharkError::Execution(format!("failed to spawn tshark: {e}")))?;
+        .arg("-q");
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(TsharkError::Execution(format!(
-            "tshark exited with {}: {}",
-            output.status,
-            stderr.trim()
-        )));
-    }
+    let output = run_with_timeout(cmd, DEFAULT_TIMEOUT)?;
 
     let stdout = String::from_utf8(output.stdout)
         .map_err(|e| TsharkError::ParseOutput(format!("tshark output is not valid UTF-8: {e}")))?;

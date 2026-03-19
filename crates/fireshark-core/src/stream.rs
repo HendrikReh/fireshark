@@ -194,11 +194,8 @@ impl Default for StreamTracker {
 /// number is read from the IP layer (`Ipv4Layer.protocol` or `Ipv6Layer.next_header`)
 /// rather than being inferred from the transport layer type.
 ///
-/// Takes the *last* matching IP and transport layers. Today's dissector chain
-/// produces at most one of each, so first vs last is equivalent. If tunnel or
-/// encapsulation support is added, this convention must be reconciled with
-/// `Packet::transport_ports()` and `format_endpoints()` in `summary.rs`,
-/// which take the *first* match.
+/// Uses the last (innermost) matching IP and transport layers, consistent
+/// with `Packet::transport_ports()` and `format_endpoints()` in `summary.rs`.
 fn extract_transport_tuple(layers: &[Layer]) -> Option<(IpAddr, u16, IpAddr, u16, u8)> {
     let mut addrs: Option<(IpAddr, IpAddr, u8)> = None;
     let mut ports: Option<(u16, u16)> = None;

@@ -63,14 +63,14 @@ impl Packet {
         self.layers.iter().map(Layer::name).collect()
     }
 
-    /// Extract (source_port, destination_port) from the first transport layer.
+    /// Extract (source_port, destination_port) from the last transport layer.
     ///
-    /// Assumes at most one transport layer per packet. If tunnel/encapsulation
-    /// support is added, this must be reconciled with `extract_transport_tuple`
-    /// in `stream.rs` (which takes the *last* match) and `format_endpoints` in
-    /// `summary.rs` (which also takes the first).
+    /// Uses the last (innermost) transport layer, consistent with
+    /// `extract_transport_tuple` in `stream.rs` and `format_endpoints`
+    /// in `summary.rs`. For typical packets with one transport layer,
+    /// first and last are equivalent.
     pub fn transport_ports(&self) -> Option<(u16, u16)> {
-        self.layers.iter().find_map(|layer| match layer {
+        self.layers.iter().rev().find_map(|layer| match layer {
             Layer::Tcp(layer) => Some((layer.source_port, layer.destination_port)),
             Layer::Udp(layer) => Some((layer.source_port, layer.destination_port)),
             _ => None,

@@ -363,7 +363,6 @@ dependencies = [
  "fireshark-dissectors",
  "fireshark-file",
  "fireshark-filter",
- "fireshark-mcp",
  "fireshark-tshark",
  "predicates",
  "serde",
