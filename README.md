@@ -457,6 +457,7 @@ Detailed documentation by audience:
 | [DevOps Guide](docs/stakeholders/devops.md) | CI pipeline, release checklist, dependency inventory |
 | [Ops Guide](docs/stakeholders/ops.md) | Deployment, MCP server operation, runtime requirements, troubleshooting |
 | [MCP Server Reference](docs/references/mcp-server.md) | MCP installation, all 21 tools with parameters, example workflow |
+| [RFC Compliance Audit Reference](docs/references/rfc-compliance-audit.md) | Canonical RFC-level protocol compliance audit summary and source list |
 | [Roadmap](docs/ROADMAP.md) | Version history, planned features, current metrics |
 
 ## License
@@ -466,4 +467,4 @@ Copyright 2026 Hendrik Reh <hendrik.reh@blacksmith-consulting.ai>. See [`COPYRIG
 
 ---
 
-**Version:** 0.9.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.9.0 | **Last updated:** 2026-03-19 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>

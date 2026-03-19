@@ -17,7 +17,7 @@ Fireshark is an MCP-first packet analyzer. The LLM is the analyst — the MCP se
 5. **v0.6:** Security analyst platform — comparison, export, checksums, certificates
 6. **v0.7:** Content intelligence — string filters, audit profiles
 7. **v0.8:** Stream reassembly — tshark-backed payload reassembly, TLS certificate extraction
-8. **v0.9 (current):** Application intelligence — HTTP first-packet parser, finding escalation
+8. **v0.9 (current):** Application intelligence — HTTP first-packet parser, finding escalation, RFC compliance hardening
 9. **v1.0:** Real-time intelligence — live capture
 
 ---
@@ -114,6 +114,9 @@ JSON export, checksum validation, and capture comparison delivered. Certificate 
 | Finding escalation: `escalate_finding` MCP tool with notes parameter | **Done** |
 | `[ESCALATED]` marker in CLI audit output for escalated findings | **Done** |
 | `FindingView` gains `escalated` and `notes` fields in MCP responses | **Done** |
+| RFC compliance hardening from `fireshark-stf` — DNS compression pointers, IPv6 extension-header walking, IPv6 transport checksum validation, HTTP TRACE recognition, IPv6 atomic fragment checksum validation | **Done** |
+
+**Reference:** `docs/references/rfc-compliance-audit.md`
 
 ## v1.0 — Walk phase: live capture
 
@@ -131,7 +134,6 @@ JSON export, checksum validation, and capture comparison delivered. Certificate 
 | IP options / TCP options parsing (#9) | Low signal for LLM analysis |
 | DNSSEC (#11) | Niche, LLM can't reason about crypto validation |
 | Bitwise filter operators (#10) | Power-user feature the LLM won't use |
-| IPv6 extension headers (#9) | Low frequency in most captures |
 | MCP resources/prompts | Tools are sufficient for current workflows |
 
 ---
@@ -151,4 +153,4 @@ JSON export, checksum validation, and capture comparison delivered. Certificate 
 
 ---
 
-**Version:** 0.9.0 | **Last updated:** 2026-03-18 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
+**Version:** 0.9.0 | **Last updated:** 2026-03-19 | **Maintained by:** <hendrik.reh@blacksmith-consulting.ai>
