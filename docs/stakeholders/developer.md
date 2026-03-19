@@ -804,6 +804,23 @@ Two functions are exposed:
 
 When adding a new protocol, add a branch to `protocol_color()` before the final `else` clause. The detail renderer uses `protocol_color()` directly for per-layer header coloring; the summary renderer uses `colorize()` for full-line coloring.
 
+### The subprocess I/O pattern
+
+`fireshark-tshark` runs external `tshark` commands for field extraction, stream reassembly, and certificate parsing. When stdout or stderr are piped, **do not wait for the child to exit before reading those pipes**.
+
+Why this matters:
+
+- A child process can block trying to write into a full pipe buffer.
+- If the parent is polling `try_wait()` but not draining output concurrently, the child may never reach exit even though it is otherwise healthy.
+- A timeout loop does not fix this by itself; it only turns the deadlock into a slow failure.
+
+The safe rule is:
+
+- If you pipe stdout/stderr, drain them while the child is running.
+- If you cannot do that, use a subprocess API that handles concurrent pipe draining for you.
+
+This was the root cause of `fireshark-o5h`, where `native_and_tshark_agree_on_fuzz_fixture_packet_count` appeared hung because `run_with_timeout()` waited first and read output only after exit.
+
 ### The filter evaluate pattern
 
 The filter evaluator in `crates/fireshark-filter/src/evaluate.rs` resolves field names against decoded frames using a flat match table:
